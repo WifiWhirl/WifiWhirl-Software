@@ -61,16 +61,25 @@ void DSP_6W::updateToggles()
                 break;
             }
         }
+        else if(dsp_states.power && dsp_states.locked) {
+            /*Pump is LOCKED and ON*/
+            switch(btn)
+            {
+                case LOCK:
+                    if(dsp_states.power) dsp_toggles.locked_pressed = 1;
+                    break;
+                case NOBTN:
+                default:
+                    break;
+            }
+        }
         else
         {
-            /*Pump is LOCKED or OFF*/
+            /*Pump is OFF*/
             switch(btn)
             {
                 case POWER:
                     dsp_toggles.power_change = 1;
-                    break;
-                case LOCK:
-                    if(dsp_states.power) dsp_toggles.locked_pressed = 1;
                     break;
                 case NOBTN:
                 default:
@@ -86,15 +95,15 @@ void DSP_6W::updateToggles()
             case LOCK:
                 dsp_toggles.locked_pressed = 1;
                 break;
-            case TIMER:
-                dsp_toggles.timer_pressed = 1;
-                break;
-            case UP:
-                dsp_toggles.up_pressed = 1;
-                break;
-            case DOWN:
-                dsp_toggles.down_pressed = 1;
-                break;
+            // case TIMER:
+            //     dsp_toggles.timer_pressed = 1;
+            //     break;
+            // case UP:
+            //     dsp_toggles.up_pressed = 1;
+            //     break;
+            // case DOWN:
+            //     dsp_toggles.down_pressed = 1;
+            //     break;
             default:
                 break;
         }
