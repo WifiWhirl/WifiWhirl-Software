@@ -151,7 +151,7 @@ void BWC::begin(){
     // _save_melody("melody.bin");
     // if(_audio_enabled) dsp->playIntro();
     // dsp->LEDshow();
-    _save_settings_ticker.attach(3600.0f, save_settings_cb, this);
+    _save_settings_ticker.attach(600.0f, save_settings_cb, this);
     _scroll_text_ticker.attach(0.25f, scroll_text_cb, this);
 
     _next_notification_time = _notification_time;
