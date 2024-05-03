@@ -4,8 +4,8 @@
 #else
 #include <WiFi.h>
 #endif
-#define DEVICE_NAME "layzspa"
-#define FW_VERSION "2023-08-19-2340"
+#define DEVICE_NAME "wifiwhirl"
+#define FW_VERSION "1.1.3 - 2023-08-19-2340"
 
 #define HA_PREFIX "homeassistant"
 #define PROM_NAMESPACE "layzspa"
@@ -38,7 +38,7 @@ String authPassword = "password";
 /** get the name for the OTA service */
 const char *OTAName = DEVICE_NAME;
 /** get the password for the OTA service  */
-const char *OTAPassword = "esp8266";
+const char *OTAPassword = "wifiwhirl";
 
 /*
  * Web UI Configuration
@@ -81,9 +81,9 @@ bool useControlSelector = false;
 /** get the state of the WiFi configuration manager fallback on wifi failures */
 // bool enableWmApFallback = true;
 /** get the name for the WiFi configuration manager access point */
-const char *wmApName = "Lay-Z-Spa Module";
+const char *wmApName = DEVICE_NAME;
 /** get the password for the WiFi configuration manager (min. 8, max. 63 chars; NULL to disable) */
-const char *wmApPassword = "layzspam0dule";
+const char *wmApPassword = "wifiwhirl";
 //const char *wmApPassword = NULL;
 
         /*
@@ -131,9 +131,9 @@ IPAddress mqttIpAddress(192,168,0,20);
 /** get or set the MQTT server port */
 int mqttPort = 1883;
 /** get or set the MQTT server username */
-String mqttUsername = "username";
+String mqttUsername = "Benutzername";
 /** get or set the MQTT server password */
-String mqttPassword = "password";
+String mqttPassword = "Passwort";
 /** get or set the unique MQTT client ID */
 String mqttClientId = DEVICE_NAME;
 /** get or set the MQTT topic name */

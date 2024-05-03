@@ -132,6 +132,7 @@ void handleDir();
 void handleFileUpload();
 void handleFileRemove();
 void handleRestart();
+void handleWebhook();
 void checkFirmwareUpdate(bool betaversion, String &rtn);
 void handleUpdateMaster();
 void handleUpdateBeta();

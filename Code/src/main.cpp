@@ -100,7 +100,7 @@ void setup()
         tempSensors.begin();
     }
     Serial.println(WiFi.localIP().toString());
-    bwc->print("   ");
+    bwc->print("    ip adresse ");
     bwc->print(WiFi.localIP().toString());
     bwc->print("   ");
     bwc->print(FW_VERSION);
@@ -429,6 +429,9 @@ void startWiFiConfigPortal()
 {
     Serial.println(F("WiFi > Using WiFiManager Config Portal"));
     ESP_WiFiManager wm;
+    WiFiManagerParameter custom_text("<p><strong>Willkommen zur Einrichtung deines WifiWhirl WLAN-Moduls!</strong></p><p>Verbinde dich hier mit deinem WLAN, um mit der Einrichtung zu beginnen.</p>");
+
+    wm.addParameter(&custom_text);
     wm.autoConnect(wmApName, wmApPassword);
     // Serial.print(F("WiFi > Trying to connect ..."));
     while (WiFi.status() != WL_CONNECTED)
@@ -448,7 +451,7 @@ void startNTP()
     wifi_info = loadWifi();
     Serial.println(F("start NTP"));
     // configTime(0,0,"pool.ntp.org", "time.nist.gov");
-    configTime(0,0,wifi_info.ip4NTP_str, F("pool.ntp.org"), F("time.nist.gov"));
+    configTime(0,0,wifi_info.ip4NTP_str, F("de.pool.ntp.org"), F("time.nist.gov"));
     time_t now = time(nullptr);
     int count = 0;
     while (now < 8 * 3600 * 2) {
@@ -645,6 +648,7 @@ void startHttpServer()
     server->on(F("/debug-on/"), [](){bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok");});
     server->on(F("/debug-off/"), [](){bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok");});
     server->on(F("/cmdq_file/"), handle_cmdq_file);
+    server->on(F("/hook/"), handleWebhook);
     // server->on(F("/getfiles/"), updateFiles);    
 
     // if someone requests any other file or page, go to function 'handleNotFound'
@@ -757,6 +761,8 @@ String getContentType(const String& filename)
     else if (filename.endsWith(".css")) return F("text/css");
     else if (filename.endsWith(".js")) return F("application/javascript");
     else if (filename.endsWith(".ico")) return F("image/x-icon");
+    else if (filename.endsWith(".png")) return F("image/png");
+    else if (filename.endsWith(".svg")) return F("image/svg+xml");
     else if (filename.endsWith(".gz")) return F("application/x-gzip");
     else if (filename.endsWith(".json")) return F("application/json");
     return F("text/plain");
@@ -812,6 +818,19 @@ bool checkHttpPost(HTTPMethod method)
 }
 
 /**
+ * checks the method to be a GET
+ */
+bool checkHttpGet(HTTPMethod method)
+{
+    if (method != HTTP_GET)
+    {
+        server->send(405, "text/plain", "Method not allowed.");
+        return false;
+    }
+    return true;
+}
+
+/**
  * response for /getconfig/
  * web server prints a json document
  */
@@ -824,6 +843,47 @@ void handleGetConfig()
     bwc->getJSONSettings(json);
     server->send(200, F("text/plain"), json);
 }
+
+
+/**
+ * response for /hook/
+ * web server adds command to cmdq "Webhook"
+ * Examples:
+ * Pumpe einschalten: http://[ipadresse]/hook/?send={"CMD":4,"VALUE":true}
+ * Pumpe ausschalten: http://[ipadresse]/hook/?send={"CMD":4,"VALUE":false}
+ * Heizung+Pumpe einschalten: http://[ipadresse]/hook/?send={"CMD":3,"VALUE":true}
+ * Heizung+Pumpe ausschalten: http://[ipadresse]/hook/?send={"CMD":3,"VALUE":false}
+ */
+void handleWebhook()
+{
+    if (!checkHttpGet(server->method())) return;
+
+    StaticJsonDocument<256> doc;
+    String message = server->arg("send");
+    DeserializationError error = deserializeJson(doc, message);
+    if (error)
+    {
+        server->send(400, F("text/plain"), F("Error deserializing message"));
+        return;
+    }
+
+    Commands command = doc[F("CMD")];
+    int64_t value = doc[F("VALUE")];
+    int64_t xtime = doc[F("XTIME")] | std::time(0);
+    int64_t interval = doc[F("INTERVAL")] | 0;
+    String txt = doc[F("TXT")] | "";
+    command_que_item item;
+    item.cmd = command;
+    item.val = value;
+    item.xtime = xtime;
+    item.interval = interval;
+    item.text = txt;
+    bwc->add_command(item);
+
+    server->send(200, F("text/plain"), String(item.cmd) + " " + String(item.val) + " " + String(item.xtime));
+}
+
+
 
 /**
  * response for /setconfig/
@@ -1622,7 +1682,8 @@ void handleRestart()
 
     server->sendHeader(F("Location"), "/");
     server->send(303);
-
+    bwc->saveSettings();
+    
     delay(1000);
     stopall();
     delay(1000);
