@@ -1,73 +1,80 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Lay-Z-Spa Module | Web Config</title>
+	<title>WifiWhirl | Web-Konfiguration</title>
 	<meta charset="utf-8">
-	<link rel="icon" type="image/png" sizes="48x48" href="favicon.png">
+	<link rel="icon" type="image/png" sizes="180x180" href="favicon.png">
+	<meta name="theme-color" content="#4051b5">
 	<link rel="manifest" href="manifest.json">
 	<link rel="stylesheet" href="main.css">
-	<meta name="theme-color" content="#0066BF">
-	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+	<meta  name="viewport" content="width=device-width, initial-scale=1 maximum-scale=1">
 	<script src="function.js" type="text/javascript"></script>
+	<script src="index.js" type="text/javascript"></script>
 </head>
 
 <body>
 	<div id="site">
 		<header>
-			<span>Web Config</span>
+			<form id="darkModeForm">
+                <label class="switch">
+                    <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                    <span class="slider round"></span>
+                </label>
+            </form>
+			<a href="./"><div id="header"><span>Web-Konfiguration</span><span>WifiWhirl</span></div></a>
 			<a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
 		</header>
 
 		<div class="topnav" id="topnav">
-			<a href="./">Home</a>
-			<a href="hwconfig.html">Hardware Config</a>
-			<a href="config.html">SPA Config</a>
-			<a href="webconfig.html" class="active">Web Config</a>
-			<a href="wifi.html">Network Config</a>
-			<a href="mqtt.html">MQTT Config</a>
-			<a href="/dir/">Directory</a>
-			<a href="upload.html">File Uploader</a>
-			<a href="remove.html">File Remover</a>
-			<a href="chkupdatefw.html">Check firmware update</a>
-			<a href="/restart/">Restart ESP</a>
-			<!-- <a href="javascript:void(0);" class="bgred" onclick="sendCommand('restartEsp')">Restart ESP</a> -->
+			<a href="./">Übersicht</a>
+			<a href="hwconfig.html">Hardware-Konfiguration</a>
+			<a href="config.html">SPA-Konfiguration</a>
+			<a href="webconfig.html" class="active">Web-Konfiguration</a>
+			<a href="wifi.html">Netzwerkkonfiguration</a>
+			<a href="mqtt.html">MQTT-Konfiguration</a>
+			<a href="/restart/">WifWhirl Modul neu starten<a>
 		</div>
 
 		<section>
 			<table>
 				<tr>
-					<td>Show section "Temperature"</td>
+					<td>Zeige Abschnitt "Temperatur"</td>
 					<td><label class="switch"><input type="checkbox" id="showSectionTemperature"><span class="slider round"></span></label></td>
 				</tr>
 				<tr>
-					<td>Show section "Display"</td>
+					<td>Zeige Abschnitt "Anzeige"</td>
 					<td><label class="switch"><input type="checkbox" id="showSectionDisplay"><span class="slider round"></span></label></td>
 				</tr>
 				<tr>
-					<td>Show section "Control"</td>
+					<td>Zeige Abschnitt "Steuerung"</td>
 					<td><label class="switch"><input type="checkbox" id="showSectionControl"><span class="slider round"></span></label></td>
 				</tr>
 				<tr>
-					<td>Show section "Buttons"</td>
+					<td>Zeige Abschnitt "Tasten"</td>
 					<td><label class="switch"><input type="checkbox" id="showSectionButtons"><span class="slider round"></span></label></td>
 				</tr>
 				<tr>
-					<td>Show section "Timer"</td>
+					<td>Zeige Abschnitt "Timer"</td>
 					<td><label class="switch"><input type="checkbox" id="showSectionTimer"><span class="slider round"></span></label></td>
 				</tr>
 				<tr>
-					<td>Show section "Totals"</td>
+					<td>Zeige Abschnitt "Gesamt"</td>
 					<td><label class="switch"><input type="checkbox" id="showSectionTotals"><span class="slider round"></span></label></td>
 				</tr>
 				<tr>
-					<td>Use selector (instead of slider)</td>
+					<td>Verwende Auswahl (anstatt Schieberegler)</td>
 					<td><label class="switch"><input type="checkbox" id="useControlSelector"><span class="slider round"></span></label></td>
 				</tr>
 			</table>
 		</section>
 
-		<footer class="center">
-			<button id="save" class="button" onclick="buttonConfirm(this);saveWebConfig()">save</button>
+		<p class="center">
+			<button id="save" class="button" onclick="buttonConfirm(this);saveWebConfig()">Speichern</button>
+		</p>
+		<footer>
+			<p class="center">
+				<span><a href="info.html">Softwareinfo</a></span>
+			</p>
 		</footer>
 	</div>
 
@@ -100,13 +107,6 @@ function saveWebConfig()
 	localStorage.setItem('useControlSelector', document.getElementById('useControlSelector').checked);
 	writeWebConfig();
 }
-
-// if we want to just keep this configuration in a browser, we can use following
-// html: onclick="toggleWebConfig(this)"
-// js:
-// function toggleWebConfig(elem){
-// 	localStorage.setItem(elem.id, elem.checked);
-// }
 
 function readWebConfig()
 {
@@ -147,5 +147,7 @@ function writeWebConfig()
 	console.log(json);
 }
 </script>
+<script src="darkmode.js" type="text/javascript"></script>
+
 </body>
 </html>

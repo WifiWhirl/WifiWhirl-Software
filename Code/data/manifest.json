@@ -1,11 +1,16 @@
 {
- "name": "Lay-Z-Spa Module",
- "icons": [
-  {
-   "src": "\/favicon.png",
-   "sizes": "48x48",
-   "type": "image\/png",
-   "density": "3.0"
-  }
- ]
+    "name": "WifiWhirl",
+    "short_name": "WifiWhirl",
+    "display": "fullscreen",
+    "theme_color": "#4051b5",
+    "background_color": "#fff",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "\/favicon.png",
+            "sizes": "180x180",
+            "type": "image\/png",
+            "density": "3.0"
+        }
+    ]
 }

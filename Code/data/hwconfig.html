@@ -1,81 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Lay-Z-Spa Module | Hardware Config</title>
+	<title>WifiWhirl | Hardware-Konfiguration</title>
 	<meta charset="utf-8">
-	<link rel="icon" type="image/png" sizes="48x48" href="favicon.png">
+	<link rel="icon" type="image/png" sizes="180x180" href="favicon.png">
+	<meta name="theme-color" content="#4051b5">
 	<link rel="manifest" href="manifest.json">
 	<link rel="stylesheet" href="main.css">
-	<meta name="theme-color" content="#0066BF">
-	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+	<meta  name="viewport" content="width=device-width, initial-scale=1 maximum-scale=1">
 	<script src="function.js" type="text/javascript"></script>
+	<script src="index.js" type="text/javascript"></script>
 </head>
 
 <body>
 	<div id="site">
 		<header>
-			<span>Hardware Config</span>
+			
+			<form id="darkModeForm">
+                <label class="switch">
+                    <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                    <span class="slider round"></span>
+                </label>
+            </form>
+			<a href="./"><div id="header"><span>Hardware-Konfiguration</span><span>WifiWhirl</span></div></a>
 			<a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
 		</header>
 
 		<div class="topnav" id="topnav">
-			<a href="./">Home</a>
-			<a href="hwconfig.html" class="active">Hardware Config</a>
-			<a href="config.html">SPA Config</a>
-			<a href="webconfig.html">Web Config</a>
-			<a href="wifi.html">Network Config</a>
-			<a href="mqtt.html">MQTT Config</a>
-			<a href="/dir/">Directory</a>
-			<a href="upload.html">File Uploader</a>
-			<a href="remove.html">File Remover</a>
-			<a href="chkupdatefw.html">Check firmware update</a>
-			<a href="/restart/">Restart ESP</a>
-			<!-- <a href="javascript:void(0);" class="bgred" onclick="sendCommand('restartEsp')">Restart ESP</a> -->
+			<a href="./">Übersicht</a>
+			<a href="hwconfig.html" class="active">Hardware-Konfiguration</a>
+			<a href="config.html">SPA-Konfiguration</a>
+			<a href="webconfig.html">Web-Konfiguration</a>
+			<a href="wifi.html">Netzwerkkonfiguration</a>
+			<a href="mqtt.html">MQTT-Konfiguration</a>
+			<a href="/restart/">WifWhirl Modul neu starten<a>
 		</div>
 
-        <!-- PRE2021,
-        MIAMI2021,
-        MALDIVES2021,
-        M54149E,
-        M54173,
-        M54154,
-        M54144,
-        M54138,
-        M54123 -->
-    
 		<h2>Hardware:</h2>
 		<section onclick="setPins()">
-			<p>Select your CIO (pump) model:</p>
-			<input type="radio" id="cio_0" name="cio_model" value="0" checked="checked">
-			<label for="cio_pre2021">6 wire, pre 2021 (air)</label><br>
-			<input type="radio" id="cio_1" name="cio_model" value="1">
-			<label for="cio_2021">6 wire, 2021 (air)</label><br>
+			<p>Wählen Sie Ihr Pumpenmodell aus:</p>
+			<input type="radio" id="cio_1" name="cio_model" checked="checked" value="1">
+			<label for="cio_2021">Airjet S100101</label><br>
 			<input type="radio" id="cio_2" name="cio_model" value="2">
-			<label for="cio_2021hjt">6 wire, 2021 (air+jet)</label><br>
-			<input type="radio" id="cio_3" name="cio_model" value="3">
-			<label for="cio_54149e">6 wire, 54149E (air)</label><br>
-			<input type="radio" id="cio_4" name="cio_model" value="4">
-			<label for="cio_54173">4 wire, 54173 (air+jet)</label><br>
-			<input type="radio" id="cio_5" name="cio_model" value="5">
-			<label for="cio_54154">4 wire, 54154 (air)</label><br>
-			<input type="radio" id="cio_6" name="cio_model" value="6">
-			<label for="cio_54144">4 wire, 54144 (jet)</label><br>
-			<input type="radio" id="cio_7" name="cio_model" value="7">
-			<label for="cio_54138">4 wire, 54138 (air+jet)</label><br>
-			<input type="radio" id="cio_8" name="cio_model" value="8">
-			<label for="cio_54123">4 wire, 54123 (air)</label><br>
+			<label for="cio_2021hjt">Hydrojet S200102</label><br>
 		</section>
 
-		<section onclick="setPins()">
-			<p>Select your DSP (display) model:
-			<span data-text="In theory we should be able to combine any CIO with any DSP. Not tested but really cool if it actually works :-)" class="tooltip">?</span></p>
-			<input type="radio" id="dsp_0" name="dsp_model" value="0" checked="checked">
-			<label for="dsp_pre2021">6 wire, pre 2021 (air)</label><br>
-			<input type="radio" id="dsp_1" name="dsp_model" value="1">
-			<label for="dsp_2021">6 wire, 2021 (air)</label><br>
+		<section onclick="setPins()" style="display:none;">
+			<p>Wählen Sie Ihr Displaymodell aus:</p>
+			<label for="dsp_pre2021">6 wire, pre 2021 (air)</label><br> -->
+			<input type="radio" id="dsp_1" name="dsp_model" value="1" checked="checked">
+			<label for="dsp_2021">Airjet S100101</label><br>
 			<input type="radio" id="dsp_2" name="dsp_model" value="2">
-			<label for="dsp_2021hjt">6 wire, 2021 (air+jet)</label><br>
-			<input type="radio" id="dsp_3" name="dsp_model" value="3">
+			<label for="dsp_2021hjt">Hydrojet S200102</label><br>
+			<!-- <input type="radio" id="dsp_3" name="dsp_model" value="3">
 			<label for="dsp_54149e">6 wire, 54149E (air)</label><br>
 
 			<input type="radio" id="dsp_4" name="dsp_model" value="4">
@@ -87,16 +64,16 @@
 			<input type="radio" id="dsp_7" name="dsp_model" value="7">
 			<label for="dsp_54138">4 wire, 54138 (air+jet)</label><br>
 			<input type="radio" id="dsp_8" name="dsp_model" value="8">
-			<label for="dsp_54123">4 wire, 54123 (air)</label><br>
+			<label for="dsp_54123">4 wire, 54123 (air)</label><br> -->
 		</section>
 
-		<section onclick="setPins()">
+		<section onclick="setPins()" style="display:none;">
 			<p>Select your PCB:</p>
-			<input type="radio" id="v1" name="pcb" value="v1" checked="checked">
+			<input type="radio" id="v1" name="pcb" value="v1">
 			<label for="v1">V1</label><br>
 			<input type="radio" id="v2" name="pcb" value="v2">
 			<label for="v2">V2</label><br>
-			<input type="radio" id="v2b" name="pcb" value="v2b">
+			<input type="radio" id="v2b" name="pcb" value="v2b" checked="checked">
 			<label for="v2b">V2B</label>
 			<span data-text="Same PCB as V2 but with wires moved to other pins for better compatibility for some pumps" class="tooltip">?</span><br>
 			<input type="radio" id="custom" name="pcb" value="custom">
@@ -104,7 +81,7 @@
 			<span data-text="If using your own board - fill in the pinout below! Leave fields empty if not used." class="tooltip">?</span><br>
 		</section>
 
-		<section>
+		<section  style="display:none;">
 			<p>Pinout <span data-text="D0-D8 as labeled on the ESP, but without the 'D'. The ESP will convert to GPIO numbers." class="tooltip">?</span></p>
 		</p>
 			<table>
@@ -128,7 +105,7 @@
 			</table>
 		</section>
 		
-		<section>
+		<section style="display:none;">
 			<p>Ambient Temperature Sensor <span data-text="Requires a DS18B20 sensor to be connected to the pin labeled 'Sensor Pin'. The sensor will update the 'Ambient Temperature' periodically." class="tooltip">?</span></p>
 			<table>
 				<tr>
@@ -142,12 +119,16 @@
 			<table>
 				<tr>
 					<td colspan="2" style="text-align:center">
-						<button id="save" class="button" onclick="saveHardwareConfig()">save</button>
+						<button id="save" class="button" onclick="saveHardwareConfig()">Speichern</button>
 					</td>
 				</tr>
 			</table>
 		</section>
-
+		<footer>
+			<p class="center">
+				<span><a href="info.html">Softwareinfo</a></span>
+			</p>
+		</footer>
 	</div>
 
 <script>
@@ -157,8 +138,8 @@ loadHardwareConfig();
 function setPins()
 {
 	var cio = document.querySelector("input[name='cio_model']:checked").value;
-	var dsp = document.querySelector("input[name='dsp_model']:checked").value;
-	var pcb = document.querySelector("input[name='pcb']:checked").value;
+	var dsp = document.querySelector("input[name='cio_model']:checked").value;
+	var pcb = 'v2b'; 
 	var p1, p2, p3, p4, p5, p6, p7, p8;
 	p8 = null;
 
@@ -319,7 +300,7 @@ function loadHardwareConfig()
 function saveHardwareConfig()
 {
 	console.log("Sending sethardware request");
-	buttonConfirm(document.getElementById('save'), "saved &check; (Don't forget to restart the ESP.)", 6);
+	buttonConfirm(document.getElementById('save'), "gespeichert &check; (Vergessen Sie nicht, das WifiWhirl Modul neu zu starten.)", 6);
 	var hasTempSensor = "0";
 	if(document.querySelector("input[name='hasTempSensor']").checked)
 	{
@@ -330,8 +311,8 @@ function saveHardwareConfig()
 	req.open('POST', '/sethardware/');
 	var json = {
 		'cio': document.querySelector("input[name='cio_model']:checked").value,
-		'dsp': document.querySelector("input[name='dsp_model']:checked").value,
-		'pcb': document.querySelector("input[name='pcb']:checked").value,
+		'dsp': document.querySelector("input[name='cio_model']:checked").value,
+		'pcb': 'v2b',
 		'hasTempSensor': hasTempSensor,
 		'pins': [
 			document.getElementById('pin1').value,
@@ -349,5 +330,8 @@ function saveHardwareConfig()
 }
 
 </script>	
+
+<script src="darkmode.js" type="text/javascript"></script>
+
 </body>
 </html>
