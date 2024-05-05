@@ -234,7 +234,7 @@
 
         buttonConfirm(
           document.getElementById("save"),
-          "gespeichert &check; (Vergessen Sie nicht, den ESP neu zu starten.)",
+          "gespeichert &check; (Vergiss nicht, den ESP neu zu starten.)",
           6
         );
 
@@ -259,7 +259,7 @@
       }
 
       function resetWifi() {
-        if (confirm("Möchten Sie das WLAN wirklich zurücksetzen?")) {
+        if (confirm("Möchtest du das WLAN wirklich zurücksetzen?")) {
           var req = new XMLHttpRequest();
           req.open("POST", "/resetwifi/");
           req.send();

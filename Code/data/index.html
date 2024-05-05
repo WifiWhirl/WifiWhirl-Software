@@ -159,7 +159,7 @@
             <td class="center">
               Helligkeit
               <span
-                data-text="Denken Sie daran: Wenn auf '0' eingestellt, ist das Display und alle Tasten auf der Pumpe komplett gedimmt (ausgeschaltet), leuchten jedoch 5 Sekunden lang auf, wenn eine Taste gedrückt wird."
+                data-text="Wenn auf '0' eingestellt, ist das Display und alle Tasten auf der Pumpe komplett gedimmt (ausgeschaltet), leuchten jedoch 5 Sekunden lang auf, wenn eine Taste gedrückt wird."
                 class="tooltip left"
                 >?</span
               >
@@ -513,7 +513,7 @@
       }
 
       function resetTotals() {
-        if (confirm("Möchten Sie wirklich alle Zähler zurücksetzen?")) {
+        if (confirm("Möchtest du wirklich alle Zähler zurücksetzen?")) {
           buttonConfirm(document.getElementById("reset"));
           sendCommand("resetTotals");
         }
