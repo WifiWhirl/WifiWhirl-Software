@@ -74,68 +74,26 @@ void BWC::setup(void){
     }
     switch(ciomodel)
     {
-        case PRE2021:
-            cio = new CIO_PRE2021;
-            break;
         case MIAMI2021:
             cio = new CIO_2021;
             break;
         case MALDIVES2021:
             cio = new CIO_2021_HJT;
             break;
-        case M54149E:
-            cio = new CIO_54149E;
-            break;
-        case M54173:
-            cio = new CIO_54173;
-            break;
-        case M54154:
-            cio = new CIO_54154;
-            break;
-        case M54144:
-            cio = new CIO_54144;
-            break;
-        case M54138:
-            cio = new CIO_54138;
-            break;
-        case M54123:
-            cio = new CIO_54123;
-            break;
         default:
-            cio = new CIO_PRE2021;
+            cio = new CIO_2021;
             break;
     }
     switch(dspmodel)
     {
-        case PRE2021:
-            dsp = new DSP_PRE2021;
-            break;
         case MIAMI2021:
             dsp = new DSP_2021;
             break;
         case MALDIVES2021:
             dsp = new DSP_2021_HJT;
             break;
-        case M54149E:
-            dsp = new DSP_54149E;
-            break;
-        case M54173:
-            dsp = new DSP_54173;
-            break;
-        case M54154:
-            dsp = new DSP_54154;
-            break;
-        case M54144:
-            dsp = new DSP_54144;
-            break;
-        case M54138:
-            dsp = new DSP_54138;
-            break;
-        case M54123:
-            dsp = new DSP_54123;
-            break;
         default:
-            dsp = new DSP_PRE2021;
+            dsp = new DSP_2021;
             break;
     }
     cio->setup(pins[0], pins[1], pins[2]);

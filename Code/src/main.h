@@ -10,8 +10,6 @@
 #include <ESP8266httpUpdate.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
-// #include "certs.h"
-#include <CertStoreBearSSL.h>
 
 #else
 
@@ -20,8 +18,10 @@
 
 #endif
 
-#include <OneWire.h>
-#include <DallasTemperature.h>
+// Keeping for later integrations
+// #include <OneWire.h>
+// #include <DallasTemperature.h>
+
 #include <LittleFS.h>
 #include <PubSubClient.h> // ** Requires library 2.8.0 or higher ** https://github.com/knolleary/pubsubclient
 #include <Ticker.h>
@@ -98,7 +98,6 @@ void pause_all(bool action);
 void startWebSocket();
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t len);
 void startHttpServer();
-void handleGetVersions();
 void handleGetHardware();
 void handleSetHardware();
 void handleHWtest();
@@ -133,21 +132,14 @@ void handleFileUpload();
 void handleFileRemove();
 void handleRestart();
 void handleWebhook();
-void checkFirmwareUpdate(bool betaversion, String &rtn);
-void handleUpdateMaster();
-void handleUpdateBeta();
-void handleUpdate(bool betaversion);
-bool updateFiles(bool betaversion);
-void updateStart();
-void updateEnd();
-void udpateProgress(int cur, int total);
-void updateError(int err);
 void startMqtt();
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 void mqttConnect();
 time_t getBootTime();
 void handleESPInfo();
-void setTemperatureFromSensor();
+
+// Keeping for later integrations
+// void setTemperatureFromSensor();
 
 void setupHA();
 void handlePrometheusMetrics();
