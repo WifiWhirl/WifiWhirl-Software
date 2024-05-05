@@ -49,19 +49,19 @@
       <section>
         <h2>Zugriffspunkt:</h2>
         <table>
-          <tr>
+          <tr style="display: none">
             <td>
               <label for="enableAp">Automatisch mit WLAN verbinden:</label>
             </td>
             <td><input type="checkbox" id="enableAp" /></td>
           </tr>
           <tr>
-            <td>WLAN SSID:</td>
+            <td>WLAN Name:</td>
             <td><input type="text" id="apSsid" /></td>
           </tr>
           <tr>
             <td>Passwort:</td>
-            <td><input type="text" id="apPwd" /></td>
+            <td><input type="password" id="apPwd" /></td>
           </tr>
         </table>
       </section>
@@ -72,8 +72,8 @@
           <tr style="margin-bottom: 30px">
             <span
               >Sollte die automatische WLAN Verbindung scheitern, wird ein
-              eigener WLAN Zugangspunkt eröffnet. Verbinden Sie sich mit diesem
-              WLAN, um die Konfiguration anzupassen (vgl. Anleitung).</span
+              eigener WLAN Zugangspunkt eröffnet. Verbinde dich mit diesem WLAN,
+              um die Konfiguration anzupassen (vgl. Anleitung).</span
             >
           </tr>
           <tr>
@@ -88,9 +88,9 @@
         <table>
           <tr>
             <td>
-              <label for="enableStaticIp4"
-                >Statische IP-Adresse aktivieren:</label
-              >
+              <label for="enableStaticIp4">
+                Statische IP-Adresse aktivieren:
+              </label>
             </td>
             <td><input type="checkbox" id="enableStaticIp4" /></td>
           </tr>
@@ -128,7 +128,7 @@
             </td>
           </tr>
           <tr>
-            <td>DNNS-Server (primär):</td>
+            <td>DNS-Server (primär):</td>
             <td>
               <input
                 type="text"
@@ -183,20 +183,18 @@
       </section>
 
       <section>
-        <h2>WiFi-Konfiguration zurücksetzen:</h2>
+        <h2>WLAN-Konfiguration zurücksetzen:</h2>
         <p>
           Dieser Button setzt die Zugriffspunkteinstellungen zurück.<br />
           Das WifiWhirl Modul wird neu gestartet und startet das Fallback WLAN.
-          Verbinden Sie sich mit seinem Zugriffspunkt und konfigurieren Sie Ihr
-          WLAN erneut (genau wie bei der ersten Konfiguration). Vergessen Sie
-          nicht, das Fallback WLAN erneut zu deaktivieren, wenn Sie den
-          Zugriffspunkt ausschalten möchten.
+          Verbinde dich mit dem Zugriffspunkt und konfiguriere deine WLAN-Verbindung
+          erneut (genau wie bei der ersten Konfiguration).
         </p>
       </section>
 
       <footer class="center">
         <button id="resetwifi" class="button_red" onclick="resetWifi()">
-          WiFi zurücksetzen
+          WLAN zurücksetzen
         </button>
       </footer>
     </div>
@@ -266,7 +264,7 @@
           req.open("POST", "/resetwifi/");
           req.send();
           document.body.innerHTML =
-            "WifiWhirl wird jetzt neu gestartet. Bitte verbinden Sie sich mit dem Zugriffspunkt und konfigurieren Sie Ihr WLAN erneut.";
+            "Dein WifiWhirl wird jetzt neu gestartet. Bitte verbinde dich mit dem Zugriffspunkt und konfiguriere dein WLAN erneut.";
         }
       }
     </script>

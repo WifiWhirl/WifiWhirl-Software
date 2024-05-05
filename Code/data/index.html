@@ -30,7 +30,7 @@
         </form>
         <a href="./"
           ><div id="header">
-            <span>Wilkommen</span><span>WifiWhirl</span>
+            <span>Wilkommen</span><span id="fw">WifiWhirl</span>
           </div></a
         >
         <a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
@@ -56,11 +56,11 @@
 
       <section id="sectionTemperature">
         <div class="visualapproach"></div>
-        <h2>Temperatur:</h2>
+        <h2>Temperatur</h2>
         <table class="fixed">
           <tr>
             <td>Aktuell:</td>
-            <td><span id="atlabel">unbek.</span>°</td>
+            <td><span id="atlabel">unbek.</span> °<span id="unitcf">C</span></td>
           </tr>
           <tr>
             <td>
@@ -71,17 +71,17 @@
                 >?</span
               >
             </td>
-            <td><span id="vtlabel">unbek.</span>°</td>
+            <td><span id="vtlabel">unbek.</span> °<span id="unitcf">C</span></td>
           </tr>
           <tr>
             <td>Ziel:</td>
-            <td><span id="ttlabel">unbek.</span>°</td>
+            <td><span id="ttlabel">unbek.</span> °<span id="unitcf">C</span></td>
           </tr>
         </table>
       </section>
 
       <section id="sectionControl">
-        <h2>Steuerung:</h2>
+        <h2>Steuerung</h2>
         <table id="tableSlider">
           <tr>
             <td style="width: 40%">Zieltemperatur</td>
@@ -100,7 +100,7 @@
               />
             </td>
             <td style="width: 10%; text-align: right">
-              <span id="sliderTempVal">unbek.</span>°
+              <span id="sliderTempVal">unbek.</span> °
             </td>
           </tr>
           <tr>
@@ -120,7 +120,7 @@
               />
             </td>
             <td style="text-align: right">
-              <span id="sliderAmbVal">unbek.</span>°
+              <span id="sliderAmbVal">unbek.</span> °
             </td>
           </tr>
           <tr>
@@ -260,7 +260,7 @@
       </section>
 
       <section id="sectionButtons">
-        <h2>Tasten:</h2>
+        <h2>Tasten</h2>
         <table class="fixed">
           <tr>
             <td class="right">Airjet</td>
@@ -327,12 +327,13 @@
       </section>
 
       <section id="sectionTimer">
-        <h2>Timer:</h2>
+        <h2>Timer</h2>
         <table>
           <tr>
-            <td>
-              Letzte Zugabe von Chlor war vor <span id="cltimer">unbek.</span>.
-            </td>
+            <td colspan="2">Zugabe von Chlor</td>
+          </tr>
+          <tr>
+            <td>vor <span id="cltimer">unbek.</span></td>
             <td>
               <button
                 id="cltimerbtn"
@@ -344,9 +345,10 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Letzter Filterwechsel war vor <span id="ftimer">unbek.</span>.
-            </td>
+            <td colspan="2">Filterwechsel</td>
+          </tr>
+          <tr>
+            <td>vor <span id="ftimer">unbek.</span></td>
             <td>
               <button
                 id="ftimerbtn"
@@ -361,10 +363,10 @@
       </section>
 
       <section id="sectionTotals">
-        <h2>Gesamt:</h2>
+        <h2>Zähler</h2>
         <table class="fixed">
           <tr>
-            <td>Zeit:</td>
+            <td>Aktuelle Zeit:</td>
             <td><span id="time">unbek.</span></td>
           </tr>
           <tr>
@@ -407,7 +409,7 @@
           </tr>
           <tr>
             <td>Geschätzte Kosten:</td>
-            <td><span id="cost">unbek.</span></td>
+            <td><span id="cost">unbek.</span> €</td>
           </tr>
           <tr>
             <td colspan="2" class="center">
@@ -422,9 +424,16 @@
       <footer>
         <p class="center">
           <span id="mqtt">MQTT: Lade Status...</span><br />
-          <span id="fw">Firmware: Lade Status...</span><br />
-          <!-- <span id="model">Modell: Lade Status...</span><br />-->
-          <span id="rssi">RSSI: Lade Status...</span><br />
+          <span id="rssi" class="waveStrength-1" title="Lade Status...">
+            <span class="wv4 wave">
+              <span class="wv3 wave">
+                <span class="wv2 wave">
+                  <span class="wv1 wave"> </span>
+                </span>
+              </span>
+            </span>
+          </span>
+          <br />
           <span><a href="info.html">Softwareinfo</a></span>
         </p>
       </footer>

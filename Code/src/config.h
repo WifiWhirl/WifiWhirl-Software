@@ -5,7 +5,7 @@
 #include <WiFi.h>
 #endif
 #define DEVICE_NAME "wifiwhirl"
-#define FW_VERSION "1.1.4 beta - 2023-08-19-2340"
+#define FW_VERSION "1.1.4 beta"
 
 #define HA_PREFIX "homeassistant"
 #define PROM_NAMESPACE "layzspa"
