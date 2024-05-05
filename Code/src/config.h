@@ -84,40 +84,24 @@ bool useControlSelector = false;
 const char *wmApName = DEVICE_NAME;
 /** get the password for the WiFi configuration manager (min. 8, max. 63 chars; NULL to disable) */
 const char *wmApPassword = "wifiwhirl";
-//const char *wmApPassword = NULL;
 
-        /*
-        * WiFi Access Point (deprecated)
-        *
-        * When a connection was established successfully, the 'enableAp' get automatically
-        *  the state 'true' including writing credentials to the "wifi.json".
-        *
-        * You can modify this via Web UI.
-        */
-        // /** get or set the state of the specific access point configuration */
-        // bool enableAp = false;
-        // /** get or set the name of the SSID */
-        // String apSsid = "ssid";
-        // /** get or set the password for the SSID */
-        // String apPwd = "pwd";
-
-        // /*
-        //  * WiFi Static IP
-        //  *
-        //  * You can modify this via Web UI.
-        //  */
-        // /** get or set the state of the static IP setup */
-        // bool enableStaticIp4 = false;
-        // /** get or set the IP address */
-        // IPAddress ip4Address(192,168,0,30);
-        // /** get or set the gateway address */
-        // IPAddress ip4Gateway(192,168,0,1);
-        // /** get or set the subnet mask */
-        // IPAddress ip4Subnet(255,255,255,0);
-        // /** get or set the primary DNS IP */
-        // IPAddress ip4DnsPrimary(8,8,8,8);
-        // /** get or set the secondary DNS IP */
-        // IPAddress ip4DnsSecondary(8,8,4,4);
+// /*
+//  * WiFi Static IP
+//  *
+//  * You can modify this via Web UI.
+//  */
+// /** get or set the state of the static IP setup */
+// bool enableStaticIp4 = false;
+// /** get or set the IP address */
+// IPAddress ip4Address(192,168,0,30);
+// /** get or set the gateway address */
+// IPAddress ip4Gateway(192,168,0,1);
+// /** get or set the subnet mask */
+// IPAddress ip4Subnet(255,255,255,0);
+// /** get or set the primary DNS IP */
+// IPAddress ip4DnsPrimary(8,8,8,8);
+// /** get or set the secondary DNS IP */
+// IPAddress ip4DnsSecondary(8,8,4,4);
 
 /*
  * MQTT Server
@@ -127,7 +111,7 @@ const char *wmApPassword = "wifiwhirl";
 /** get or set the state of the MQTT server connection */
 bool useMqtt = false;
 /** get or set the MQTT server IP address */
-IPAddress mqttIpAddress(192,168,0,20);
+IPAddress mqttIpAddress(192, 168, 0, 20);
 /** get or set the MQTT server port */
 int mqttPort = 1883;
 /** get or set the MQTT server username */

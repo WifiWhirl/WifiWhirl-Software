@@ -2,7 +2,7 @@
 #include <Arduino.h>
 
 /*Indicies to access binary codes or pretty button names.*/
-enum Buttons: byte
+enum Buttons : byte
 {
     NOBTN,
     LOCK,
@@ -29,10 +29,9 @@ const String ButtonNames[] = {
     "DOWN",
     "UP",
     "POWER",
-    "HYDROJETS"
-};
+    "HYDROJETS"};
 
-enum States: byte
+enum States : byte
 {
     LOCKEDSTATE,
     POWERSTATE,
@@ -52,12 +51,11 @@ enum States: byte
 };
 
 const uint8_t CHARS[] = {
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', '-', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 
-    'h', 'H', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'x', 'y', 'z'
-};
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', '-', 'a', 'b', 'c', 'd', 'e', 'f', 'g',
+    'h', 'H', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'x', 'y', 'z'};
 
 /*TODO: report that this is breaking changes. GODMODE and FULLPOWER have new values.*/
-enum Commands: byte
+enum Commands : byte
 {
     SETTARGET,
     SETUNIT,
@@ -83,7 +81,7 @@ enum Commands: byte
     SETR
 };
 
-enum ToggleButtons: byte
+enum ToggleButtons : byte
 {
     BUBBLETOGGLE,
     JETSTOGGLE,
@@ -91,7 +89,7 @@ enum ToggleButtons: byte
     HEATTOGGLE
 };
 
-enum Models: uint8_t
+enum Models : uint8_t
 {
     PRE2021,
     MIAMI2021,
@@ -150,7 +148,7 @@ struct sStates
     //     return String(res);
     // }
 
-    inline bool operator==(const sStates& rhs)
+    inline bool operator==(const sStates &rhs)
     {
         bool result = false;
         result = locked == rhs.locked;
@@ -177,10 +175,10 @@ struct sStates
         // result &= fullpower == rhs.fullpower;
         result &= no_of_heater_elements_on == rhs.no_of_heater_elements_on;
         result &= godmode == rhs.godmode;
-        
+
         return result;
-    }  
-    inline bool operator!=(const sStates& rhs){return ! (*this == rhs);}
+    }
+    inline bool operator!=(const sStates &rhs) { return !(*this == rhs); }
 };
 
 struct sToggles
@@ -211,7 +209,7 @@ struct sToggles
     //     return String(res);
     // }
 
-    inline bool operator==(const sToggles& rhs)
+    inline bool operator==(const sToggles &rhs)
     {
         bool result = false;
         result = locked_pressed == rhs.locked_pressed;
@@ -227,7 +225,7 @@ struct sToggles
         result &= target == rhs.target;
         return result;
     }
-    inline bool operator!=(const sToggles& rhs){return !(*this == rhs);}
+    inline bool operator!=(const sToggles &rhs) { return !(*this == rhs); }
 };
 
 struct sNote
