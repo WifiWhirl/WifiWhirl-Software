@@ -6,16 +6,6 @@ function topNav() {
     x.className = "topnav";
   }
 }
-
-function togglePlainText(id) {
-  var x = document.getElementById(id);
-  if (x.type === "password") {
-    x.type = "text";
-  } else {
-    x.type = "password";
-  }
-}
-
 function validatePassword(id) {
   var x = document.getElementById(id);
   if (x.value == "<Passwort eingeben>") {
