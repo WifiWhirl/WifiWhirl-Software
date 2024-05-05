@@ -1,217 +1,275 @@
 <!DOCTYPE html>
 <html>
-<head>
-	<title>WifiWhirl | Netzwerkkonfiguration</title>
-	<meta charset="utf-8">
-	<link rel="icon" type="image/png" sizes="180x180" href="favicon.png">
-	<meta name="theme-color" content="#4051b5">
-	<link rel="manifest" href="manifest.json">
-	<link rel="stylesheet" href="main.css">
-	<meta  name="viewport" content="width=device-width, initial-scale=1 maximum-scale=1">
-	<script src="function.js" type="text/javascript"></script>
-	<script src="index.js" type="text/javascript"></script>
-</head>
+  <head>
+    <title>WifiWhirl | Netzwerkkonfiguration</title>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" sizes="180x180" href="favicon.png" />
+    <meta name="theme-color" content="#4051b5" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="main.css" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1 maximum-scale=1"
+    />
+    <script src="function.js" type="text/javascript"></script>
+    <script src="index.js" type="text/javascript"></script>
+  </head>
 
-<body>
-	<div id="site">
-		<header>
-			<form id="darkModeForm">
-                <label class="switch">
-                    <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
-                    <span class="slider round"></span>
-                </label>
-            </form>
-			<a href="./"><div id="header"><span>Netzwerkkonfiguration</span><span>WifiWhirl</span></div></a>
-			<a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
-		</header>
+  <body>
+    <div id="site">
+      <header>
+        <form id="darkModeForm">
+          <label class="switch">
+            <input
+              type="checkbox"
+              id="darkModeToggle"
+              onchange="toggleDarkMode()"
+            />
+            <span class="slider round"></span>
+          </label>
+        </form>
+        <a href="./"
+          ><div id="header">
+            <span>Netzwerkkonfiguration</span><span>WifiWhirl</span>
+          </div></a
+        >
+        <a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
+      </header>
 
-		<div class="topnav" id="topnav">
-			<a href="./">Übersicht</a>
-			<a href="hwconfig.html">Hardware-Konfiguration</a>
-			<a href="config.html">SPA-Konfiguration</a>
-			<a href="webconfig.html">Web-Konfiguration</a>
-			<a href="wifi.html" class="active">Netzwerkkonfiguration</a>
-			<a href="mqtt.html">MQTT-Konfiguration</a>
-			<a href="/restart/">WifWhirl Modul neu starten<a>
-		</div>
+      <div class="topnav" id="topnav">
+        <a href="./">Übersicht</a>
+        <a href="hwconfig.html">Hardware-Konfiguration</a>
+        <a href="config.html">SPA-Konfiguration</a>
+        <a href="webconfig.html">Web-Konfiguration</a>
+        <a href="wifi.html" class="active">Netzwerkkonfiguration</a>
+        <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="/restart/">WifWhirl Modul neu starten</a>
+      </div>
 
-		<section>
-			<h2>Zugriffspunkt:</h2>
-			<table>
-				<tr>
-					<td><label for="enableAp">Automatisch mit WLAN verbinden:</label></td>
-					<td><input type="checkbox" id="enableAp"></td>
-				</tr>
-				<tr>
-					<td>WLAN SSID:</td>
-					<td><input type="text" id="apSsid"></td>
-				</tr>
-				<tr>
-					<td>Passwort:</td>
-					<td><input type="text" id="apPwd"></td>
-				</tr>
-			</table>
-		</section>
+      <section>
+        <h2>Zugriffspunkt:</h2>
+        <table>
+          <tr>
+            <td>
+              <label for="enableAp">Automatisch mit WLAN verbinden:</label>
+            </td>
+            <td><input type="checkbox" id="enableAp" /></td>
+          </tr>
+          <tr>
+            <td>WLAN SSID:</td>
+            <td><input type="text" id="apSsid" /></td>
+          </tr>
+          <tr>
+            <td>Passwort:</td>
+            <td><input type="text" id="apPwd" /></td>
+          </tr>
+        </table>
+      </section>
 
-		<section>
-			<h2>Fallback WLAN:</h2>
-			<table>
-				<tr style="margin-bottom:30px;">
-					<span>Sollte die automatische WLAN Verbindung scheitern, wird ein eigener WLAN Zugangspunkt eröffnet. Verbinden Sie sich mit diesem WLAN, um die Konfiguration anzupassen (vgl. Anleitung).</span>
-				</tr>
-				<tr>
-					<td><label for="enableWM">Fallback WLAN aktivieren:</label></td>
-					<td><input type="checkbox" id="enableWM"></td>
-				</tr>
-			</table>
-		</section>
+      <section>
+        <h2>Fallback WLAN:</h2>
+        <table>
+          <tr style="margin-bottom: 30px">
+            <span
+              >Sollte die automatische WLAN Verbindung scheitern, wird ein
+              eigener WLAN Zugangspunkt eröffnet. Verbinden Sie sich mit diesem
+              WLAN, um die Konfiguration anzupassen (vgl. Anleitung).</span
+            >
+          </tr>
+          <tr>
+            <td><label for="enableWM">Fallback WLAN aktivieren:</label></td>
+            <td><input type="checkbox" id="enableWM" /></td>
+          </tr>
+        </table>
+      </section>
 
-		<section>
-			<h2>Statische IP-Adresse:</h2>
-			<table>
-				<tr>
-					<td><label for="enableStaticIp4">Statische IP-Adresse aktivieren:</label></td>
-					<td><input type="checkbox" id="enableStaticIp4"></td>
-				</tr>
-				<tr>
-					<td>IP-Adresse:</td>
-					<td>
-						<input type="text" id="ip4Address" maxlength="15" style="width:185px">
-					</td>
-				</tr>
-				<tr>
-					<td>Gateway IP-Adresse:</td>
-					<td>
-						<input type="text" id="ip4Gateway" maxlength="15" style="width:185px">
-					</td>
-				</tr>
-				<tr>
-					<td>Subnetzmaske:</td>
-					<td>
-						<input type="text" id="ip4Subnet" maxlength="15" style="width:185px">
-					</td>
-				</tr>
-				<tr>
-					<td>DNNS-Server (primär):</td>
-					<td>
-						<input type="text" id="ip4DnsPrimary" maxlength="15" style="width:185px">
-					</td>
-				</tr>
-				<tr>
-					<td>DNS-Server (sekundär):</td>
-					<td>
-						<input type="text" id="ip4DnsSecondary" maxlength="15" style="width:185px">
-					</td>
-				</tr>
-			</table>
-		</section>
+      <section>
+        <h2>Statische IP-Adresse:</h2>
+        <table>
+          <tr>
+            <td>
+              <label for="enableStaticIp4"
+                >Statische IP-Adresse aktivieren:</label
+              >
+            </td>
+            <td><input type="checkbox" id="enableStaticIp4" /></td>
+          </tr>
+          <tr>
+            <td>IP-Adresse:</td>
+            <td>
+              <input
+                type="text"
+                id="ip4Address"
+                maxlength="15"
+                style="width: 185px"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>Gateway IP-Adresse:</td>
+            <td>
+              <input
+                type="text"
+                id="ip4Gateway"
+                maxlength="15"
+                style="width: 185px"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>Subnetzmaske:</td>
+            <td>
+              <input
+                type="text"
+                id="ip4Subnet"
+                maxlength="15"
+                style="width: 185px"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>DNNS-Server (primär):</td>
+            <td>
+              <input
+                type="text"
+                id="ip4DnsPrimary"
+                maxlength="15"
+                style="width: 185px"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>DNS-Server (sekundär):</td>
+            <td>
+              <input
+                type="text"
+                id="ip4DnsSecondary"
+                maxlength="15"
+                style="width: 185px"
+              />
+            </td>
+          </tr>
+        </table>
+      </section>
 
-		<section>
-			<h2>Zeit-Server (NTP):</h2>
-			<table>
-				<tr>
-					<td>Domänenname oder IP-Adresse:</td>
-					<td>
-						<input type="text" id="ip4NTP" maxlength="30" style="width:185px" value="de.pool.ntp.org">
-					</td>
-				</tr>
-			</table>
-		</section>
+      <section>
+        <h2>Zeit-Server (NTP):</h2>
+        <table>
+          <tr>
+            <td>Domänenname oder IP-Adresse:</td>
+            <td>
+              <input
+                type="text"
+                id="ip4NTP"
+                maxlength="30"
+                style="width: 185px"
+                value="de.pool.ntp.org"
+              />
+            </td>
+          </tr>
+        </table>
+      </section>
 
-		<section>
-			<table>
-				<tr>
-					<td colspan="2" style="text-align:center">
-						<button id="save" class="button" onclick="saveNetworkConfig()">Speichern</button>
-					</td>
-				</tr>
-			</table>
-		</section>
+      <section>
+        <table>
+          <tr>
+            <td colspan="2" style="text-align: center">
+              <button id="save" class="button" onclick="saveNetworkConfig()">
+                Speichern
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-		<section>
-			<h2>WiFi-Konfiguration zurücksetzen:</h2>
-			<p>
-				Dieser Button setzt die Zugriffspunkteinstellungen zurück.<br />
-				Das WifiWhirl Modul wird neu gestartet und startet das Fallback WLAN.
-				Verbinden Sie sich mit seinem Zugriffspunkt und konfigurieren Sie Ihr WLAN erneut (genau wie bei der ersten Konfiguration).
-				Vergessen Sie nicht, das Fallback WLAN erneut zu deaktivieren, wenn Sie den Zugriffspunkt ausschalten möchten.
-			</p>
-		</section>
+      <section>
+        <h2>WiFi-Konfiguration zurücksetzen:</h2>
+        <p>
+          Dieser Button setzt die Zugriffspunkteinstellungen zurück.<br />
+          Das WifiWhirl Modul wird neu gestartet und startet das Fallback WLAN.
+          Verbinden Sie sich mit seinem Zugriffspunkt und konfigurieren Sie Ihr
+          WLAN erneut (genau wie bei der ersten Konfiguration). Vergessen Sie
+          nicht, das Fallback WLAN erneut zu deaktivieren, wenn Sie den
+          Zugriffspunkt ausschalten möchten.
+        </p>
+      </section>
 
-		<footer class="center">
-			<button id="resetwifi" class="button_red" onclick="resetWifi()">WiFi zurücksetzen</button>
-		</footer>
-	</div>
+      <footer class="center">
+        <button id="resetwifi" class="button_red" onclick="resetWifi()">
+          WiFi zurücksetzen
+        </button>
+      </footer>
+    </div>
 
-<script>
-loadNetworkConfig();
+    <script>
+      loadNetworkConfig();
 
-function loadNetworkConfig()
-{
-	var req = new XMLHttpRequest();
-	req.open('POST', '/getwifi/');
-	req.send();
-	req.onreadystatechange = function()
-	{
-		if (this.readyState == 4 && this.status == 200)
-		{
-			var json = JSON.parse(req.responseText);
-			console.log(json);
+      function loadNetworkConfig() {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/getwifi/");
+        req.send();
+        req.onreadystatechange = function () {
+          if (this.readyState == 4 && this.status == 200) {
+            var json = JSON.parse(req.responseText);
+            console.log(json);
 
-			document.getElementById('enableAp').checked = json.enableAp;
-			document.getElementById('apSsid').value = json.apSsid;
-			document.getElementById('apPwd').value = json.apPwd;
-			document.getElementById('enableWM').checked = json.enableWM;
+            document.getElementById("enableAp").checked = json.enableAp;
+            document.getElementById("apSsid").value = json.apSsid;
+            document.getElementById("apPwd").value = json.apPwd;
+            document.getElementById("enableWM").checked = json.enableWM;
 
-			document.getElementById('enableStaticIp4').checked = json.enableStaticIp4;
-			document.getElementById('ip4Address').value = json.ip4Address;
-			document.getElementById('ip4Gateway').value = json.ip4Gateway;
-			document.getElementById('ip4Subnet').value = json.ip4Subnet;
-			document.getElementById('ip4DnsPrimary').value = json.ip4DnsPrimary;
-			document.getElementById('ip4DnsSecondary').value = json.ip4DnsSecondary;
-			document.getElementById('ip4NTP').value = json.ip4NTP;
-		}
-	}
-}
+            document.getElementById("enableStaticIp4").checked =
+              json.enableStaticIp4;
+            document.getElementById("ip4Address").value = json.ip4Address;
+            document.getElementById("ip4Gateway").value = json.ip4Gateway;
+            document.getElementById("ip4Subnet").value = json.ip4Subnet;
+            document.getElementById("ip4DnsPrimary").value = json.ip4DnsPrimary;
+            document.getElementById("ip4DnsSecondary").value =
+              json.ip4DnsSecondary;
+            document.getElementById("ip4NTP").value = json.ip4NTP;
+          }
+        };
+      }
 
-function saveNetworkConfig()
-{
-	if (!validatePassword('apPwd')) return;
+      function saveNetworkConfig() {
+        if (!validatePassword("apPwd")) return;
 
-	buttonConfirm(document.getElementById('save'), "gespeichert &check; (Vergessen Sie nicht, den ESP neu zu starten.)", 6);
+        buttonConfirm(
+          document.getElementById("save"),
+          "gespeichert &check; (Vergessen Sie nicht, den ESP neu zu starten.)",
+          6
+        );
 
-	var req = new XMLHttpRequest();
-	req.open('POST', '/setwifi/');
-	var json = {
-		'enableAp':(document.getElementById('enableAp').checked),
-		'apSsid':(document.getElementById('apSsid').value),
-		'apPwd':(document.getElementById('apPwd').value),
-		'enableWM':(document.getElementById('enableWM').checked),
-		'enableStaticIp4':(document.getElementById('enableStaticIp4').checked),
-		'ip4Address':(document.getElementById('ip4Address').value),
-		'ip4Gateway':(document.getElementById('ip4Gateway').value),
-		'ip4Subnet':(document.getElementById('ip4Subnet').value),
-		'ip4DnsPrimary':(document.getElementById('ip4DnsPrimary').value),
-		'ip4DnsSecondary':(document.getElementById('ip4DnsSecondary').value),
-        'ip4NTP':(document.getElementById('ip4NTP').value)
-	};
-	req.send(JSON.stringify(json));
-	document.getElementById('apPwd').value = '<Passwort eingeben>';
-	console.log(json);
-}
+        var req = new XMLHttpRequest();
+        req.open("POST", "/setwifi/");
+        var json = {
+          enableAp: document.getElementById("enableAp").checked,
+          apSsid: document.getElementById("apSsid").value,
+          apPwd: document.getElementById("apPwd").value,
+          enableWM: document.getElementById("enableWM").checked,
+          enableStaticIp4: document.getElementById("enableStaticIp4").checked,
+          ip4Address: document.getElementById("ip4Address").value,
+          ip4Gateway: document.getElementById("ip4Gateway").value,
+          ip4Subnet: document.getElementById("ip4Subnet").value,
+          ip4DnsPrimary: document.getElementById("ip4DnsPrimary").value,
+          ip4DnsSecondary: document.getElementById("ip4DnsSecondary").value,
+          ip4NTP: document.getElementById("ip4NTP").value,
+        };
+        req.send(JSON.stringify(json));
+        document.getElementById("apPwd").value = "<Passwort eingeben>";
+        console.log(json);
+      }
 
-function resetWifi()
-{
-	if (confirm('Möchten Sie das WLAN wirklich zurücksetzen?'))
-	{
-		var req = new XMLHttpRequest();
-		req.open('POST', '/resetwifi/');
-		req.send();
-		document.body.innerHTML = 'WifiWhirl wird jetzt neu gestartet. Bitte verbinden Sie sich mit dem Zugriffspunkt und konfigurieren Sie Ihr WLAN erneut.';
-	}
-}
-</script>	
-<script src="darkmode.js" type="text/javascript"></script>
-
-</body>
+      function resetWifi() {
+        if (confirm("Möchten Sie das WLAN wirklich zurücksetzen?")) {
+          var req = new XMLHttpRequest();
+          req.open("POST", "/resetwifi/");
+          req.send();
+          document.body.innerHTML =
+            "WifiWhirl wird jetzt neu gestartet. Bitte verbinden Sie sich mit dem Zugriffspunkt und konfigurieren Sie Ihr WLAN erneut.";
+        }
+      }
+    </script>
+    <script src="darkmode.js" type="text/javascript"></script>
+  </body>
 </html>

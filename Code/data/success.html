@@ -1,55 +1,69 @@
 <!DOCTYPE html>
 <html>
-<head>
-	<title>WifiWhirl Module | Success!</title>
-	<meta charset="utf-8">
-	<link rel="icon" type="image/png" sizes="180x180" href="favicon.png">
-	<meta name="theme-color" content="#4051b5">
-	<link rel="manifest" href="manifest.json">
-	<link rel="stylesheet" href="main.css">
-	<meta  name="viewport" content="width=device-width, initial-scale=1 maximum-scale=1">
-	<script src="function.js" type="text/javascript"></script>
-	<script src="index.js" type="text/javascript"></script>
-</head>
+  <head>
+    <title>WifiWhirl Module | Success!</title>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" sizes="180x180" href="favicon.png" />
+    <meta name="theme-color" content="#4051b5" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="main.css" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1 maximum-scale=1"
+    />
+    <script src="function.js" type="text/javascript"></script>
+    <script src="index.js" type="text/javascript"></script>
+  </head>
 
-<body>
-	<div id="site">
-		<header>
-			<form id="darkModeForm">
-                <label class="switch">
-                    <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
-                    <span class="slider round"></span>
-                </label>
-            </form>
-			<a href="./"><div id="header"><span>Success</span><span>WifiWhirl Module</span></div></a>
-			<a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
-		</header>
+  <body>
+    <div id="site">
+      <header>
+        <form id="darkModeForm">
+          <label class="switch">
+            <input
+              type="checkbox"
+              id="darkModeToggle"
+              onchange="toggleDarkMode()"
+            />
+            <span class="slider round"></span>
+          </label>
+        </form>
+        <a href="./"
+          ><div id="header">
+            <span>Success</span><span>WifiWhirl Module</span>
+          </div></a
+        >
+        <a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
+      </header>
 
-		<div class="topnav" id="topnav">
-			<a href="./">Home</a>
-			<a href="hwconfig.html">Hardware Config</a>
-			<a href="config.html">SPA Config</a>
-			<a href="webconfig.html">Web Config</a>
-			<a href="wifi.html">Network Config</a>
-			<a href="mqtt.html">MQTT Config</a>
-			<a href="/dir/">Directory</a>
-			<a href="upload.html">File Uploader</a>
-			<a href="remove.html">File Remover</a>
-			<!--<a href="/restart/" class="bgred">Restart ESP</a>
+      <div class="topnav" id="topnav">
+        <a href="./">Home</a>
+        <a href="hwconfig.html">Hardware Config</a>
+        <a href="config.html">SPA Config</a>
+        <a href="webconfig.html">Web Config</a>
+        <a href="wifi.html">Network Config</a>
+        <a href="mqtt.html">MQTT Config</a>
+        <a href="/dir/">Directory</a>
+        <a href="upload.html">File Uploader</a>
+        <a href="remove.html">File Remover</a>
+        <!--<a href="/restart/" class="bgred">Restart ESP</a>
 			<a href="javascript:void(0);" class="bgred" onclick="reboot()">Restart ESP</a>-->
-		</div>
+      </div>
 
-		<section>
-			<p>The operation was successful.</p>
-		</section>
+      <section>
+        <p>The operation was successful.</p>
+      </section>
 
-		<footer>
-			<p class="center"><a class="button" href="/">Home</a></p>
-			<p class="center"><a class="button" href="/upload.html">Upload a file</a></p>
-			<p class="center"><a class="button" href="/remove.html">Remove a file</a></p>
-		</footer>
-	</div>
-	<script src="darkmode.js" type="text/javascript"></script>
-
-</body>
+      <footer>
+        <p class="center"><a class="button" href="/">Home</a></p>
+        <p class="center">
+          <a class="button" href="/upload.html">Upload a file</a>
+        </p>
+        <p class="center">
+          <a class="button" href="/remove.html">Remove a file</a>
+        </p>
+      </footer>
+    </div>
+    <script src="darkmode.js" type="text/javascript"></script>
+  </body>
 </html>

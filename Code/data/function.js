@@ -17,9 +17,9 @@ function togglePlainText(id) {
 }
 
 function validatePassword(id) {
-	var x = document.getElementById(id);
-	if (x.value == "<Passwort eingeben>") {
-		alert("Bitte Passwort eingeben...");
+  var x = document.getElementById(id);
+  if (x.value == "<Passwort eingeben>") {
+    alert("Bitte Passwort eingeben...");
     return false;
   }
   return true;
