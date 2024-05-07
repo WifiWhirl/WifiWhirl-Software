@@ -22,15 +22,15 @@ bool notify = false;
 /** no comment :-) */
 int notification_time = 32;
 
-/*
- * Web Server Authentication
- */
-/** get or set the state of the web authentication */
-bool enableWebAuth = false;
-/** get or set the username for web authentication */
-String authUsername = "username";
-/** get or set the password for web authentication */
-String authPassword = "password";
+// /*
+//  * Web Server Authentication
+//  */
+// /** get or set the state of the web authentication */
+// bool enableWebAuth = false;
+// /** get or set the username for web authentication */
+// String authUsername = "username";
+// /** get or set the password for web authentication */
+// String authPassword = "password";
 
 /*
  * OTA Service Credentials

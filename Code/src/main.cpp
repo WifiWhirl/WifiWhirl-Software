@@ -1213,27 +1213,6 @@ sWifi_info loadWifi()
     wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
 
     return wifi_info;
-
-    // ip4Address[0] = doc[F("ip4Address")][0];
-    // ip4Address[1] = doc[F("ip4Address")][1];
-    // ip4Address[2] = doc[F("ip4Address")][2];
-    // ip4Address[3] = doc[F("ip4Address")][3];
-    // ip4Gateway[0] = doc[F("ip4Gateway")][0];
-    // ip4Gateway[1] = doc[F("ip4Gateway")][1];
-    // ip4Gateway[2] = doc[F("ip4Gateway")][2];
-    // ip4Gateway[3] = doc[F("ip4Gateway")][3];
-    // ip4Subnet[0] = doc[F("ip4Subnet")][0];
-    // ip4Subnet[1] = doc[F("ip4Subnet")][1];
-    // ip4Subnet[2] = doc[F("ip4Subnet")][2];
-    // ip4Subnet[3] = doc[F("ip4Subnet")][3];
-    // ip4DnsPrimary[0] = doc[F("ip4DnsPrimary")][0];
-    // ip4DnsPrimary[1] = doc[F("ip4DnsPrimary")][1];
-    // ip4DnsPrimary[2] = doc[F("ip4DnsPrimary")][2];
-    // ip4DnsPrimary[3] = doc[F("ip4DnsPrimary")][3];
-    // ip4DnsSecondary[0] = doc[F("ip4DnsSecondary")][0];
-    // ip4DnsSecondary[1] = doc[F("ip4DnsSecondary")][1];
-    // ip4DnsSecondary[2] = doc[F("ip4DnsSecondary")][2];
-    // ip4DnsSecondary[3] = doc[F("ip4DnsSecondary")][3];
 }
 
 /**
