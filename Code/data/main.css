@@ -7,8 +7,10 @@
 
 @font-face {
   font-family: 'Roboto';
-  src: url('Roboto-Regular.eot');
-  src: url('Roboto-Regular.woff') format('woff');
+  font-display: swap; 
+  src: local('Roboto'),
+       url('Roboto-Regular.woff') format('woff')
+       url('Roboto-Regular.eot') format('embedded-opentype');
 }
 
 body {
