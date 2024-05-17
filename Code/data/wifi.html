@@ -70,7 +70,7 @@
         </table>
       </section>
 
-      <section>
+      <!-- <section>
         <h2>Fallback WLAN:</h2>
         <table>
           <tr style="margin-bottom: 30px">
@@ -85,7 +85,7 @@
             <td><input type="checkbox" id="enableWM" /></td>
           </tr>
         </table>
-      </section>
+      </section> -->
 
       <section>
         <h2>Statische IP-Adresse:</h2>
@@ -110,22 +110,22 @@
             </td>
           </tr>
           <tr>
-            <td>Gateway IP-Adresse:</td>
+            <td>Subnetzmaske:</td>
             <td>
               <input
                 type="text"
-                id="ip4Gateway"
+                id="ip4Subnet"
                 maxlength="15"
                 style="width: 185px"
               />
             </td>
           </tr>
           <tr>
-            <td>Subnetzmaske:</td>
+            <td>Gateway:</td>
             <td>
               <input
                 type="text"
-                id="ip4Subnet"
+                id="ip4Gateway"
                 maxlength="15"
                 style="width: 185px"
               />
@@ -190,7 +190,7 @@
         <h2>WLAN-Konfiguration zurücksetzen:</h2>
         <p>
           Dieser Button setzt die Zugriffspunkteinstellungen zurück.<br />
-          Das WifiWhirl Modul wird neu gestartet und startet das Fallback WLAN.
+          Das WifiWhirl-Modul wird neu gestartet und startet das Fallback WLAN.
           Verbinde dich mit dem Zugriffspunkt und konfiguriere deine
           WLAN-Verbindung erneut (genau wie bei der ersten Konfiguration).
         </p>
@@ -238,7 +238,7 @@
 
         buttonConfirm(
           document.getElementById("save"),
-          "gespeichert &check; (Vergiss nicht, den ESP neu zu starten.)",
+          "gespeichert &check; (Vergiss nicht, das Modul neu zu starten.)",
           6
         );
 
@@ -263,12 +263,12 @@
       }
 
       function resetWifi() {
-        if (confirm("Möchtest du das WLAN wirklich zurücksetzen?")) {
+        if (confirm("Möchtest du die WLAN-Einstellungen wirklich zurücksetzen?")) {
           var req = new XMLHttpRequest();
           req.open("POST", "/resetwifi/");
           req.send();
           document.body.innerHTML =
-            "Dein WifiWhirl wird jetzt neu gestartet. Bitte verbinde dich mit dem Zugriffspunkt und konfiguriere dein WLAN erneut.";
+            "Dein WifiWhirl-Modulwird jetzt neu gestartet. Bitte verbinde dich mit dem Zugriffspunkt und konfiguriere dein WLAN erneut.";
         }
       }
     </script>
