@@ -5,3 +5,5 @@
 .vscode/ipch
 fw/firmware.bin
 datazip
+data/wifi.json
+data/hwcfg.json
