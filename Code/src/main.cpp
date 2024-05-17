@@ -1179,7 +1179,7 @@ void handleGetWifi()
     doc[F("enableAp")] = wifi_info.enableAp;
     doc[F("enableWM")] = wifi_info.enableWmApFallback;
     doc[F("apSsid")] = wifi_info.apSsid;
-    doc[F("apPwd")] = F("<enter password>");
+    doc[F("apPwd")] = F("<Passwort eingeben>");
     if (!hidePasswords)
     {
         doc[F("apPwd")] = wifi_info.apPwd;
@@ -1373,7 +1373,7 @@ void handleGetMqtt()
     doc[F("mqttIpAddress")][3] = mqttIpAddress[3];
     doc[F("mqttPort")] = mqttPort;
     doc[F("mqttUsername")] = mqttUsername;
-    doc[F("mqttPassword")] = "<enter password>";
+    doc[F("mqttPassword")] = "<Passwort eingeben>";
     if (!hidePasswords)
     {
         doc[F("mqttPassword")] = mqttPassword;
