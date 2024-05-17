@@ -601,7 +601,6 @@ void startHttpServer()
     server->on(F("/getmqtt/"), handleGetMqtt);
     server->on(F("/setmqtt/"), handleSetMqtt);
     server->on(F("/dir/"), handleDir);
-    server->on(F("/hwtest/"), handleHWtest);
     server->on(
         F("/upload.html"), HTTP_POST, []()
         { server->send(200, F("text/plain"), ""); },
@@ -662,62 +661,6 @@ void handleSetHardware()
     // Serial.println("sethardware done");
 }
 
-void handleHWtest()
-{
-    int errors = 0;
-    bool state = false;
-    String result = "";
-
-    bwc->stop();
-    delay(1000);
-
-    for (int pin = 0; pin < 3; pin++)
-    {
-        pinMode(bwc->pins[pin], OUTPUT);
-        pinMode(bwc->pins[pin + 3], INPUT);
-        for (int t = 0; t < 1000; t++)
-        {
-            state = !state;
-            digitalWrite(bwc->pins[pin], state);
-            delayMicroseconds(10);
-            errors += digitalRead(bwc->pins[pin + 3]) != state;
-        }
-        if (errors > 499)
-            result += F("CIO to DSP pin ") + String(pin + 3) + F(" fail!\n");
-        else if (errors == 0)
-            result += F("CIO to DSP pin ") + String(pin + 3) + F(" success!\n");
-        else
-            result += F("CIO to DSP pin ") + String(pin + 3) + " " + String(errors / 500) + F("\% bad\n");
-        errors = 0;
-        delay(0);
-    }
-    result += F("\n");
-    for (int pin = 0; pin < 3; pin++)
-    {
-        pinMode(bwc->pins[pin + 3], OUTPUT);
-        pinMode(bwc->pins[pin], INPUT);
-        for (int t = 0; t < 1000; t++)
-        {
-            state = !state;
-            digitalWrite(bwc->pins[pin + 3], state);
-            delayMicroseconds(10);
-            errors += digitalRead(bwc->pins[pin]) != state;
-        }
-        if (errors > 499)
-            result += F("DSP to CIO pin ") + String(pin + 3) + F(" fail!\n");
-        else if (errors == 0)
-            result += F("DSP to CIO pin ") + String(pin + 3) + F(" success!\n");
-        else
-            result += F("DSP to CIO pin ") + String(pin + 3) + " " + String(errors / 500) + F("\% bad\n");
-        errors = 0;
-        delay(0);
-    }
-
-    server->send(200, F("text/plain"), result);
-    delay(10000);
-    bwc->setup();
-}
-
 void handleNotFound()
 {
     // check if the file exists in the flash memory (LittleFS), if so, send it
@@ -741,6 +684,10 @@ String getContentType(const String &filename)
         return F("image/png");
     else if (filename.endsWith(".svg"))
         return F("image/svg+xml");
+    else if (filename.endsWith(".eot"))
+        return F("application/vnd.ms-fontobject");
+    else if (filename.endsWith(".woff"))
+        return F("application/font-woff");
     else if (filename.endsWith(".gz"))
         return F("application/x-gzip");
     else if (filename.endsWith(".json"))
@@ -774,8 +721,14 @@ bool handleFileRead(String path)
             path += ".gz";                    // Use the compressed version
         File file = LittleFS.open(path, "r"); // Open the file
         size_t fsize = file.size();
+
+        // send cache header for static files
+        if (path.endsWith(".css.gz") || path.endsWith(".css") || path.endsWith(".png.gz") || path.endsWith(".ico.gz") || path.endsWith(".js.gz") || path.endsWith(".eot.gz") || path.endsWith(".woff.gz") || path.endsWith(".html.gz"))
+            if (!path.endsWith("restart.html.gz")) // do not cache restart page, otherwise restart fuction will not work!
+                server->sendHeader(F("Cache-Control"), F("max-age=3600"));
+
         size_t sent = server->streamFile(file, contentType); // Send it to the client
-        // server->streamFile(file, contentType);    // Send it to the client
+
         file.close(); // Close the file again
         Serial.println(F("File size: ") + String(fsize));
         Serial.println(F("HTTP > file sent: ") + path + F(" (") + sent + F(" bytes)"));
@@ -824,45 +777,6 @@ void handleGetConfig()
     json.reserve(320);
     bwc->getJSONSettings(json);
     server->send(200, F("text/plain"), json);
-}
-
-/**
- * response for /hook/
- * web server adds command to cmdq "Webhook"
- * Examples:
- * Pumpe einschalten: http://[ipadresse]/hook/?send={"CMD":4,"VALUE":true}
- * Pumpe ausschalten: http://[ipadresse]/hook/?send={"CMD":4,"VALUE":false}
- * Heizung+Pumpe einschalten: http://[ipadresse]/hook/?send={"CMD":3,"VALUE":true}
- * Heizung+Pumpe ausschalten: http://[ipadresse]/hook/?send={"CMD":3,"VALUE":false}
- */
-void handleWebhook()
-{
-    if (!checkHttpGet(server->method()))
-        return;
-
-    StaticJsonDocument<256> doc;
-    String message = server->arg("send");
-    DeserializationError error = deserializeJson(doc, message);
-    if (error)
-    {
-        server->send(400, F("text/plain"), F("Error deserializing message"));
-        return;
-    }
-
-    Commands command = doc[F("CMD")];
-    int64_t value = doc[F("VALUE")];
-    int64_t xtime = doc[F("XTIME")] | std::time(0);
-    int64_t interval = doc[F("INTERVAL")] | 0;
-    String txt = doc[F("TXT")] | "";
-    command_que_item item;
-    item.cmd = command;
-    item.val = value;
-    item.xtime = xtime;
-    item.interval = interval;
-    item.text = txt;
-    bwc->add_command(item);
-
-    server->send(200, F("text/plain"), String(item.cmd) + " " + String(item.val) + " " + String(item.xtime));
 }
 
 /**
@@ -1654,15 +1568,18 @@ void handleFileRemove()
  */
 void handleRestart()
 {
-    server->send(200, F("text/html"), F("ESP restart ..."));
+    // send restart page
+    handleFileRead(F("restart.html"));
 
-    server->sendHeader(F("Location"), "/");
-    server->send(303);
+    // save all settings
     bwc->saveSettings();
 
     delay(1000);
+    // stop all services
     stopall();
     delay(1000);
+
+    // restart
     Serial.println(F("ESP restart ..."));
     ESP.restart();
     delay(3000);
@@ -1903,5 +1820,6 @@ void handleESPInfo()
 //     }
 // }
 
+#include "webhooks.inc"
 #include "homeassistant.inc"
 #include "prometheus.inc"
