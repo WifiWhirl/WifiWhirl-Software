@@ -93,13 +93,7 @@ enum Models : uint8_t
 {
     PRE2021,
     MIAMI2021,
-    MALDIVES2021,
-    M54149E,
-    M54173,
-    M54154,
-    M54144,
-    M54138,
-    M54123
+    MALDIVES2021
 };
 
 struct Power
