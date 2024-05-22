@@ -6,6 +6,8 @@ BWC *bwc;
 char *stack_start;
 uint32_t heap_water_mark;
 
+ESP_WiFiManager wm;
+
 // Setup a oneWire instance to communicate with any OneWire devices
 // Setting arbitrarily to 231 since this isn't an actual pin
 // Later during "setup" the correct pin will be set, if enabled
@@ -138,6 +140,23 @@ void loop()
         }
         // set marker
         wifiConnected = false;
+
+        // TEST: Trying to fix autoreconnect issue
+        // startWiFi(); // Nope. Does NOT work.
+        // maybe WifiManager.reconnect(); ???
+        // or
+        // startWiFiConfigPortal()
+        // or
+        // wm.autoConnect(wmApName, wmApPassword);
+
+        // Example from https://github.com/tzapu/WiFiManager/issues/1588
+        // wm.setConfigPortalTimeout(0);
+        // while (WiFi.status() != WL_CONNECTED)
+        // { // Continue attempting to connect until a successful connection is made
+        //     delay(5000);
+        //     WiFi.begin(); // Try to connect to the WLAN again
+        // }
+        // TESTEND
     }
 
     // run every X seconds
@@ -388,11 +407,14 @@ void startWiFi()
 void startWiFiConfigPortal()
 {
     Serial.println(F("WiFi > Using WiFiManager Config Portal"));
-    ESP_WiFiManager wm;
     WiFiManagerParameter custom_text("<p><strong>Willkommen zur Einrichtung deines WifiWhirl WLAN-Moduls!</strong></p><p>Verbinde dich hier mit deinem WLAN, um mit der Einrichtung zu beginnen.</p>");
 
-    wm.addParameter(&custom_text);
-    wm.autoConnect(wmApName, wmApPassword);
+    wm.setClass("invert");                  // WM Dark Mode
+    wm.setShowInfoErase(false);             // WM Disable Erase Button
+    wm.addParameter(&custom_text);          // WM Show WifiWhirl Text
+    //wm.setConfigPortalBlocking(false);      // WM Disable Config Portal Blocking (trys to reconnect to known network automatically)
+    wm.autoConnect(wmApName, wmApPassword); // WM start Config Portal AP
+
     // Serial.print(F("WiFi > Trying to connect ..."));
     while (WiFi.status() != WL_CONNECTED)
     {
@@ -1247,11 +1269,11 @@ void handleSetWifi()
  */
 void handleResetWifi()
 {
-    server->send(200, F("text/html"), F("WiFi connection reset (erase) ..."));
+    server->send(200, F("text/html"), F("WLAN Einstellungen werden gelöscht ..."));
     // Serial.println(F("WiFi connection reset (erase) ..."));
     resetWiFi();
 
-    server->send(200, F("text/html"), F("WiFi connection reset (erase) ... done."));
+    // server->send(200, F("text/html"), F("WLAN Einstellungen wurden gelöscht ..."));
 // Serial.println(F("WiFi connection reset (erase) ... done."));
 // Serial.println(F("ESP reset ..."));
 #if defined(ESP8266)
@@ -1264,10 +1286,10 @@ void handleResetWifi()
 void resetWiFi()
 {
     sWifi_info wifi_info;
-    wifi_info.enableAp = false;
+    wifi_info.enableAp = true;
     wifi_info.enableWmApFallback = true;
-    wifi_info.apSsid = F("empty");
-    wifi_info.apPwd = F("empty");
+    wifi_info.apSsid = F("wifiwhirl");
+    wifi_info.apPwd = F("wifiwhirl");
     saveWifi(wifi_info);
     delay(3000);
     periodicTimer.detach();
@@ -1276,14 +1298,14 @@ void resetWiFi()
     bwc->stop();
     bwc->saveSettings();
     delay(1000);
-#if defined(ESP8266)
-    ESP.eraseConfig();
-#endif
-    delay(1000);
-    ESP_WiFiManager wm;
-    wm.resetSettings();
-    // WiFi.disconnect();
-    delay(1000);
+// #if defined(ESP8266)
+//     ESP.eraseConfig();
+// #endif
+//     delay(1000);
+//     wm.resetSettings();
+//     startWiFiConfigPortal();
+//     // WiFi.disconnect();
+//     delay(1000);
 }
 
 /**

@@ -70,7 +70,7 @@
         </table>
       </section>
 
-      <!-- <section>
+      <section>
         <h2>Fallback WLAN:</h2>
         <table>
           <tr style="margin-bottom: 30px">
@@ -85,7 +85,7 @@
             <td><input type="checkbox" id="enableWM" /></td>
           </tr>
         </table>
-      </section> -->
+      </section>
 
       <section>
         <h2>Statische IP-Adresse:</h2>
@@ -265,7 +265,7 @@
       function resetWifi() {
         if (confirm("Möchtest du die WLAN-Einstellungen wirklich zurücksetzen?")) {
           var req = new XMLHttpRequest();
-          req.open("POST", "/resetwifi/");
+          req.open("GET", "/resetwifi/");
           req.send();
           document.body.innerHTML =
             "Dein WifiWhirl-Modul wird jetzt neu gestartet. Bitte verbinde dich mit dem Zugriffspunkt und konfiguriere dein WLAN erneut.";
