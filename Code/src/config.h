@@ -4,33 +4,19 @@
 #else
 #include <WiFi.h>
 #endif
+#include "WifiWhirl_Version.h"
 #define DEVICE_NAME "wifiwhirl"
-#define FW_VERSION "1.1.4 beta"
-
-#define HA_PREFIX "homeassistant"
-#define PROM_NAMESPACE "layzspa"
 
 /*
- * Miscellaneous
+ * Network Settings
  */
-/** get the state of password visibility */
-const bool hidePasswords = true;
+bool enableWmApFallback = true;
+/** get the name for the WiFi configuration manager access point */
+const char *wmApName = DEVICE_NAME;
+/** get the password for the WiFi configuration manager (min. 8, max. 63 chars; NULL to disable) */
+const char *wmApPassword = "wifiwhirl-AP";
 /** get the network hostname of the device (max. length 26) */
 const char *netHostname = DEVICE_NAME;
-/** no comment :-) */
-bool notify = false;
-/** no comment :-) */
-int notification_time = 32;
-
-// /*
-//  * Web Server Authentication
-//  */
-// /** get or set the state of the web authentication */
-// bool enableWebAuth = false;
-// /** get or set the username for web authentication */
-// String authUsername = "username";
-// /** get or set the password for web authentication */
-// String authPassword = "password";
 
 /*
  * OTA Service Credentials
@@ -38,7 +24,7 @@ int notification_time = 32;
 /** get the name for the OTA service */
 const char *OTAName = DEVICE_NAME;
 /** get the password for the OTA service  */
-const char *OTAPassword = "wifiwhirl";
+const char *OTAPassword = "wifiwhirl-OTA";
 
 /*
  * Web UI Configuration
@@ -59,49 +45,18 @@ bool showSectionTimer = true;
 bool showSectionTotals = true;
 /** get or set the state of displaying slider or selector */
 bool useControlSelector = false;
+/** get the state of password visibility */
+const bool hidePasswords = true;
 
 /*
- * WiFi Configuration Manager
- *
- * A fresh/clean ESP needs WiFi credentials to be connected to a network.
- * This manager creates an access point when there is no persistent data set yet.
- * Persistent data means, the data the ESP writes to it's internal memory,
- *  when a connection was established successfully.
- * Means not the data we write with the "WiFi Access Point" configuration below.
- *  (wifi.json on flash memory)
- *
- * NOTICE: If you want your ESP running continuously without creating an access point
- *  when having WiFi issues, set 'enableWmApFallback=false', otherwise we could fallback
- *  to this 'AP mode' on the upstart setup() job. This setting can be changed from web ui.
- *
- * WARNING: For the case you set 'enableWmApFallback=false' you could lock out
- *  yourself when loosing your home network. You would have to "Reset WiFi" but
- *  you are not able to connect to the web ui without a connection.
+ * Home Assistant Settings
  */
-/** get the state of the WiFi configuration manager fallback on wifi failures */
-// bool enableWmApFallback = true;
-/** get the name for the WiFi configuration manager access point */
-const char *wmApName = DEVICE_NAME;
-/** get the password for the WiFi configuration manager (min. 8, max. 63 chars; NULL to disable) */
-const char *wmApPassword = "wifiwhirl";
+#define HA_PREFIX "homeassistant"
 
-// /*
-//  * WiFi Static IP
-//  *
-//  * You can modify this via Web UI.
-//  */
-// /** get or set the state of the static IP setup */
-// bool enableStaticIp4 = false;
-// /** get or set the IP address */
-// IPAddress ip4Address(192,168,0,30);
-// /** get or set the gateway address */
-// IPAddress ip4Gateway(192,168,0,1);
-// /** get or set the subnet mask */
-// IPAddress ip4Subnet(255,255,255,0);
-// /** get or set the primary DNS IP */
-// IPAddress ip4DnsPrimary(8,8,8,8);
-// /** get or set the secondary DNS IP */
-// IPAddress ip4DnsSecondary(8,8,4,4);
+/*
+ * Prometheus Settings
+ */
+#define PROM_NAMESPACE "layzspa"
 
 /*
  * MQTT Server
