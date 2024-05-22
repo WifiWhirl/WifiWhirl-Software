@@ -104,6 +104,7 @@
                 step="1"
                 value="20"
                 onmousemove="showpreviewval('temp', 'sliderTempVal')"
+                onmousedown="showpreviewval('temp', 'sliderTempVal')"
                 ontouchmove="showpreviewval('temp', 'sliderTempVal')"
                 onmouseup="sendCommand('setTarget')"
                 ontouchend="sendCommand('setTarget')"
@@ -124,6 +125,7 @@
                 step="1"
                 value="20"
                 onmousemove="showpreviewval('amb', 'sliderAmbVal')"
+                onmousedown="showpreviewval('amb', 'sliderAmbVal')"
                 ontouchmove="showpreviewval('amb', 'sliderAmbVal')"
                 onmouseup="sendCommand('setAmbient')"
                 ontouchend="sendCommand('setAmbient')"
@@ -137,7 +139,7 @@
             <td>
               Helligkeit
               <span
-                data-text="Denk daran: Wenn auf '0' eingestellt, ist das Display und alle Tasten auf der Pumpe komplett gedimmt (ausgeschaltet), leuchten jedoch 5 Sekunden lang auf, wenn eine Taste gedrückt wird."
+                data-text="Wenn auf '0' eingestellt, ist das Display und alle Tasten auf der Pumpe komplett gedimmt (ausgeschaltet), leuchten jedoch 5 Sekunden lang auf, wenn eine Taste gedrückt wird."
                 class="tooltip"
                 >?</span
               >
@@ -151,6 +153,7 @@
                 step="1"
                 value="7"
                 onmousemove="showpreviewval('brt', 'sliderBrtVal')"
+                onmousedown="showpreviewval('brt', 'sliderBrtVal')"
                 ontouchmove="showpreviewval('brt', 'sliderBrtVal')"
                 onmouseup="sendCommand('setBrightness')"
                 ontouchend="sendCommand('setBrightness')"
