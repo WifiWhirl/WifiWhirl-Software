@@ -125,8 +125,12 @@ function handlemsg(e) {
       "Fehler: Falsche Zugangsdaten", // 4 / the username/password were rejected
       "Fehler: WifiWhirl darf sich nicht verbinden", // 5 / the client was not authorized to connect
     ];
-    document.getElementById("mqtt").innerHTML =
-      "MQTT: " + mqtt_states[msgobj.MQTT + 4];
+    try {
+      document.getElementById("mqtt").innerHTML =
+        "MQTT: " + mqtt_states[msgobj.MQTT + 4];
+    } catch (error) {
+      console.error(error);
+    }
     document.getElementById("fw").innerHTML = "WifiWhirl " + msgobj.FW;
 
     // Set wifi symbol signal strenght
@@ -145,15 +149,19 @@ function handlemsg(e) {
     document.getElementById("rssi").title = "RSSI: " + msgobj.RSSI;
 
     // hydro jets available
-    document.getElementById("jets").style.display = msgobj.HASJETS
-      ? "table-cell"
-      : "none";
-    document.getElementById("jetsswitch").style.display = msgobj.HASJETS
-      ? "table-cell"
-      : "none";
-    document.getElementById("jetstotals").style.display = msgobj.HASJETS
-      ? ""
-      : "none";
+    try {
+      document.getElementById("jets").style.display = msgobj.HASJETS
+        ? "table-cell"
+        : "none";
+      document.getElementById("jetsswitch").style.display = msgobj.HASJETS
+        ? "table-cell"
+        : "none";
+      document.getElementById("jetstotals").style.display = msgobj.HASJETS
+        ? ""
+        : "none";
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   if (msgobj.CONTENT == "STATES") {
@@ -251,54 +259,56 @@ function handlemsg(e) {
       unitsymbols.forEach((unitsymbol) => {
         unitsymbol.innerHTML = "C";
       });
-    }
-    else {
+    } else {
       unitsymbols.forEach((unitsymbol) => {
         unitsymbol.innerHTML = "F";
       });
     }
   }
+  try {
+    if (msgobj.CONTENT == "TIMES") {
+      var date = new Date(msgobj.TIME * 1000);
+      document.getElementById("time").innerHTML = date.toLocaleString();
 
-  if (msgobj.CONTENT == "TIMES") {
-    var date = new Date(msgobj.TIME * 1000);
-    document.getElementById("time").innerHTML = date.toLocaleString();
+      // chlorine add reset timer
+      var clDate = (Date.now() / 1000 - msgobj.CLTIME) / (24 * 3600.0);
+      var clDateRound = Math.round(clDate);
+      document.getElementById("cltimer").innerHTML =
+        (clDateRound == 1 ? "einem" : clDateRound) +
+        "  Tag" +
+        (clDateRound != 1 ? "en" : "");
+      document.getElementById("cltimerbtn").className =
+        clDate > msgobj.CLINT ? "button_red" : "button";
 
-    // chlorine add reset timer
-    var clDate = (Date.now() / 1000 - msgobj.CLTIME) / (24 * 3600.0);
-    var clDateRound = Math.round(clDate);
-    document.getElementById("cltimer").innerHTML =
-      (clDateRound == 1 ? "einem" : clDateRound) +
-      "  Tag" +
-      (clDateRound != 1 ? "en" : "");
-    document.getElementById("cltimerbtn").className =
-      clDate > msgobj.CLINT ? "button_red" : "button";
+      // filter change reset timer
+      var fDate = (Date.now() / 1000 - msgobj.FTIME) / (24 * 3600.0);
+      var fDateRound = Math.round(fDate);
+      document.getElementById("ftimer").innerHTML =
+        (fDateRound == 1 ? "einem " : fDateRound) +
+        " Tag" +
+        (fDateRound != 1 ? "en" : "");
+      document.getElementById("ftimerbtn").className =
+        fDate > msgobj.FINT ? "button_red" : "button";
 
-    // filter change reset timer
-    var fDate = (Date.now() / 1000 - msgobj.FTIME) / (24 * 3600.0);
-    var fDateRound = Math.round(fDate);
-    document.getElementById("ftimer").innerHTML =
-      (fDateRound == 1 ? "einem " : fDateRound) +
-      " Tag" +
-      (fDateRound != 1 ? "en" : "");
-    document.getElementById("ftimerbtn").className =
-      fDate > msgobj.FINT ? "button_red" : "button";
-
-    // statistics
-    document.getElementById("heatingtime").innerHTML = s2dhms(
-      msgobj.HEATINGTIME
-    );
-    document.getElementById("uptime").innerHTML = s2dhms(msgobj.UPTIME);
-    document.getElementById("airtime").innerHTML = s2dhms(msgobj.AIRTIME);
-    document.getElementById("filtertime").innerHTML = s2dhms(msgobj.PUMPTIME);
-    document.getElementById("jettime").innerHTML = s2dhms(msgobj.JETTIME);
-    document.getElementById("cost").innerHTML = msgobj.COST.toFixed(2)
-      .toString()
-      .replace(".", ",");
-    document.getElementById("t2r").innerHTML =
-      s2dhms(msgobj.T2R * 3600) +
-      " (" +
-      (msgobj.RS == "Ready" ? "Bereit" : "Nicht bereit") +
-      ")";
+      // statistics
+      document.getElementById("heatingtime").innerHTML = s2dhms(
+        msgobj.HEATINGTIME
+      );
+      document.getElementById("uptime").innerHTML = s2dhms(msgobj.UPTIME);
+      document.getElementById("airtime").innerHTML = s2dhms(msgobj.AIRTIME);
+      document.getElementById("filtertime").innerHTML = s2dhms(msgobj.PUMPTIME);
+      document.getElementById("jettime").innerHTML = s2dhms(msgobj.JETTIME);
+      document.getElementById("cost").innerHTML = msgobj.COST.toFixed(2)
+        .toString()
+        .replace(".", ",");
+      document.getElementById("t2r").innerHTML =
+        s2dhms(msgobj.T2R * 3600) +
+        " (" +
+        (msgobj.RS == "Ready" ? "Bereit" : "Nicht bereit") +
+        ")";
+    }
+  } catch (error) {
+    console.error(error);
   }
 }
 

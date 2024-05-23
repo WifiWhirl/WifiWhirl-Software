@@ -7,7 +7,9 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
+// Update Server
+#include <ESP8266HTTPUpdateServer.h>
+//#include <WiFiClientSecure.h>
 #include <time.h>
 
 #else
@@ -130,6 +132,7 @@ void handleFileUpload();
 void handleFileRemove();
 void handleRestart();
 void handleWebhook();
+void handleUpdate();
 void startMqtt();
 void mqttCallback(char *topic, byte *payload, unsigned int length);
 void mqttConnect();

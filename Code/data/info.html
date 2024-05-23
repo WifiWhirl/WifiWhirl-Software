@@ -51,6 +51,20 @@
       </div>
 
       <section>
+        <span>Dieses WifiWhirl Modul nutzt derzeit die Software Version</span>
+        <b><span id="fw">...</span></b>.<br />
+        <span
+          >Prüfe auf der Hilfeseite, ob eine neue Softwareversion zur Verfügung
+          steht:
+          <a href="https://anleitung.wifiwhirl.de/Modul/Update/"
+            >anleitung.wifiwhirl.de</a
+          ></span
+        ><br />
+        <span
+          >Über diesen Link gelangst du zur Updateseite:
+          <a href="/update">Softwareupdate</a></span
+        >
+        <hr />
         <span
           >Diese Software basiert auf dem Projekt
           <a
@@ -95,6 +109,17 @@
         </p>
       </footer>
     </div>
+    <script>
+      document.onreadystatechange = function () {
+        if (document.readyState == "complete") {
+          initApplication();
+        }
+      };
+
+      function initApplication() {
+        connect();
+      }
+    </script>
     <script src="darkmode.js" type="text/javascript"></script>
   </body>
 </html>

@@ -25,7 +25,7 @@ const char *netHostname = DEVICE_NAME;
 const char *OTAName = DEVICE_NAME;
 /** get the password for the OTA service  */
 const char *OTAPassword = "wifiwhirl-OTA";
-
+const char *update_path = "/update";
 /*
  * Web UI Configuration
  *

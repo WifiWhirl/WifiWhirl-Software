@@ -7,6 +7,7 @@ char *stack_start;
 uint32_t heap_water_mark;
 
 ESP_WiFiManager wm;
+ESP8266HTTPUpdateServer httpUpdater;
 
 // Setup a oneWire instance to communicate with any OneWire devices
 // Setting arbitrarily to 231 since this isn't an actual pin
@@ -409,10 +410,10 @@ void startWiFiConfigPortal()
     Serial.println(F("WiFi > Using WiFiManager Config Portal"));
     WiFiManagerParameter custom_text("<p><strong>Willkommen zur Einrichtung deines WifiWhirl WLAN-Moduls!</strong></p><p>Verbinde dich hier mit deinem WLAN, um mit der Einrichtung zu beginnen.</p>");
 
-    wm.setClass("invert");                  // WM Dark Mode
-    wm.setShowInfoErase(false);             // WM Disable Erase Button
-    wm.addParameter(&custom_text);          // WM Show WifiWhirl Text
-    //wm.setConfigPortalBlocking(false);      // WM Disable Config Portal Blocking (trys to reconnect to known network automatically)
+    wm.setClass("invert");         // WM Dark Mode
+    wm.setShowInfoErase(false);    // WM Disable Erase Button
+    wm.addParameter(&custom_text); // WM Show WifiWhirl Text
+    // wm.setConfigPortalBlocking(false);      // WM Disable Config Portal Blocking (trys to reconnect to known network automatically)
     wm.autoConnect(wmApName, wmApPassword); // WM start Config Portal AP
 
     // Serial.print(F("WiFi > Trying to connect ..."));
@@ -641,6 +642,13 @@ void startHttpServer()
     server->on(F("/cmdq_file/"), handle_cmdq_file);
     server->on(F("/hook/"), handleWebhook);
     // server->on(F("/getfiles/"), updateFiles);
+
+    server->on(F("/update"), HTTP_GET, []()
+               {
+      if(!server->authenticate("update", OTAPassword)) { return server->requestAuthentication(); } handleUpdate(); });
+
+    // handle Update from web
+    httpUpdater.setup(server, update_path, "update", OTAPassword);
 
     // if someone requests any other file or page, go to function 'handleNotFound'
     // and check if the file exists
@@ -1298,14 +1306,14 @@ void resetWiFi()
     bwc->stop();
     bwc->saveSettings();
     delay(1000);
-// #if defined(ESP8266)
-//     ESP.eraseConfig();
-// #endif
-//     delay(1000);
-//     wm.resetSettings();
-//     startWiFiConfigPortal();
-//     // WiFi.disconnect();
-//     delay(1000);
+    // #if defined(ESP8266)
+    //     ESP.eraseConfig();
+    // #endif
+    //     delay(1000);
+    //     wm.resetSettings();
+    //     startWiFiConfigPortal();
+    //     // WiFi.disconnect();
+    //     delay(1000);
 }
 
 /**
@@ -1605,6 +1613,14 @@ void handleRestart()
     Serial.println(F("ESP restart ..."));
     ESP.restart();
     delay(3000);
+}
+
+/**
+ * response for /update
+ */
+void handleUpdate()
+{
+    handleFileRead("update.html");
 }
 
 /**
