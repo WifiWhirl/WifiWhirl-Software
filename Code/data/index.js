@@ -146,7 +146,7 @@ function handlemsg(e) {
       document.getElementById("rssi").className = "waveStrength-1";
     }
 
-    document.getElementById("rssi").title = "RSSI: " + msgobj.RSSI;
+    document.getElementById("rssi2").setAttribute("data-text", "RSSI: " + msgobj.RSSI);
 
     // hydro jets available
     try {

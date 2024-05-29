@@ -544,7 +544,7 @@ a.topnavicon {
   box-shadow: inset -1px -1px 1px 0px rgba(0, 0, 0, 0.25);
 }
 
-.tooltip:before {
+.tooltip::before {
   content: attr(data-text);
   position: absolute;
   top: 30%;
@@ -565,14 +565,7 @@ a.topnavicon {
 	transition: .3s opacity; */
 }
 
-.tooltip.left:before {
-  left: initial;
-  margin: initial;
-  right: 100%;
-  margin-right: 15px;
-}
-
-.tooltip:after {
+.tooltip::after {
   content: "";
   position: absolute;
   top: 30%;
@@ -587,16 +580,10 @@ a.topnavicon {
 	transition: .3s opacity; */
 }
 
-.tooltip.left:after {
-  left: initial;
-  margin: initial;
-  right: 100%;
-  margin-right: -5px;
-  border-color: transparent transparent transparent var(--accent-color);
-}
-
-.tooltip:hover:before,
-.tooltip:hover:after {
+.tooltip:focus::before,
+.tooltip:focus::after,
+.tooltip:hover::before,
+.tooltip:hover::after {
   /* display: block; */
   visibility: visible;
   /* opacity: 1; */
@@ -766,6 +753,7 @@ input:checked + .slider:before {
   }
 }
 
+/* rssi signal symbol */
 .wave {
 	display: inline-block;
 	border: 5px solid transparent;
@@ -783,4 +771,52 @@ input:checked + .slider:before {
 .waveStrength-1 .wv3.wave,
 .waveStrength-1 .wv2.wave {
 	border-top-color: #eee;
-}  
+}
+
+.rssi2 {
+  position: relative;
+  display: inline-block;
+}
+
+.rssi2::before {
+  content: attr(data-text);
+  position: absolute;
+  top: 30%;
+  transform: translateY(-40%);
+  left: 100%;
+  /* margin-left: 0px; */
+  width: 70px;
+  color: #444;
+  background: #ccc;
+  text-align: left;
+  padding: 6px;
+  border-radius: 14px;
+  border: 2px solid var(--accent-color);
+  z-index: 1;
+  /* display: none; */
+  visibility: hidden;
+  /* opacity: 0;
+	transition: .3s opacity; */
+}
+
+.rssi2::after {
+  content: "";
+  position: absolute;
+  top: 30%;
+  transform: translateY(-30%);
+  left: 70%;
+  margin-left: -5px;
+  border: 10px solid var(--accent-color);
+  border-color: transparent var(--accent-color) transparent transparent;
+  /* display: none; */
+  visibility: hidden;
+  /* opacity: 0;
+	transition: .3s opacity; */
+}
+
+.rssi2:hover::before,
+.rssi2:hover::after {
+  /* display: block; */
+  visibility: visible;
+  /* opacity: 1; */
+}
