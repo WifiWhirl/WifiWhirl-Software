@@ -6,9 +6,6 @@ BWC *bwc;
 char *stack_start;
 uint32_t heap_water_mark;
 
-ESP_WiFiManager wm;
-ESP8266HTTPUpdateServer httpUpdater;
-
 // Setup a oneWire instance to communicate with any OneWire devices
 // Setting arbitrarily to 231 since this isn't an actual pin
 // Later during "setup" the correct pin will be set, if enabled
@@ -127,6 +124,7 @@ void loop()
             startHttpServer();
             startWebSocket();
         }
+
         // reset marker
         wifiConnected = true;
     }
@@ -138,26 +136,11 @@ void loop()
         if (wifiConnected)
         {
             // Serial.println(F("WiFi > Lost connection. Trying to reconnect ..."));
+            server->stop();
+            webSocket->close();
         }
         // set marker
         wifiConnected = false;
-
-        // TEST: Trying to fix autoreconnect issue
-        // startWiFi(); // Nope. Does NOT work.
-        // maybe WifiManager.reconnect(); ???
-        // or
-        // startWiFiConfigPortal()
-        // or
-        // wm.autoConnect(wmApName, wmApPassword);
-
-        // Example from https://github.com/tzapu/WiFiManager/issues/1588
-        // wm.setConfigPortalTimeout(0);
-        // while (WiFi.status() != WL_CONNECTED)
-        // { // Continue attempting to connect until a successful connection is made
-        //     delay(5000);
-        //     WiFi.begin(); // Try to connect to the WLAN again
-        // }
-        // TESTEND
     }
 
     // run every X seconds
@@ -185,6 +168,7 @@ void loop()
                 // Serial.println(F("MQTT > Not connected"));
                 mqttConnect();
             }
+            
         }
         // Keep for later integrations
         // // Leverage the pre-existing periodicTimerFlag to also set temperature, if enabled
@@ -408,6 +392,8 @@ void startWiFi()
 void startWiFiConfigPortal()
 {
     Serial.println(F("WiFi > Using WiFiManager Config Portal"));
+    ESP_WiFiManager wm;
+
     WiFiManagerParameter custom_text("<p><strong>Willkommen zur Einrichtung deines WifiWhirl WLAN-Moduls!</strong></p><p>Verbinde dich hier mit deinem WLAN, um mit der Einrichtung zu beginnen.</p>");
 
     wm.setClass("invert");         // WM Dark Mode
@@ -434,7 +420,7 @@ void startNTP()
     wifi_info = loadWifi();
     Serial.println(F("start NTP"));
     // configTime(0,0,"pool.ntp.org", "time.nist.gov");
-    configTime(0, 0, wifi_info.ip4NTP_str, F("de.pool.ntp.org"), F("time.nist.gov"));
+    configTime(0, 0, wifi_info.ip4NTP_str, F("0.de.pool.ntp.org"), F("1.de.pool.ntp.org"));
     time_t now = time(nullptr);
     int count = 0;
     while (now < 8 * 3600 * 2)
@@ -607,6 +593,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
  */
 void startHttpServer()
 {
+    ESP8266HTTPUpdateServer httpUpdater;
     server = new ESP8266WebServer(80);
     // In case we are already running
     server->stop();
