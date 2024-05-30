@@ -3,6 +3,8 @@
   --action-btn-color-dark: #cfcfcf9c;
   --action-btn-color: #9898989c;
   --btn-round-color: #545454;
+  --font-family: Roboto, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+  "Segoe UI Symbol", "Noto Color Emoji";
 }
 
 @font-face {
@@ -14,8 +16,8 @@
 }
 
 body {
-  font-family: Roboto, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-    "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: ui-sans-serif, system-ui;
+  font-family: var(--font-family);
   color: #444;
   margin: 0;
 }
@@ -295,6 +297,11 @@ input[type="range"]::-ms-track {
   box-shadow: none;
   border: none;
   background: transparent;
+}
+
+input[type="datetime-local"] {
+  font-family: ui-sans-serif, system-ui;
+  font-family: var(--font-family);
 }
 
 input:invalid {
