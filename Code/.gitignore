@@ -3,6 +3,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+src/config.h.template
 fw/firmware.bin
 datazip
 data/wifi.json

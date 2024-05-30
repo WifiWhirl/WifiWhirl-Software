@@ -6,6 +6,8 @@ BWC *bwc;
 char *stack_start;
 uint32_t heap_water_mark;
 
+ESP8266HTTPUpdateServer httpUpdater;
+
 // Setup a oneWire instance to communicate with any OneWire devices
 // Setting arbitrarily to 231 since this isn't an actual pin
 // Later during "setup" the correct pin will be set, if enabled
@@ -593,7 +595,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
  */
 void startHttpServer()
 {
-    ESP8266HTTPUpdateServer httpUpdater;
     server = new ESP8266WebServer(80);
     // In case we are already running
     server->stop();

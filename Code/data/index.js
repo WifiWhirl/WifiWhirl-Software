@@ -146,7 +146,9 @@ function handlemsg(e) {
       document.getElementById("rssi").className = "waveStrength-1";
     }
 
-    document.getElementById("rssi2").setAttribute("data-text", "RSSI: " + msgobj.RSSI);
+    document
+      .getElementById("rssi2")
+      .setAttribute("data-text", "RSSI: " + msgobj.RSSI);
 
     // hydro jets available
     try {
@@ -163,107 +165,111 @@ function handlemsg(e) {
       console.error(error);
     }
   }
+  try {
+    if (msgobj.CONTENT == "STATES") {
+      // temperature
+      document.getElementById("atlabel").innerHTML = msgobj.TMP.toString();
+      document.getElementById("vtlabel").innerHTML =
+        msgobj.VTM.toFixed(2).toString();
+      document.getElementById("ttlabel").innerHTML = msgobj.TGT.toString();
 
-  if (msgobj.CONTENT == "STATES") {
-    // temperature
-    document.getElementById("atlabel").innerHTML = msgobj.TMP.toString();
-    document.getElementById("vtlabel").innerHTML =
-      msgobj.VTM.toFixed(2).toString();
-    document.getElementById("ttlabel").innerHTML = msgobj.TGT.toString();
+      // buttons
+      document.getElementById("AIR").checked = msgobj.AIR;
+      if (document.getElementById("UNT").checked != msgobj.UNT) {
+        document.getElementById("UNT").checked = msgobj.UNT;
+        initControlValues = true;
+      }
+      document.getElementById("FLT").checked = msgobj.FLT;
+      document.getElementById("HJT").checked = msgobj.HJT;
+      document.getElementById("HTR").checked = msgobj.RED || msgobj.GRN;
 
-    // buttons
-    document.getElementById("AIR").checked = msgobj.AIR;
-    if (document.getElementById("UNT").checked != msgobj.UNT) {
-      document.getElementById("UNT").checked = msgobj.UNT;
-      initControlValues = true;
+      // heater button color
+      document.getElementById("htrspan").classList.remove("heateron");
+      document.getElementById("htrspan").classList.remove("heateroff");
+      if (msgobj.RED || msgobj.GRN) {
+        document
+          .getElementById("htrspan")
+          .classList.add(
+            msgobj.RED ? "heateron" : msgobj.GRN ? "heateroff" : "n-o-n-e"
+          );
+      }
+
+      // display
+      document.getElementById("display").innerHTML =
+        "[" + String.fromCharCode(msgobj.CH1, msgobj.CH2, msgobj.CH3) + "]";
+      document.getElementById("display").style.color = rgb(
+        255 -
+          dspBrtMultiplier * 8 +
+          dspBrtMultiplier * (parseInt(msgobj.BRT) + 1),
+        0,
+        0
+      );
+
+      // set control values (once)
+      if (initControlValues) {
+        var minTemp = msgobj.UNT ? 20 : 68;
+        var maxTemp = msgobj.UNT ? 40 : 104;
+        var minAmb = msgobj.UNT ? -40 : -40;
+        var maxAmb = msgobj.UNT ? 60 : 140;
+        document.getElementById("temp").min = minTemp;
+        document.getElementById("temp").max = maxTemp;
+        document.getElementById("selectorTemp").min = minTemp;
+        document.getElementById("selectorTemp").max = maxTemp;
+        document.getElementById("amb").min = minAmb;
+        document.getElementById("amb").max = maxAmb;
+        document.getElementById("selectorAmb").min = minAmb;
+        document.getElementById("selectorAmb").max = maxAmb;
+
+        document.getElementById("temp").value = msgobj.TGT;
+        document.getElementById("amb").value = msgobj.AMB;
+        document.getElementById("brt").value = msgobj.BRT;
+
+        initControlValues = false;
+      }
+
+      document.getElementById("sliderTempVal").innerHTML = msgobj.TGT;
+      document.getElementById("sliderAmbVal").innerHTML = msgobj.AMB;
+      document.getElementById("sliderBrtVal").innerHTML = msgobj.BRT;
+
+      // get selector elements
+      var elemSelectorTemp = document.getElementById("selectorTemp");
+      var elemSelectorAmb = document.getElementById("selectorAmb");
+      var elemSelectorBrt = document.getElementById("selectorBrt");
+
+      // change values only if element is not active (selected for input)
+      // also change only if an update is not in progress
+      if (document.activeElement !== elemSelectorTemp && !updateTempState) {
+        elemSelectorTemp.value = msgobj.TGT;
+        elemSelectorTemp.parentElement.querySelector(
+          ".numDisplay"
+        ).textContent = msgobj.TGT;
+      }
+      if (document.activeElement !== elemSelectorAmb && !updateAmbState) {
+        elemSelectorAmb.value = msgobj.AMB;
+        elemSelectorAmb.parentElement.querySelector(".numDisplay").textContent =
+          msgobj.AMB;
+      }
+      if (document.activeElement !== elemSelectorBrt && !updateBrtState)
+        elemSelectorBrt.value = msgobj.BRT;
+
+      // reset update states when the set target matches the input
+      if (elemSelectorTemp.value == msgobj.TGT) updateTempState = false;
+      if (elemSelectorAmb.value == msgobj.AMB) updateAmbState = false;
+      if (elemSelectorBrt.value == msgobj.BRT) updateBrtState = false;
+
+      const unitsymbols = document.querySelectorAll("[id=unitcf]");
+      if (msgobj.UNT) {
+        unitsymbols.forEach((unitsymbol) => {
+          unitsymbol.innerHTML = "C";
+        });
+      } else {
+        unitsymbols.forEach((unitsymbol) => {
+          unitsymbol.innerHTML = "F";
+        });
+      }
     }
-    document.getElementById("FLT").checked = msgobj.FLT;
-    document.getElementById("HJT").checked = msgobj.HJT;
-    document.getElementById("HTR").checked = msgobj.RED || msgobj.GRN;
-
-    // heater button color
-    document.getElementById("htrspan").classList.remove("heateron");
-    document.getElementById("htrspan").classList.remove("heateroff");
-    if (msgobj.RED || msgobj.GRN) {
-      document
-        .getElementById("htrspan")
-        .classList.add(
-          msgobj.RED ? "heateron" : msgobj.GRN ? "heateroff" : "n-o-n-e"
-        );
-    }
-
-    // display
-    document.getElementById("display").innerHTML =
-      "[" + String.fromCharCode(msgobj.CH1, msgobj.CH2, msgobj.CH3) + "]";
-    document.getElementById("display").style.color = rgb(
-      255 -
-        dspBrtMultiplier * 8 +
-        dspBrtMultiplier * (parseInt(msgobj.BRT) + 1),
-      0,
-      0
-    );
-
-    // set control values (once)
-    if (initControlValues) {
-      var minTemp = msgobj.UNT ? 20 : 68;
-      var maxTemp = msgobj.UNT ? 40 : 104;
-      var minAmb = msgobj.UNT ? -40 : -40;
-      var maxAmb = msgobj.UNT ? 60 : 140;
-      document.getElementById("temp").min = minTemp;
-      document.getElementById("temp").max = maxTemp;
-      document.getElementById("selectorTemp").min = minTemp;
-      document.getElementById("selectorTemp").max = maxTemp;
-      document.getElementById("amb").min = minAmb;
-      document.getElementById("amb").max = maxAmb;
-      document.getElementById("selectorAmb").min = minAmb;
-      document.getElementById("selectorAmb").max = maxAmb;
-
-      document.getElementById("temp").value = msgobj.TGT;
-      document.getElementById("amb").value = msgobj.AMB;
-      document.getElementById("brt").value = msgobj.BRT;
-
-      initControlValues = false;
-    }
-
-    document.getElementById("sliderTempVal").innerHTML = msgobj.TGT;
-    document.getElementById("sliderAmbVal").innerHTML = msgobj.AMB;
-    document.getElementById("sliderBrtVal").innerHTML = msgobj.BRT;
-
-    // get selector elements
-    var elemSelectorTemp = document.getElementById("selectorTemp");
-    var elemSelectorAmb = document.getElementById("selectorAmb");
-    var elemSelectorBrt = document.getElementById("selectorBrt");
-
-    // change values only if element is not active (selected for input)
-    // also change only if an update is not in progress
-    if (document.activeElement !== elemSelectorTemp && !updateTempState) {
-      elemSelectorTemp.value = msgobj.TGT;
-      elemSelectorTemp.parentElement.querySelector(".numDisplay").textContent =
-        msgobj.TGT;
-    }
-    if (document.activeElement !== elemSelectorAmb && !updateAmbState) {
-      elemSelectorAmb.value = msgobj.AMB;
-      elemSelectorAmb.parentElement.querySelector(".numDisplay").textContent =
-        msgobj.AMB;
-    }
-    if (document.activeElement !== elemSelectorBrt && !updateBrtState)
-      elemSelectorBrt.value = msgobj.BRT;
-
-    // reset update states when the set target matches the input
-    if (elemSelectorTemp.value == msgobj.TGT) updateTempState = false;
-    if (elemSelectorAmb.value == msgobj.AMB) updateAmbState = false;
-    if (elemSelectorBrt.value == msgobj.BRT) updateBrtState = false;
-
-    const unitsymbols = document.querySelectorAll("[id=unitcf]");
-    if (msgobj.UNT) {
-      unitsymbols.forEach((unitsymbol) => {
-        unitsymbol.innerHTML = "C";
-      });
-    } else {
-      unitsymbols.forEach((unitsymbol) => {
-        unitsymbol.innerHTML = "F";
-      });
-    }
+  } catch (error) {
+    console.error(error);
   }
   try {
     if (msgobj.CONTENT == "TIMES") {
