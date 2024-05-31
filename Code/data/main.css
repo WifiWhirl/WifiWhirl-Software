@@ -3,7 +3,7 @@
   --action-btn-color-dark: #cfcfcf9c;
   --action-btn-color: #9898989c;
   --btn-round-color: #545454;
-  --font-family: Roboto, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+  --font-family: "Roboto", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
   "Segoe UI Symbol", "Noto Color Emoji";
 }
 
@@ -11,7 +11,7 @@
   font-family: 'Roboto';
   font-display: swap; 
   src: local('Roboto'),
-       url('Roboto-Regular.woff') format('woff')
+       url('Roboto-Regular.woff') format('woff'),
        url('Roboto-Regular.eot') format('embedded-opentype');
 }
 
