@@ -144,19 +144,6 @@
         }
       }
 
-      function disableAll() {
-        document.getElementById("sectionUpdate").style.display = "block";
-      }
-
-      function enableAll() {
-        //document.getElementById("sectionUpdate").style.display = "none";
-        return;
-      }
-
-      function _(el) {
-        return document.getElementById(el);
-      }
-
       function formatBytes(bytes, decimals = 2) {
         // from https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
         if (!+bytes) return "0 Bytes";
@@ -183,99 +170,110 @@
       }
 
       function uploadFile() {
-        var file = _("file1").files[0];
-        if (_("file1").name == "firmware" && !file.name.endsWith(".fw.bin")) {
+        const file = document.getElementById("file1").files[0];
+        if (
+          document.getElementById("file1").name == "firmware" &&
+          !file.name.endsWith(".fw.bin")
+        ) {
           alert("Diese Datei ist nicht für das Softwareupdate vorgesehen!");
           return;
         } else if (
-          _("file1").name == "filesystem" &&
+          document.getElementById("file1").name == "filesystem" &&
           !file.name.endsWith(".fs.bin")
         ) {
           alert("Diese Datei ist nicht für das Dateisystemupdate vorgesehen!");
           return;
         }
 
-        var formdata = new FormData();
-        formdata.append(_("file1").name, file, file.name);
-        var ajax = new XMLHttpRequest();
-        ajax.upload.addEventListener("progress", progressHandler, false);
-        ajax.addEventListener("load", completeHandler, false);
-        ajax.addEventListener("loadstart", startHandler, false);
-        ajax.addEventListener("error", errorHandler, false);
-        ajax.addEventListener("abort", abortHandler, false);
-        ajax.open("POST", "/update"); // http://www.developphp.com/video/JavaScript/File-Upload-Progress-Bar-Meter-Tutorial-Ajax-PHP
-        //use file_upload_parser.php from above url
-        ajax.setRequestHeader("Access-Control-Allow-Headers", "*");
-        ajax.setRequestHeader("Access-Control-Allow-Origin", "*");
+        // prepare a file object
+        const formData = new FormData();
+        formData.append(document.getElementById("file1").name, file, file.name);
 
-        ajax.send(formdata);
+        const xhr = new XMLHttpRequest();
+
+        // listen for `upload.load` event
+        xhr.upload.onload = () => {
+          document.getElementById("status").innerHTML =
+            "Upload erfolgreich!<br />Das WifiWhirl-Modul startet neu.<br />Es kann bis zu 5 Minuten dauern, bis das WifiWhirl-Modul wieder erreichbar ist.<br /><br />Sollte es nach 5 Minuten nicht erreichbar sein, trenne die Stromversorgung deiner Pumpe für 10 Sekunden und versuche es danach erneut."; //event.target.responseText;
+          document.getElementById("progressBar").value = 0;
+          document.getElementById("progressBar").style.display = "none";
+          document.getElementById("loaded_n_total").style.display = "none";
+          document.getElementById("switch-container").style.display = "none";
+          document.getElementById("file1").style.display = "none";
+          document.getElementById("button-send").style.display = "none";
+        };
+
+        // listen for `upload.error` event
+        xhr.upload.onerror = () => {
+          document.getElementById("status").innerHTML =
+            "Upload fehlgeschlagen!";
+        };
+
+        // listen for `upload.abort` event
+        xhr.upload.onabort = () => {
+          document.getElementById("status").innerHTML = "Upload abgebrochen!";
+        };
+
+        // listen for `progress` event
+        xhr.upload.onprogress = (event) => {
+          document.getElementById("progressBar").style.display = "block";
+          document.getElementById("loaded_n_total").innerHTML =
+            formatBytes(event.loaded) +
+            " von " +
+            formatBytes(event.total) +
+            " hochgeladen";
+          var percent = Math.round((event.loaded / event.total) * 100);
+          document.getElementById("progressBar").value = percent;
+          document.getElementById("status").innerHTML =
+            percent + "% hochgeladen... bitte warten";
+        };
+
+        // open request
+        xhr.open("POST", "/update", true);
+
+        xhr.setRequestHeader("Access-Control-Allow-Headers", "*");
+        xhr.setRequestHeader("Access-Control-Allow-Origin", "*");
+
+        // send request
+        xhr.send(formData);
       }
 
-      function progressHandler(event) {
-        _("progressBar").style.display = "block";
-        _("loaded_n_total").innerHTML =
-          formatBytes(event.loaded) +
-          " von " +
-          formatBytes(event.total) +
-          " hochgeladen";
-        var percent = Math.round((event.loaded / event.total) * 100);
-        _("progressBar").value = percent;
-        _("status").innerHTML = percent + "% hochgeladen... bitte warten";
-      }
-
-      function completeHandler(event) {
-        enableAll();
-        _("status").innerHTML =
-          "Upload erfolgreich!<br />Das WifiWhirl-Modul startet neu.<br />Es kann bis zu 5 Minuten dauern, bis das WifiWhirl-Modul wieder erreichbar ist.<br /><br />Sollte es nach 5 Minuten nicht erreichbar sein, trenne die Stromversorgung deiner Pumpe für 10 Sekunden und versuche es danach erneut."; //event.target.responseText;
-        _("progressBar").value = 0; //wil clear progress bar after successful upload
-        _("progressBar").style.display = "none"; //wil hide progress bar after successful upload
-        _("loaded_n_total").style.display = "none";
-        _("switch-container").style.display = "none";
-        _("file1").style.display = "none";
-        _("button-send").style.display = "none";
-      }
-
-      function startHandler(event) {
-        disableAll();
-      }
-
-      function errorHandler(event) {
-        enableAll();
-        _("status").innerHTML = "Upload fehlgeschlagen!";
-      }
-
-      function abortHandler(event) {
-        enableAll();
-        _("status").innerHTML = "Upload abgebrochen!";
-      }
-
-      _("upload_form").addEventListener("submit", (e) => {
+      document.getElementById("upload_form").addEventListener("submit", (e) => {
         e.preventDefault();
         uploadFile();
       });
 
-      _("firmware-button").addEventListener("click", function (e) {
-        e.target.classList.add("selected");
-        _("filesystem-button").classList.remove("selected");
-        _("file1").name = "firmware";
-        _("file1").accept = ".fw.bin";
-      });
-      _("filesystem-button").addEventListener("click", function (e) {
-        e.target.classList.add("selected");
-        _("firmware-button").classList.remove("selected");
-        _("file1").name = "filesystem";
-        _("file1").accept = ".fs.bin";
-      });
-      _("file1").addEventListener("change", function (e) {
-        var file = _("file1").files[0];
+      document
+        .getElementById("firmware-button")
+        .addEventListener("click", function (e) {
+          e.target.classList.add("selected");
+          document
+            .getElementById("filesystem-button")
+            .classList.remove("selected");
+          document.getElementById("file1").name = "firmware";
+          document.getElementById("file1").accept = ".fw.bin";
+        });
+      document
+        .getElementById("filesystem-button")
+        .addEventListener("click", function (e) {
+          e.target.classList.add("selected");
+          document
+            .getElementById("firmware-button")
+            .classList.remove("selected");
+          document.getElementById("file1").name = "filesystem";
+          document.getElementById("file1").accept = ".fs.bin";
+        });
+      document.getElementById("file1").addEventListener("change", function (e) {
+        var file = document.getElementById("file1").files[0];
         if (file && file.name) {
-          _("button-send").disabled = false;
-          _("progressBar").value = 0; // clear progressbar after upload
+          document.getElementById("button-send").disabled = false;
+          document.getElementById("progressBar").value = 0; // clear progressbar after upload
         } else {
-          _("button-send").disabled = true;
+          document.getElementById("button-send").disabled = true;
         }
-        _("status").innerHTML = "Klicke auf Upload, um das Update zu starten.";
-        _("loaded_n_total").innerHTML = "";
+        document.getElementById("status").innerHTML =
+          "Klicke auf Upload, um das Update zu starten.";
+        document.getElementById("loaded_n_total").innerHTML = "";
       });
     </script>
 
