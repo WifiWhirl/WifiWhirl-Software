@@ -1,313 +1,547 @@
 <!DOCTYPE html>
 <html ontouchmove>
-<head>
-	<title>WifiWhirl</title>
-	<meta charset="utf-8">
-	<link rel="icon" type="image/png" sizes="180x180" href="favicon.png">
-	<meta name="theme-color" content="#4051b5">
-	<link rel="manifest" href="manifest.json">
-	<link rel="stylesheet" href="main.css">
-	<meta  name="viewport" content="width=device-width, initial-scale=1 maximum-scale=1">
-	<script src="function.js" type="text/javascript"></script>
-	<script src="index.js" type="text/javascript"></script>
-</head>
+  <head>
+    <title>WifiWhirl</title>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" sizes="180x180" href="logo.png" />
+    <meta name="theme-color" content="#4051b5" />
+    <link rel="manifest" href="manifest.json" />
+    <link
+      rel="stylesheet"
+      href="main.css"
+      onload="this.media='all'; this.onload=null;"
+    />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1 maximum-scale=1"
+    />
+    <script src="function.js" type="text/javascript"></script>
+    <script src="index.js" type="text/javascript"></script>
+  </head>
 
+  <body>
+    <div id="site">
+      <header>
+        <form id="darkModeForm">
+          <label class="switch">
+            <input
+              type="checkbox"
+              id="darkModeToggle"
+              onchange="toggleDarkMode()"
+            />
+            <span class="slider round moon"></span>
+          </label>
+        </form>
+        <a href="./"
+          ><div id="header">
+            <span>Willkommen</span><span id="fw">WifiWhirl</span>
+          </div></a
+        >
+        <a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
+      </header>
 
-<body>
-	<div id="site">
-		<header>
+      <div class="topnav" id="topnav">
+        <a href="./" class="active">Übersicht</a>
+        <a href="hwconfig.html">Hardware-Konfiguration</a>
+        <a href="config.html">SPA-Konfiguration</a>
+        <a href="webconfig.html">Web-Konfiguration</a>
+        <a href="wifi.html">Netzwerkkonfiguration</a>
+        <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="/restart/">WifWhirl Modul neu starten</a>
+      </div>
 
-			<form id="darkModeForm">
-                <label class="switch">
-                    <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
-                    <span class="slider round moon"></span>
-                </label>
-            </form>
-			<a href="./"><div id="header"><span>Wilkommen</span><span>WifiWhirl</span></div></a>
-			<a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
-		</header>
+      <section id="sectionDisplay">
+        <table>
+          <tr>
+            <td class="center"><div id="display">[DSP]</div></td>
+          </tr>
+        </table>
+      </section>
 
-		<div class="topnav" id="topnav">
-			<a href="./" class="active">Übersicht</a>
-			<a href="hwconfig.html">Hardware-Konfiguration</a>
-			<a href="config.html">SPA-Konfiguration</a>
-			<a href="webconfig.html">Web-Konfiguration</a>
-			<a href="wifi.html">Netzwerkkonfiguration</a>
-			<a href="mqtt.html">MQTT-Konfiguration</a>
-			<a href="/restart/">WifWhirl Modul neu starten<a>
-		</div>
+      <section id="sectionTemperature">
+        <div class="visualapproach"></div>
+        <h2>Temperatur</h2>
+        <table class="fixed">
+          <tr>
+            <td>Aktuell:</td>
+            <td>
+              <span id="atlabel">unbek.</span> °<span id="unitcf">C</span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Virtuell:
+              <span
+                data-text="Das WifiWhirl Modul versucht, die Wassertemperatur auch dann im Auge zu behalten, wenn die Pumpe gestoppt ist und die Temperatur in der Pumpe schneller abfällt als im Pool. Verwendet Umgebungstemperatur. Muss vor der Verwendung kalibriert werden. Siehe SPA-Konfigurationsseite."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <span id="vtlabel">unbek.</span> °<span id="unitcf">C</span>
+            </td>
+          </tr>
+          <tr>
+            <td>Ziel:</td>
+            <td>
+              <span id="ttlabel">unbek.</span> °<span id="unitcf">C</span>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-		<section id="sectionDisplay">
-			<table>
-				<tr>
-					<td class="center"><div id="display">[DSP]</div></td>
-				</tr>
-			</table>
-		</section>
+      <section id="sectionControl">
+        <h2>Steuerung</h2>
+        <table id="tableSlider">
+          <tr>
+            <td style="width: 40%">Zieltemperatur</td>
+            <td style="width: 50%">
+              <input
+                type="range"
+                id="temp"
+                min="20"
+                max="40"
+                step="1"
+                value="20"
+                onmousemove="showpreviewval('temp', 'sliderTempVal')"
+                onmousedown="showpreviewval('temp', 'sliderTempVal')"
+                ontouchmove="showpreviewval('temp', 'sliderTempVal')"
+                onmouseup="sendCommand('setTarget')"
+                ontouchend="sendCommand('setTarget')"
+              />
+            </td>
+            <td style="width: 10%; text-align: right">
+              <span id="sliderTempVal">unbek.</span> °
+            </td>
+          </tr>
+          <tr>
+            <td>Umgebungstemp.</td>
+            <td>
+              <input
+                type="range"
+                id="amb"
+                min="-20"
+                max="40"
+                step="1"
+                value="20"
+                onmousemove="showpreviewval('amb', 'sliderAmbVal')"
+                onmousedown="showpreviewval('amb', 'sliderAmbVal')"
+                ontouchmove="showpreviewval('amb', 'sliderAmbVal')"
+                onmouseup="sendCommand('setAmbient')"
+                ontouchend="sendCommand('setAmbient')"
+              />
+            </td>
+            <td style="text-align: right">
+              <span id="sliderAmbVal">unbek.</span> °
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Helligkeit
+              <span
+                data-text="Wenn auf '0' eingestellt, ist das Display und alle Tasten auf der Pumpe komplett gedimmt (ausgeschaltet), leuchten jedoch 5 Sekunden lang auf, wenn eine Taste gedrückt wird."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <input
+                type="range"
+                id="brt"
+                min="0"
+                max="8"
+                step="1"
+                value="7"
+                onmousemove="showpreviewval('brt', 'sliderBrtVal')"
+                onmousedown="showpreviewval('brt', 'sliderBrtVal')"
+                ontouchmove="showpreviewval('brt', 'sliderBrtVal')"
+                onmouseup="sendCommand('setBrightness')"
+                ontouchend="sendCommand('setBrightness')"
+              />
+            </td>
+            <td style="text-align: right">
+              <span id="sliderBrtVal">unbek.</span>
+            </td>
+          </tr>
+        </table>
 
-		<section id="sectionTemperature">
-			<div class="visualapproach"></div>
-			<h2>Temperatur:</h2>
-			<table class="fixed">
-				<tr>
-					<td>Aktuell:</td>
-					<td><span id="atlabel">unbek.</span>°</td>
-				</tr>
-				<tr>
-					<td>Virtuell: <span data-text="Das WifiWhirl Modul versucht, die Wassertemperatur auch dann im Auge zu behalten, wenn die Pumpe gestoppt ist und die Temperatur in der Pumpe schneller abfällt als im großen Wasserreservoir. Verwendet Umgebungstemperatur. Muss vor der Verwendung kalibriert werden. Siehe SPA-Konfigurationsseite." class="tooltip">?</span></td>
-					<td><span id="vtlabel">unbek.</span>°</td>
-				</tr>
-				<tr>
-					<td>Ziel:</td>
-					<td><span id="ttlabel">unbek.</span>°</td>
-				</tr>
-			</table>
-		</section>
+        <table id="tableSelector" class="fixed">
+          <tr>
+            <td class="center">Zieltemperatur</td>
+            <td class="center">Umgebungstemp.</td>
+            <td class="center">
+              Helligkeit
+              <span
+                data-text="Wenn auf '0' eingestellt, ist das Display und alle Tasten auf der Pumpe komplett gedimmt (ausgeschaltet), leuchten jedoch 5 Sekunden lang auf, wenn eine Taste gedrückt wird."
+                class="tooltip left"
+                >?</span
+              >
+            </td>
+          </tr>
+          <tr>
+            <td class="center">
+              <div class="selector">
+                <button
+                  onclick="increaseNumber('selectorTemp');sendCommand('setTargetSelector')"
+                  class="selectorbutton selectortop"
+                >
+                  ᐱ
+                </button>
+                <input
+                  style="display: none"
+                  type="number"
+                  id="selectorTemp"
+                  min="20"
+                  max="40"
+                  step="1"
+                  value="20"
+                  type="text"
+                  class="selectorvalue"
+                  onchange="sendCommand('setTargetSelector')"
+                />
+                <div class="wrapper">
+                  <span class="numDisplay"></span>
+                </div>
+                <button
+                  onclick="decreaseNumber('selectorTemp');sendCommand('setTargetSelector')"
+                  class="selectorbutton selectorbottom"
+                >
+                  ᐯ
+                </button>
+              </div>
+            </td>
+            <td class="center">
+              <div class="selector">
+                <button
+                  onclick="increaseNumber('selectorAmb');sendCommand('setAmbientSelector')"
+                  class="selectorbutton selectortop"
+                >
+                  ᐱ
+                </button>
+                <input
+                  style="display: none"
+                  type="number"
+                  id="selectorAmb"
+                  min="-40"
+                  max="60"
+                  step="1"
+                  value="20"
+                  type="text"
+                  class="selectorvalue"
+                  onchange="sendCommand('setAmbientSelector')"
+                />
+                <div class="wrapper">
+                  <span class="numDisplay"></span>
+                </div>
+                <button
+                  onclick="decreaseNumber('selectorAmb');sendCommand('setAmbientSelector')"
+                  class="selectorbutton selectorbottom"
+                >
+                  ᐯ
+                </button>
+              </div>
+            </td>
+            <td class="center">
+              <div class="selector">
+                <button
+                  onclick="increaseNumber('selectorBrt');sendCommand('setBrightnessSelector')"
+                  class="selectorbutton selectortop"
+                >
+                  ᐱ
+                </button>
+                <input
+                  type="number"
+                  id="selectorBrt"
+                  min="0"
+                  max="8"
+                  step="1"
+                  value="7"
+                  type="text"
+                  class="selectorvalue"
+                  onchange="sendCommand('setBrightnessSelector')"
+                />
+                <button
+                  onclick="decreaseNumber('selectorBrt');sendCommand('setBrightnessSelector')"
+                  class="selectorbutton selectorbottom"
+                >
+                  ᐯ
+                </button>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-		<section id="sectionControl">
-			<h2>Steuerung:</h2>
-			<table id="tableSlider">
-				<tr>
-					<td style="width:40%;">Zieltemperatur</td>
-					<td style="width:50%"><input type="range" id="temp" min="20" max="40" step="1" value="20" onmousemove="showpreviewval('temp', 'sliderTempVal')" ontouchmove="showpreviewval('temp', 'sliderTempVal')" onmouseup="sendCommand('setTarget')" ontouchend="sendCommand('setTarget')"></td>
-					<td style="width:10%;text-align:right"><span id="sliderTempVal">unbek.</span>°</td>
-				</tr>
-				<tr>
-					<td>Umgebungstemp.</td>
-					<td><input type="range" id="amb" min="-20" max="40" step="1" value="20" onmousemove="showpreviewval('amb', 'sliderAmbVal')" ontouchmove="showpreviewval('amb', 'sliderAmbVal')" onmouseup="sendCommand('setAmbient')" ontouchend="sendCommand('setAmbient')"></td>
-					<td style="text-align:right"><span id="sliderAmbVal">unbek.</span>°</td>
-				</tr>
-				<tr>
-					<td>Helligkeit <span data-text="Denk daran: Wenn auf '0' eingestellt, ist das Display und alle Tasten auf der Pumpe komplett gedimmt (ausgeschaltet), leuchten jedoch 5 Sekunden lang auf, wenn eine Taste gedrückt wird." class="tooltip">?</span></td>
-					<td><input type="range" id="brt" min="0" max="8" step="1" value="7" onmousemove="showpreviewval('brt', 'sliderBrtVal')" ontouchmove="showpreviewval('brt', 'sliderBrtVal')" onmouseup="sendCommand('setBrightness')" ontouchend="sendCommand('setBrightness')"></td>
-					<td style="text-align:right"><span id="sliderBrtVal">unbek.</span></td>
-				</tr>
-			</table>
+      <section id="sectionButtons">
+        <h2>Tasten</h2>
+        <table class="fixed">
+          <tr>
+            <td class="right">Airjet</td>
+            <td>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  id="AIR"
+                  onchange="sendCommand('toggleBubbles')"
+                />
+                <span class="slider round"></span>
+              </label>
+            </td>
+            <td class="right">Heizung</td>
+            <td>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  id="HTR"
+                  onchange="sendCommand('toggleHeater')"
+                />
+                <span id="htrspan" class="slider round"></span>
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td class="right">Pumpe</td>
+            <td>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  id="FLT"
+                  onchange="sendCommand('togglePump')"
+                />
+                <span class="slider round"></span>
+              </label>
+            </td>
+            <td class="right">Einheit °F/°C</td>
+            <td>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  id="UNT"
+                  onchange="sendCommand('toggleUnit')"
+                />
+                <span class="slider round"></span>
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td id="jets" class="right">Hydrojet</td>
+            <td id="jetsswitch">
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  id="HJT"
+                  onchange="sendCommand('toggleHydroJets')"
+                />
+                <span class="slider round"></span>
+              </label>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-			<table id="tableSelector" class="fixed">
-				<tr>
-					<td class="center">Zieltemperatur</td>
-					<td class="center">Umgebungstemp.</td>
-					<td class="center">Helligkeit <span data-text="Denken Sie daran: Wenn auf '0' eingestellt, ist das Display und alle Tasten auf der Pumpe komplett gedimmt (ausgeschaltet), leuchten jedoch 5 Sekunden lang auf, wenn eine Taste gedrückt wird." class="tooltip left">?</span></td>
-				</tr>
-				<tr>
-					<td class="center">
-						<div class="selector">
-							<button onclick="increaseNumber('selectorTemp');sendCommand('setTargetSelector')" class="selectorbutton selectortop">ᐱ</button>
-							<input style="display:none" type="number" id="selectorTemp" min="20" max="40" step="1" value="20" type="text" class="selectorvalue" onchange="sendCommand('setTargetSelector')">
-							<div class="wrapper">
-								<span class="numDisplay"></span>
-							</div>
-							<button onclick="decreaseNumber('selectorTemp');sendCommand('setTargetSelector')" class="selectorbutton selectorbottom">ᐯ</button>
-						</div>
-					</td>
-					<td class="center">
-						<div class="selector">
-							<button onclick="increaseNumber('selectorAmb');sendCommand('setAmbientSelector')" class="selectorbutton selectortop">ᐱ</button>
-							<input style="display:none" type="number" id="selectorAmb" min="-40" max="60" step="1" value="20" type="text" class="selectorvalue" onchange="sendCommand('setAmbientSelector')">
-							<div class="wrapper">
-								<span class="numDisplay"></span>
-							</div>
-							<button onclick="decreaseNumber('selectorAmb');sendCommand('setAmbientSelector')" class="selectorbutton selectorbottom">ᐯ</button>
-						</div>
-					</td>
-					<td class="center">
-						<div class="selector">
-							<button onclick="increaseNumber('selectorBrt');sendCommand('setBrightnessSelector')" class="selectorbutton selectortop">ᐱ</button>
-							<input type="number" id="selectorBrt" min="0" max="8" step="1" value="7" type="text" class="selectorvalue" onchange="sendCommand('setBrightnessSelector')">
-							<button onclick="decreaseNumber('selectorBrt');sendCommand('setBrightnessSelector')" class="selectorbutton selectorbottom">ᐯ</button>
-						</div>
-					</td>
-				</tr>
-			</table>
-		</section>
+      <section id="sectionTimer">
+        <h2>Timer</h2>
+        <table>
+          <tr>
+            <td colspan="2">Zugabe von Chlor</td>
+          </tr>
+          <tr>
+            <td>vor <span id="cltimer">unbek.</span></td>
+            <td>
+              <button
+                id="cltimerbtn"
+                class="button"
+                onclick="buttonConfirm(this);sendCommand('resetTimerChlorine')"
+              >
+                zurücksetzen
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2">Filterwechsel</td>
+          </tr>
+          <tr>
+            <td>vor <span id="ftimer">unbek.</span></td>
+            <td>
+              <button
+                id="ftimerbtn"
+                class="button"
+                onclick="buttonConfirm(this);sendCommand('resetTimerFilter')"
+              >
+                zurücksetzen
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-		<section id="sectionButtons">
-			<h2>Tasten:</h2>
-			<table class="fixed">
-				<tr>
-					<td class="right">Airjet</td>
-					<td>
-						<label class="switch">
-						<input type="checkbox" id="AIR" onchange="sendCommand('toggleBubbles')">
-						<span class="slider round"></span>
-						</label>
-					</td>
-					<td class="right">Heizung</td>
-					<td>
-						<label class="switch">
-						<input type="checkbox" id="HTR" onchange="sendCommand('toggleHeater')">
-						<span id="htrspan" class="slider round"></span>
-						</label>
-					</td>
-				</tr>
-				<tr>
-					<td class="right">Pumpe</td>
-					<td>
-						<label class="switch">
-						<input type="checkbox" id="FLT" onchange="sendCommand('togglePump')">
-						<span class="slider round"></span>
-						</label>
-					</td>
-					<td class="right">Einheit °F/°C</td>
-					<td>
-						<label class="switch">
-						<input type="checkbox" id="UNT" onchange="sendCommand('toggleUnit')">
-						<span class="slider round"></span>
-						</label>
-					</td>
-				</tr>
-				<tr>
-					<td id="jets" class="right">Hydrojet</td>
-					<td id="jetsswitch">
-						<label class="switch">
-						<input type="checkbox" id="HJT" onchange="sendCommand('toggleHydroJets')">
-						<span class="slider round"></span>
-						</label>
-					</td>
-				</tr>
-			</table>
-		</section>
+      <section id="sectionTotals">
+        <h2>Zähler</h2>
+        <table class="fixed">
+          <tr>
+            <td>Aktuelle Zeit:</td>
+            <td><span id="time">unbek.</span></td>
+          </tr>
+          <tr>
+            <td>
+              Bereit in:
+              <span
+                data-text="Funktioniert am Besten, wenn die tatsächliche Umgebungstemperatur von beispielsweise Home-Assistant angegeben wird."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td><span id="t2r">unbek.</span></td>
+          </tr>
+          <tr>
+            <td>
+              Laufzeit:
+              <span
+                data-text="Gesamte Betriebszeit des WifiWhirl Moduls seit dem Zurücksetzen des Zählers. Ein Neustart setzt die Zählung fort."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td><span id="uptime">unbek.</span></td>
+          </tr>
+          <tr>
+            <td>Pumpe:</td>
+            <td><span id="filtertime">unbek.</span></td>
+          </tr>
+          <tr>
+            <td>Heizung:</td>
+            <td><span id="heatingtime">unbek.</span></td>
+          </tr>
+          <tr>
+            <td>Airjet:</td>
+            <td><span id="airtime">unbek.</span></td>
+          </tr>
+          <tr id="jetstotals">
+            <td>Hydrojet:</td>
+            <td><span id="jettime">unbek.</span></td>
+          </tr>
+          <tr>
+            <td>Geschätzte Kosten:</td>
+            <td><span id="cost">unbek.</span> €</td>
+          </tr>
+          <tr>
+            <td colspan="2" class="center">
+              <button id="reset" class="button" onclick="resetTotals()">
+                zurücksetzen
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-		<section id="sectionTimer">
-			<h2>Timer:</h2>
-			<table>
-				<tr>
-					<td>Letzte Zugabe von Chlor war vor <span id="cltimer">unbek.</span>.</td>
-					<td><button id="cltimerbtn" class="button" onclick="buttonConfirm(this);sendCommand('resetTimerChlorine')">zurücksetzen</button></td>
-				</tr>
-				<tr>
-					<td>Letzter Filterwechsel war vor <span id="ftimer">unbek.</span>.</td>
-					<td><button id="ftimerbtn" class="button" onclick="buttonConfirm(this);sendCommand('resetTimerFilter')">zurücksetzen</button></td>
-				</tr>
-			</table>
-		</section>
+      <footer>
+        <p class="center">
+          <span id="mqtt">MQTT: Lade Status...</span><br />
+          <span id="rssi2" class="rssi2" data-text="Lade Status...">
+              <span id="rssi" class="waveStrength-1">
+                <span class="wv4 wave">
+                  <span class="wv3 wave">
+                    <span class="wv2 wave">
+                      <span class="wv1 wave"> </span>
+                    </span>
+                  </span>
+                </span>
+              </span>
+            </span>
+          </span>
+          <br />
+          <span><a href="info.html">Softwareinfo</a></span>
+        </p>
+      </footer>
+    </div>
 
-		<section id="sectionTotals">
-			<h2>Gesamt:</h2>
-			<table class="fixed">
-				<tr>
-					<td>Zeit:</td>
-					<td><span id="time">unbek.</span></td>
-				</tr>
-				<tr>
-					<td>Bereit in: <span data-text="Funktioniert am Besten, wenn die tatsächliche Umgebungstemperatur von beispielsweise Home-Assistant angegeben wird." class="tooltip">?</span></td>
-					<td><span id="t2r">unbek.</span></td>
-				</tr>
-				<tr>
-					<td>Laufzeit: <span data-text="Gesamte Betriebszeit des WifiWhirl Moduls seit dem Zurücksetzen des Zählers. Ein Neustart setzt die Zählung fort." class="tooltip">?</span></td>
-					<td><span id="uptime">unbek.</span></td>
-				</tr>
-				<tr>
-					<td>Pumpe:</td>
-					<td><span id="filtertime">unbek.</span></td>
-				</tr>
-				<tr>
-					<td>Heizung:</td>
-					<td><span id="heatingtime">unbek.</span></td>
-				</tr>
-				<tr>
-					<td>Airjet:</td>
-					<td><span id="airtime">unbek.</span></td>
-				</tr>
-				<tr id="jetstotals">
-					<td>Hydrojet:</td>
-					<td><span id="jettime">unbek.</span></td>
-				</tr>
-				<tr>
-					<td>Geschätzte Kosten:</td>
-					<td><span id="cost">unbek.</span></td>
-				</tr>
-				<tr>
-					<td colspan="2" class="center"><button id="reset" class="button" onclick="resetTotals()">zurücksetzen</button></td>
-				</tr>
-			</table>
-		</section>
+    <script>
+      // loading functions from a .js (in the <head> section)
+      // and calling the function here can cause problems on laggy connections
+      // hence this code
+      document.onreadystatechange = function () {
+        if (document.readyState == "complete") {
+          initApplication();
+        }
+      };
 
-		<footer>
-			<p class="center">
-				<span id="mqtt">MQTT: Lade Status...</span><br />
-				<span id="fw">Firmware: Lade Status...</span><br />
-				<!-- <span id="model">Modell: Lade Status...</span><br />-->
-				<span id="rssi">RSSI: Lade Status...</span><br />
-				<span><a href="info.html">Softwareinfo</a></span>
-			</p>
-		</footer>
-	</div>
+      function initApplication() {
+        if (localStorage.getItem("showSectionTemperature")) {
+          setWebConfig();
+        }
+        loadWebConfig();
+        connect();
+      }
 
-<script>
-// loading functions from a .js (in the <head> section)
-// and calling the function here can cause problems on laggy connections
-// hence this code
-document.onreadystatechange = function ()
-{
-    if (document.readyState == "complete")
-    {
-        initApplication();
-    }
-}
+      function setWebConfig() {
+        document.getElementById("sectionDisplay").style.display =
+          localStorage.getItem("showSectionDisplay") !== "false"
+            ? "block"
+            : "none";
+        document.getElementById("sectionTemperature").style.display =
+          localStorage.getItem("showSectionTemperature") !== "false"
+            ? "block"
+            : "none";
+        document.getElementById("sectionControl").style.display =
+          localStorage.getItem("showSectionControl") !== "false"
+            ? "block"
+            : "none";
+        document.getElementById("sectionButtons").style.display =
+          localStorage.getItem("showSectionButtons") !== "false"
+            ? "block"
+            : "none";
+        document.getElementById("sectionTimer").style.display =
+          localStorage.getItem("showSectionTimer") !== "false"
+            ? "block"
+            : "none";
+        document.getElementById("sectionTotals").style.display =
+          localStorage.getItem("showSectionTotals") !== "false"
+            ? "block"
+            : "none";
+        document.getElementById("tableSlider").style.display =
+          localStorage.getItem("useControlSelector") !== "false"
+            ? "none"
+            : "table";
+        document.getElementById("tableSelector").style.display =
+          localStorage.getItem("useControlSelector") !== "false"
+            ? "table"
+            : "none";
+      }
 
-function initApplication()
-{
-    if (localStorage.getItem('showSectionTemperature'))
-    {
-        setWebConfig();
-    }
-    loadWebConfig();
-    connect();
-}
+      function loadWebConfig() {
+        const Http = new XMLHttpRequest();
+        const url = "/getwebconfig/";
+        Http.open("POST", url);
+        Http.send();
+        Http.onreadystatechange = function () {
+          if (this.readyState == 4 && this.status == 200) {
+            var json = JSON.parse(Http.responseText);
+            localStorage.setItem("showSectionTemperature", json.SST);
+            localStorage.setItem("showSectionDisplay", json.SSD);
+            localStorage.setItem("showSectionControl", json.SSC);
+            localStorage.setItem("showSectionButtons", json.SSB);
+            localStorage.setItem("showSectionTimer", json.SSTIM);
+            localStorage.setItem("showSectionTotals", json.SSTOT);
+            localStorage.setItem("useControlSelector", json.UCS);
+            setWebConfig();
+          }
+        };
+      }
 
-function setWebConfig()
-{
-	document.getElementById('sectionDisplay').style.display = (localStorage.getItem('showSectionDisplay') !== 'false' ? 'block' : 'none');
-	document.getElementById('sectionTemperature').style.display = (localStorage.getItem('showSectionTemperature') !== 'false' ? 'block' : 'none');
-	document.getElementById('sectionControl').style.display = (localStorage.getItem('showSectionControl') !== 'false' ? 'block' : 'none');
-	document.getElementById('sectionButtons').style.display = (localStorage.getItem('showSectionButtons') !== 'false' ? 'block' : 'none');
-	document.getElementById('sectionTimer').style.display = (localStorage.getItem('showSectionTimer') !== 'false' ? 'block' : 'none');
-	document.getElementById('sectionTotals').style.display = (localStorage.getItem('showSectionTotals') !== 'false' ? 'block' : 'none');
-	document.getElementById('tableSlider').style.display = (localStorage.getItem('useControlSelector') !== 'false' ? 'none' : 'table');
-	document.getElementById('tableSelector').style.display = (localStorage.getItem('useControlSelector') !== 'false' ? 'table' : 'none');
-}
+      function resetTotals() {
+        if (confirm("Möchtest du wirklich alle Zähler zurücksetzen?")) {
+          buttonConfirm(document.getElementById("reset"));
+          sendCommand("resetTotals");
+        }
+      }
 
-function loadWebConfig()
-{
-	const Http = new XMLHttpRequest();
-	const url = '/getwebconfig/';
-	Http.open('POST', url);
-	Http.send();
-	Http.onreadystatechange = function()
-	{
-		if (this.readyState == 4 && this.status == 200)
-		{
-			var json = JSON.parse(Http.responseText);
-			localStorage.setItem('showSectionTemperature', json.SST);
-			localStorage.setItem('showSectionDisplay', json.SSD);
-			localStorage.setItem('showSectionControl', json.SSC);
-			localStorage.setItem('showSectionButtons', json.SSB);
-			localStorage.setItem('showSectionTimer', json.SSTIM);
-			localStorage.setItem('showSectionTotals', json.SSTOT);
-			localStorage.setItem('useControlSelector', json.UCS);
-			setWebConfig();
-		}
-	}
-}
+      function showpreviewval(val, text) {
+        document.getElementById(text).innerHTML = document
+          .getElementById(val)
+          .value.toString();
+      }
+    </script>
 
-function resetTotals()
-{
-	if (confirm('Möchten Sie wirklich alle Zähler zurücksetzen?'))
-	{
-		buttonConfirm(document.getElementById('reset'));
-		sendCommand('resetTotals');
-	}
-}
-
-function showpreviewval(val,text) {
-	document.getElementById(text).innerHTML = document.getElementById(val).value.toString();
-}
-
-</script>
-
-<script src="darkmode.js" type="text/javascript"></script>
-
-</body>
+    <script src="darkmode.js" type="text/javascript"></script>
+  </body>
 </html>

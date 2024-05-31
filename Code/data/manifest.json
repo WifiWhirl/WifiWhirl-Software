@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icons": [
         {
-            "src": "\/favicon.png",
+            "src": "\/logo.png",
             "sizes": "180x180",
             "type": "image\/png",
             "density": "3.0"

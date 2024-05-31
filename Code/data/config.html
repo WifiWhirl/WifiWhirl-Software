@@ -1,493 +1,711 @@
 <!DOCTYPE html>
 <html>
-<head>
-	<title>WifiWhirl | SPA-Konfiguration</title>
-	<meta charset="utf-8">
-	<link rel="icon" type="image/png" sizes="180x180" href="favicon.png">
-	<meta name="theme-color" content="#4051b5">
-	<link rel="manifest" href="manifest.json">
-	<link rel="stylesheet" href="main.css">
-	<meta  name="viewport" content="width=device-width, initial-scale=1 maximum-scale=1">
-	<script src="function.js" type="text/javascript"></script>
-	<script src="index.js" type="text/javascript"></script>
-</head>
+  <head>
+    <title>WifiWhirl | SPA-Konfiguration</title>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" sizes="180x180" href="logo.png" />
+    <meta name="theme-color" content="#4051b5" />
+    <link rel="manifest" href="manifest.json" />
+    <link
+      rel="stylesheet"
+      href="main.css"
+      onload="this.media='all'; this.onload=null;"
+    />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1 maximum-scale=1"
+    />
+    <script src="function.js" type="text/javascript"></script>
+    <script src="index.js" type="text/javascript"></script>
+  </head>
 
-<body onload="togglefields()">
-	<div id="site">
-		<header>
-            <form id="darkModeForm">
-                <label class="switch">
-                    <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
-                    <span class="slider round"></span>
-                </label>
-            </form>
-			<a href="./"><div id="header"><span>SPA-Konfiguration</span><span>WifiWhirl</span></div></a>
-			<a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
-		</header>
+  <body onload="togglefields()">
+    <div id="site">
+      <header>
+        <form id="darkModeForm">
+          <label class="switch">
+            <input
+              type="checkbox"
+              id="darkModeToggle"
+              onchange="toggleDarkMode()"
+            />
+            <span class="slider round"></span>
+          </label>
+        </form>
+        <a href="./"
+          ><div id="header">
+            <span>SPA-Konfiguration</span><span>WifiWhirl</span>
+          </div></a
+        >
+        <a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
+      </header>
 
-		<div class="topnav" id="topnav">
-			<a href="./">Übersicht</a>
-			<a href="hwconfig.html">Hardware-Konfiguration</a>
-			<a href="config.html" class="active">SPA-Konfiguration</a>
-			<a href="webconfig.html">Web-Konfiguration</a>
-			<a href="wifi.html">Netzwerkkonfiguration</a>
-			<a href="mqtt.html">MQTT-Konfiguration</a>
-			<a href="/restart/">WifWhirl Modul neu starten<a>
-		</div>
+      <div class="topnav" id="topnav">
+        <a href="./">Übersicht</a>
+        <a href="hwconfig.html">Hardware-Konfiguration</a>
+        <a href="config.html" class="active">SPA-Konfiguration</a>
+        <a href="webconfig.html">Web-Konfiguration</a>
+        <a href="wifi.html">Netzwerkkonfiguration</a>
+        <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="/restart/">WifWhirl Modul neu starten</a>
+      </div>
 
-        <section>
-            <table>
-                <tr>
-                    <td><label for="price">Preis pro kWh:</label></td>
-                    <td><input type="text" id="price" value="0,35" maxlength="4" size="6" pattern="\d{1,1},\d{1,3}" required><span class="inputunit" style="margin-left:-12px;">€</span></td>
-                </tr>
-                <tr>
-                    <td><label for="clinterval">Chlor hinzufügen:</label></td>
-                    <td><input type="text" id="clinterval" value="7" maxlength="2" size="6" pattern="\d{1,2}" required><span class="inputunit" style="margin-left:-35px;">Tage</span></td>
-                </tr>
-                <tr>
-                    <td><label for="finterval">Filterwechsel:</label></td>
-                    <td><input type="text" id="finterval" value="30" maxlength="2" size="6" pattern="\d{1,2}" required><span class="inputunit" style="margin-left:-35px;">Tage</span></td>
-                </tr>
-                <tr>
-                    <td><label for="audio">Ton (ein/aus):</label></td>
-                    <td><input type="checkbox" id="audio"></td>
-                </tr>
-                <tr>
-                    <td><label for="notification">Benachrichtigung: </label>
-                        <span data-text="Bei aktivierter Benachrichtigung ertönt in Abhängigkeit der eingestellten Benachrichtigungszeit ein Piepton für bevorstehende Aktionen (Filterpumpe, Heizung oder Airjet). Parallel dazu zeigt das Display die verbleibende Zeit an. Die Benachrichtigung wiederholt sich jeweils um die Hälfte der verbleibenden Zeit." class="tooltip">?</span>
-                    </td>
-                    <td><input type="checkbox" id="notification"></td>
-                </tr>
-                <tr>
-                    <td><label for="notificationtime">Benachrichtigungszeit:</label></td>
-                    <td><input type="text" id="notificationtime" value="32" maxlength="3" size="6" pattern="\d{1,3}"><span class="inputunit" style="margin-left:-30px;">Sek</span></td>
-                </tr>
-                <tr>
-                    <td><label for="restore">Einstellungen dauerhaft speichern:</label></td>
-                    <td><input type="checkbox" id="restore"></td>
-                </tr>
-                <tr>
-                    <td><label for="calibration">Kalibriert: </label><span data-text="Wenn aktiviert, ist die virtuelle Temperatur kalibriert. Kalibrieren: Schalte die Heizung AUS und die Pumpe EIN. Stoppe die Zeit, bis die Temperatur um einige Grad gesunken ist. Schalte währenddessen keine Air- oder Hydrojets ein. Die Wassertemperatur muss sich zu Beginn um mehrere Grad von der Umgebungstemperatur unterscheiden." class="tooltip">?</span></td>
-                    <td><input type="checkbox" id="calibration" onclick="toggleCalibration()"></td>
-                    <td><a href="calib.html">manuelle Kalibrierung</a></td>
-                </tr>
-            </table>
-        </section>
-        <section>
-            <table>Aktivierte Anzeigetasten<label for="toggle_all"> | Alle:</label><input type="checkbox" id="toggle_all" onclick="toggleAll()">
-                <tr>
-                    <td><input type="checkbox" id="power_btn"></td><td><label for="power_btn">Ein/Aus</label></td>
-                    <td><input type="checkbox" id="lock_btn"></td><td><label for="lock_btn">Tastensperre</label></td>
-                    <td><input type="checkbox" id="bubbles_btn"></td><td><label for="bubbles_btn">Airjet</label></td>
-                    <td><input type="checkbox" id="timer_btn"></td><td><label for="timer_btn">Timer</label></td>
-                </tr>
-                <tr>
-                    <td><input type="checkbox" id="pump_btn"></td><td><label for="pump_btn">Pumpe</label></td>
-                    <td><input type="checkbox" id="up_btn"></td><td><label for="up_btn">Aufwärts</label></td>
-                    <td><input type="checkbox" id="hydrojets_btn"></td><td><label for="hydrojets_btn">Hydrojet</label></td>
-                </tr>
-                <tr>
-                    <td><input type="checkbox" id="heat_btn"></td><td><label for="heat_btn">Heizung</label></td>
-                    <td><input type="checkbox" id="down_btn"></td><td><label for="down_btn">Abwärts</label></td>
-                    <td><input type="checkbox" id="unit_btn"></td><td><label for="unit_btn">Einheit</label></td>
-                </tr>
-            </table>
-            <table><tr>
-                <td colspan="2" class="center"><button id="save" class="button" onclick="buttonConfirm(this);saveConfig()">Speichern</button></td>
-            </tr></table>
-        </section>
+      <section>
+        <table>
+          <tr>
+            <td><label for="price">Preis pro kWh:</label></td>
+            <td>
+              <input
+                type="text"
+                id="price"
+                value="0,35"
+                maxlength="4"
+                size="6"
+                pattern="\d{1,1},\d{1,3}"
+                required
+              /><span class="inputunit" style="margin-left: -12px">€</span>
+            </td>
+          </tr>
+          <tr>
+            <td><label for="clinterval">Chlor hinzufügen:</label></td>
+            <td>
+              <input
+                type="text"
+                id="clinterval"
+                value="7"
+                maxlength="2"
+                size="6"
+                pattern="\d{1,2}"
+                required
+              /><span class="inputunit" style="margin-left: -35px">Tage</span>
+            </td>
+          </tr>
+          <tr>
+            <td><label for="finterval">Filterwechsel:</label></td>
+            <td>
+              <input
+                type="text"
+                id="finterval"
+                value="30"
+                maxlength="2"
+                size="6"
+                pattern="\d{1,2}"
+                required
+              /><span class="inputunit" style="margin-left: -35px">Tage</span>
+            </td>
+          </tr>
+          <tr>
+            <td><label for="audio">Ton (ein/aus):</label></td>
+            <td><input type="checkbox" id="audio" /></td>
+          </tr>
+          <tr>
+            <td>
+              <label for="notification">Benachrichtigung: </label>
+              <span
+                data-text="Bei aktivierter Benachrichtigung ertönt in Abhängigkeit der eingestellten Benachrichtigungszeit ein Piepton für bevorstehende Aktionen (Filterpumpe, Heizung oder Airjet). Parallel dazu zeigt das Display die verbleibende Zeit an. Die Benachrichtigung wiederholt sich jeweils um die Hälfte der verbleibenden Zeit."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td><input type="checkbox" id="notification" /></td>
+          </tr>
+          <tr>
+            <td>
+              <label for="notificationtime">Benachrichtigungszeit:</label>
+            </td>
+            <td>
+              <input
+                type="text"
+                id="notificationtime"
+                value="32"
+                maxlength="3"
+                size="6"
+                pattern="\d{1,3}"
+              /><span class="inputunit" style="margin-left: -30px">Sek</span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label for="restore">Einstellungen dauerhaft speichern:</label>
+            </td>
+            <td><input type="checkbox" id="restore" /></td>
+          </tr>
+          <tr>
+            <td>
+              <label for="calibration">Kalibriert: </label
+              ><span
+                data-text="Wenn aktiviert, ist die virtuelle Temperatur kalibriert. Kalibrieren: Schalte die Heizung AUS und die Pumpe EIN. Stoppe die Zeit, bis die Temperatur um einige Grad gesunken ist. Schalte währenddessen keine Air- oder Hydrojets ein. Die Wassertemperatur muss sich zu Beginn um mehrere Grad von der Umgebungstemperatur unterscheiden."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <input
+                type="checkbox"
+                id="calibration"
+                onclick="toggleCalibration()"
+              />
+            </td>
+            <td><a href="calib.html">manuelle Kalibrierung</a></td>
+          </tr>
+        </table>
+      </section>
+      <section>
+        <table>
+          Aktivierte Anzeigetasten<label for="toggle_all"> | Alle:</label
+          ><input type="checkbox" id="toggle_all" onclick="toggleAll()" />
+          <tr>
+            <td><input type="checkbox" id="power_btn" /></td>
+            <td><label for="power_btn">Ein/Aus</label></td>
+            <td><input type="checkbox" id="lock_btn" /></td>
+            <td><label for="lock_btn">Tastensperre</label></td>
+            <td><input type="checkbox" id="bubbles_btn" /></td>
+            <td><label for="bubbles_btn">Airjet</label></td>
+            <td><input type="checkbox" id="timer_btn" /></td>
+            <td><label for="timer_btn">Timer</label></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" id="pump_btn" /></td>
+            <td><label for="pump_btn">Pumpe</label></td>
+            <td><input type="checkbox" id="up_btn" /></td>
+            <td><label for="up_btn">Aufwärts</label></td>
+            <td><input type="checkbox" id="hydrojets_btn" /></td>
+            <td><label for="hydrojets_btn">Hydrojet</label></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" id="heat_btn" /></td>
+            <td><label for="heat_btn">Heizung</label></td>
+            <td><input type="checkbox" id="down_btn" /></td>
+            <td><label for="down_btn">Abwärts</label></td>
+            <td><input type="checkbox" id="unit_btn" /></td>
+            <td><label for="unit_btn">Einheit</label></td>
+          </tr>
+        </table>
+        <table>
+          <tr>
+            <td colspan="2" class="center">
+              <button
+                id="save"
+                class="button"
+                onclick="buttonConfirm(this);saveConfig()"
+              >
+                Speichern
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-        <section>
-            <table>
-                <tr><h2>Warteschlagenkonfiguration</h2>
-                    <td><label for="commands">Befehl:</label></td>
-                    <td>
-                        <select name="commands" id="commands" onchange="togglefields()">
-                            <!-- <option value="0">Zieltemp. festlegen (20-40/68-104)</option> -->
-                            <!-- <option value="1">Einheit festlegen (0/1)</option> -->
-                            <option value="4">Filterpumpe ein/aus</option>
-                            <option value="3">Heizung ein/aus</option>
-                            <option value="2">Airjet ein/aus</option>                            
-                            <!-- <option value="5">Warteschlange zurücksetzen (-)</option> -->
-                            <!-- <option value="6">WLAN Modul neu starten</option> -->
-                            <!-- <option value="7">Interner Befehl (Ziel abrufen) (-)</option> -->
-                            <!-- <option value="8">Zeiten zurücksetzen (-)</option> -->
-                            <!-- <option value="9">Chlortimer zurücksetzen (-)</option> -->
-                            <!-- <option value="10">Filtertimer zurücksetzen (-)</option> -->
-                            <option value="11">Hydrojet ein/aus</option>
-                            <option value="12">Displayhelligkeit festlegen</option>
-                            <!-- <option value="13">Ton (0/1 oder 2+Text=Datei)</option> -->
-                            <!-- <option value="14">Umgebungstemp. °F festlegen (Zahl)</option> -->
-                            <!-- <option value="15">Umgebungstemp. °C setzen (Zahl)</option> -->
-                            <!-- <option value="16">Tageszähler zurücksetzen (Zahl)</option> -->
-                            <!-- <option value="17">Steuerung übernehmen (0/1)</option> -->
-                            <!-- <option value="18">Volle Leistung (0/1)</option> -->
-                            <option value="19">Text ausgeben</option>
-                            <!-- <option value="20">Bereitschaftszeit festlegen (-)</option> -->
-                        </select>
-                    </td>
-                </tr>
-                <tr id="valinput">
-                    <td><label for="val" id="vallabel">ein-/ausschalten:</label></td>
-                    <td>
-                        <input type="checkbox" id="val" value="1"><label for="val" id="onoffinfo">ein/aus</label>
-                    </td>
-                    <td id="displayinfo">
-                        <label for="val" id="sliderDsp"></label>
-                    </td>
-                </tr>
-                <tr id="textinput" style="display: none;">
-                    <td><label for="txt">Text<br>(nur Kleinbuchstaben und Zahlen):</label></td>
-                    <td><input type="text" id="txt" value="" maxlength="24" size="16" pattern="[a-z0-9-]*"></td>
-                </tr>
-                <tr>
-                    <td><label for="xtime">Ausführungszeit:</label><br /></td>
-                    <td><input type="datetime-local" id="xtime" name="xtime" style="font-family: Arial;" onchange="totimestamp()" step="1"></td>
-                </tr>
-                <tr>
-                    <td><label for="interval">Intervall:</label></td>
-                    <td><input type="text" id="interval" value="0" maxlength="8" size="8"> Sekunden</td>
-                </tr>
-                <tr>
-                    <td colspan="2"><p>(0 = Einmal ausführen, 1 Std. = 3600 Sek.,<br> 1 Tag = 86400 Sek., 1 Woche = 604800 Sek.)</p></td>
-                </tr>
-            </table>
-        </section>
-        
-        <section style="text-align: left">
-            <h2>Befehlswarteschlange</h2>
-            <table id="cmdq"></table>
-            <table>
-                <tr>
-                    <td colspan="2" class="center"><button id="addcmd" class="button" onclick="buttonConfirm(this);addCommand()">Neu hinzufügen</button></td>
-                    <td colspan="2" class="center"><button id="resetq" class="button_red" onclick="buttonConfirm(this);resetCommandQueue()">Warteschlange leeren</button></td>
-                </tr>
-                <tr>
-                    <td colspan="2" class="center"><button id="saveq" class="button" onclick="savetofile()">In Datei speichern</button></td>
-                    <td colspan="2" class="center"><button id="loadq" class="button" onclick="buttonConfirm(this);loadfromfile()">Aus Datei laden</button></td>
-                </tr>
-            </table>
-        </section>
+      <section>
+        <table>
+          <tr>
+            <h2>Warteschlagenkonfiguration</h2>
+            <td><label for="commands">Befehl:</label></td>
+            <td>
+              <select name="commands" id="commands" onchange="togglefields()">
+                <!-- <option value="0">Zieltemp. festlegen (20-40/68-104)</option> -->
+                <!-- <option value="1">Einheit festlegen (0/1)</option> -->
+                <option value="4">Filterpumpe ein/aus</option>
+                <option value="3">Heizung ein/aus</option>
+                <option value="2">Airjet ein/aus</option>
+                <!-- <option value="5">Warteschlange zurücksetzen (-)</option> -->
+                <!-- <option value="6">WLAN Modul neu starten</option> -->
+                <!-- <option value="7">Interner Befehl (Ziel abrufen) (-)</option> -->
+                <!-- <option value="8">Zeiten zurücksetzen (-)</option> -->
+                <!-- <option value="9">Chlortimer zurücksetzen (-)</option> -->
+                <!-- <option value="10">Filtertimer zurücksetzen (-)</option> -->
+                <option value="11">Hydrojet ein/aus</option>
+                <option value="12">Displayhelligkeit festlegen</option>
+                <!-- <option value="13">Ton (0/1 oder 2+Text=Datei)</option> -->
+                <!-- <option value="14">Umgebungstemp. °F festlegen (Zahl)</option> -->
+                <!-- <option value="15">Umgebungstemp. °C setzen (Zahl)</option> -->
+                <!-- <option value="16">Tageszähler zurücksetzen (Zahl)</option> -->
+                <!-- <option value="17">Steuerung übernehmen (0/1)</option> -->
+                <!-- <option value="18">Volle Leistung (0/1)</option> -->
+                <option value="19">Text ausgeben</option>
+                <!-- <option value="20">Bereitschaftszeit festlegen (-)</option> -->
+              </select>
+            </td>
+          </tr>
+          <tr id="valinput">
+            <td><label for="val" id="vallabel">ein-/ausschalten:</label></td>
+            <td>
+              <input type="checkbox" id="val" value="1" /><label
+                for="val"
+                id="onoffinfo"
+                >ein/aus</label
+              >
+            </td>
+            <td id="displayinfo">
+              <label for="val" id="sliderDsp"></label>
+            </td>
+          </tr>
+          <tr id="textinput" style="display: none">
+            <td>
+              <label for="txt"
+                >Text<br />(nur Kleinbuchstaben und Zahlen):</label
+              >
+            </td>
+            <td>
+              <input
+                type="text"
+                id="txt"
+                value=""
+                maxlength="24"
+                size="16"
+                pattern="[a-z0-9-]*"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td><label for="xtime">Ausführungszeit:</label><br /></td>
+            <td>
+              <input
+                type="datetime-local"
+                id="xtime"
+                name="xtime"
+                onchange="totimestamp()"
+                step="1"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td><label for="interval">Wiederholungsintervall:</label></td>
+            <td>
+              <input
+                type="text"
+                id="interval"
+                value="0"
+                maxlength="8"
+                size="8"
+              />
+              Sekunden
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <p>
+                (0 = Einmal ausführen, 1 Std. = 3600 Sek.,<br />
+                1 Tag = 86400 Sek., 1 Woche = 604800 Sek.)
+              </p>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-        <footer>
-            <p class="center" id="lastboot">Letzter Neustart: wird geladen...</p>
-            <p class="center">
-                <span><a href="info.html">Softwareinfo</a></span>
-            </p>
-        </footer>
-</div>
+      <section style="text-align: left">
+        <h2>Befehlswarteschlange</h2>
+        <table id="cmdq"></table>
+        <table>
+          <tr>
+            <td colspan="2" class="center">
+              <button
+                id="addcmd"
+                class="button"
+                onclick="buttonConfirm(this);addCommand()"
+              >
+                Neu hinzufügen
+              </button>
+            </td>
+            <td colspan="2" class="center">
+              <button
+                id="resetq"
+                class="button_red"
+                onclick="buttonConfirm(this);resetCommandQueue()"
+              >
+                Warteschlange leeren
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="center">
+              <button id="saveq" class="button" onclick="savetofile()">
+                In Datei speichern
+              </button>
+            </td>
+            <td colspan="2" class="center">
+              <button
+                id="loadq"
+                class="button"
+                onclick="buttonConfirm(this);loadfromfile()"
+              >
+                Aus Datei laden
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
 
-<script>
-loadConfig();
+      <footer>
+        <p class="center" id="lastboot">Letzter Neustart: wird geladen...</p>
+        <p class="center">
+          <span><a href="info.html">Softwareinfo</a></span>
+        </p>
+      </footer>
+    </div>
 
-const settarget = 0;
-const setunit = 1;
-const setbubbles = 2;
-const setheat = 3;
-const setpump = 4;
-const resetq = 5;
-const rebootesp = 6;
-const gettarget = 7;
-const resettimes = 8;
-const resetcl = 9;
-const resetfilter = 10;
-const setjets = 11;
-const setbrightness = 12;
-const setbeep = 13;
-const setambientf = 14;
-const setambientc = 15;
-const resetdaily = 16;
-const godmode = 17;
-const fullpower = 18;
-const printtext = 19;
-const setready = 20;
+    <script>
+      loadConfig();
 
-const commandlist = [
-	'Zieltemperatur festlegen', 'Einheit festlegen', 'Airjet festlegen', 'Heizung festlegen', 'Filterpumpe festlegen', 'Warteschlange zurücksetzen', 'WLAN Modul neu starten',
-	'Interner Befehl', 'Zeiten zurücksetzen', 'Chlortimer zurücksetzen', 'Filtertimer zurücksetzen', 'Hydrojet festlegen', 'Displayhelligkeit festlegen',
-	'Signalton festlegen', 'Umgebungstemperatur °F festlegen', 'Umgebungstemperatur °C festlegen', 'Täglichen Zähler zurücksetzen', 'Steuerung übernehmen', 'Volle Leistung',
-    'Text ausgeben', 'Bereitschaftszeit festlegen'
-];
+      const settarget = 0;
+      const setunit = 1;
+      const setbubbles = 2;
+      const setheat = 3;
+      const setpump = 4;
+      const resetq = 5;
+      const rebootesp = 6;
+      const gettarget = 7;
+      const resettimes = 8;
+      const resetcl = 9;
+      const resetfilter = 10;
+      const setjets = 11;
+      const setbrightness = 12;
+      const setbeep = 13;
+      const setambientf = 14;
+      const setambientc = 15;
+      const resetdaily = 16;
+      const godmode = 17;
+      const fullpower = 18;
+      const printtext = 19;
+      const setready = 20;
 
-function totimestamp()
-{
-	console.log(Date.parse(document.getElementById("xtime").value)/1000);
-	console.log("value "+document.getElementById("xtime").value);
-}
+      const commandlist = [
+        "Zieltemperatur festlegen",
+        "Einheit festlegen",
+        "Airjet festlegen",
+        "Heizung festlegen",
+        "Filterpumpe festlegen",
+        "Warteschlange zurücksetzen",
+        "WLAN Modul neu starten",
+        "Interner Befehl",
+        "Zeiten zurücksetzen",
+        "Chlortimer zurücksetzen",
+        "Filtertimer zurücksetzen",
+        "Hydrojet festlegen",
+        "Displayhelligkeit festlegen",
+        "Signalton festlegen",
+        "Umgebungstemperatur °F festlegen",
+        "Umgebungstemperatur °C festlegen",
+        "Täglichen Zähler zurücksetzen",
+        "Steuerung übernehmen",
+        "Volle Leistung",
+        "Text ausgeben",
+        "Bereitschaftszeit festlegen",
+      ];
 
-function loadConfig()
-{
-	var req = new XMLHttpRequest();
-	req.open('POST', '/getconfig/');
-	req.send();
-	req.onreadystatechange = function()
-	{
-		if (this.readyState == 4 && this.status == 200)
-		{
-			var json = JSON.parse(req.responseText);
-			console.log(json);
-			//document.getElementById('timezone').value = json.TIMEZONE.toString();
-			document.getElementById('price').value = json.PRICE.toFixed(2).toString().replace('.', ',');
-			document.getElementById('finterval').value = json.FINT.toString();
-			document.getElementById('clinterval').value = json.CLINT.toString();
-			document.getElementById('audio').checked = json.AUDIO;
-			document.getElementById('notification').checked = json.NOTIFY;
-			document.getElementById('notificationtime').value = json.NOTIFTIME.toString();
-			document.getElementById('restore').checked = json.RESTORE;
-			var date = new Date(json.REBOOTTIME * 1000);
-			document.getElementById('lastboot').innerHTML = 'Letzter Neustart: ' + date.toLocaleString();
-            document.getElementById('calibration').checked = json.VTCAL;
-            document.getElementById('lock_btn').checked = json.LCK;
-            document.getElementById('timer_btn').checked = json.TMR;
-            document.getElementById('bubbles_btn').checked = json.AIR;
-            document.getElementById('unit_btn').checked = json.UNT;
-            document.getElementById('heat_btn').checked = json.HTR;
-            document.getElementById('pump_btn').checked = json.FLT;
-            document.getElementById('down_btn').checked = json.DN;
-            document.getElementById('up_btn').checked = json.UP;
-            document.getElementById('power_btn').checked = json.PWR;
-            document.getElementById('hydrojets_btn').checked = json.HJT;
-		}
-	}
+      function totimestamp() {
+        console.log(Date.parse(document.getElementById("xtime").value) / 1000);
+        console.log("value " + document.getElementById("xtime").value);
+      }
 
-	setInterval(loadCommandQueue, 4000);
+      function loadConfig() {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/getconfig/");
+        req.send();
+        req.onreadystatechange = function () {
+          if (this.readyState == 4 && this.status == 200) {
+            var json = JSON.parse(req.responseText);
+            console.log(json);
+            //document.getElementById('timezone').value = json.TIMEZONE.toString();
+            document.getElementById("price").value = json.PRICE.toFixed(2)
+              .toString()
+              .replace(".", ",");
+            document.getElementById("finterval").value = json.FINT.toString();
+            document.getElementById("clinterval").value = json.CLINT.toString();
+            document.getElementById("audio").checked = json.AUDIO;
+            document.getElementById("notification").checked = json.NOTIFY;
+            document.getElementById("notificationtime").value =
+              json.NOTIFTIME.toString();
+            document.getElementById("restore").checked = json.RESTORE;
+            var date = new Date(json.REBOOTTIME * 1000);
+            document.getElementById("lastboot").innerHTML =
+              "Letzter Neustart: " + date.toLocaleString();
+            document.getElementById("calibration").checked = json.VTCAL;
+            document.getElementById("lock_btn").checked = json.LCK;
+            document.getElementById("timer_btn").checked = json.TMR;
+            document.getElementById("bubbles_btn").checked = json.AIR;
+            document.getElementById("unit_btn").checked = json.UNT;
+            document.getElementById("heat_btn").checked = json.HTR;
+            document.getElementById("pump_btn").checked = json.FLT;
+            document.getElementById("down_btn").checked = json.DN;
+            document.getElementById("up_btn").checked = json.UP;
+            document.getElementById("power_btn").checked = json.PWR;
+            document.getElementById("hydrojets_btn").checked = json.HJT;
+          }
+        };
 
-	var now = new Date();
-	var offset = now.getTimezoneOffset() * 60000;
-	var adjustedDate = new Date(now.getTime() - offset);
-	var formattedDate = adjustedDate.toISOString().substring(0,16); // For minute precision
-	var datetimeField = document.getElementById('xtime');
-	datetimeField.value = formattedDate;
-}
+        setInterval(loadCommandQueue, 4000);
 
-function showpreviewval(val,text) {
-	document.getElementById(text).innerHTML = document.getElementById(val).value.toString();
-}
+        var now = new Date();
+        var offset = now.getTimezoneOffset() * 60000;
+        var adjustedDate = new Date(now.getTime() - offset);
+        var formattedDate = adjustedDate.toISOString().substring(0, 16); // For minute precision
+        var datetimeField = document.getElementById("xtime");
+        datetimeField.value = formattedDate;
+      }
 
+      function showpreviewval(val, text) {
+        document.getElementById(text).innerHTML = document
+          .getElementById(val)
+          .value.toString();
+      }
 
-function togglefields() {
-  var select = document.getElementById("commands");
-  var textinput = document.getElementById("textinput");
-  var varinput = document.getElementById("val");
-  var varlabel = document.getElementById("vallabel");
-  var sliderDsp = document.getElementById("sliderDsp");
+      function togglefields() {
+        var select = document.getElementById("commands");
+        var textinput = document.getElementById("textinput");
+        var varinput = document.getElementById("val");
+        var varlabel = document.getElementById("vallabel");
+        var sliderDsp = document.getElementById("sliderDsp");
 
-  if(select.value == 19) {
-    // show text input
-    textinput.style.display = "table-row";
-    // onoffinput.style.display = "none";
-    valinput.style.display = "none";
-    varinput.value = "1";
-    document.getElementById("onoffinfo").style.display = "none";
-    document.getElementById("displayinfo").style.display = "none";
-  }
-  else if(select.value == 12) {
-    // Brightness
-    textinput.style.display = "none";
-    valinput.style.display = "table-row";
-    document.getElementById("displayinfo").style.display = "table-row";
-    document.getElementById("onoffinfo").style.display = "none";
-    varlabel.innerHTML = "Helligkeit:";
-    varinput.setAttribute('type','range');
-    varinput.style = "width: 13em;";
-    varinput.value = "8";
-    varinput.maxlength = "1";
-    varinput.min = "0";
-    varinput.max = "8";
-    varinput.size = "3";
-    varinput.removeAttribute("onmousedown");
-    varinput.removeAttribute("ontouchend");
-    varinput.setAttribute('onmousemove',"showpreviewval('val', 'sliderDsp')");
-    varinput.setAttribute('ontouchmove',"showpreviewval('val', 'sliderDsp')");
-    showpreviewval('val', 'sliderDsp')
-  }
-  else if(select.value < 12) {
-    // on off checkbox
-    textinput.style.display = "none";
-    valinput.style.display = "table-row";
-    document.getElementById("onoffinfo").style.display = "inline";
-    document.getElementById("displayinfo").style.display = "none";
-    varlabel.innerHTML = "ein-/ausschalten:";
-    varinput.setAttribute('type','checkbox');
-    varinput.checked = true;
-    varinput.removeAttribute("style");
-    varinput.removeAttribute("maxlength");
-    varinput.removeAttribute("min");
-    varinput.removeAttribute("max");
-    varinput.removeAttribute("size");
-    varinput.removeAttribute("onmousemove");
-    varinput.removeAttribute("ontouchmove");
-    varinput.setAttribute('onmousedown', '(this.value = this.checked ? 0 : 1)');
-    varinput.setAttribute('ontouchend', '(this.value = this.checked ? 0 : 1)');
-  }
-}
+        if (select.value == 19) {
+          // show text input
+          textinput.style.display = "table-row";
+          // onoffinput.style.display = "none";
+          valinput.style.display = "none";
+          varinput.value = "1";
+          document.getElementById("onoffinfo").style.display = "none";
+          document.getElementById("displayinfo").style.display = "none";
+        } else if (select.value == 12) {
+          // Brightness
+          textinput.style.display = "none";
+          valinput.style.display = "table-row";
+          document.getElementById("displayinfo").style.display = "table-row";
+          document.getElementById("onoffinfo").style.display = "none";
+          varlabel.innerHTML = "Helligkeit:";
+          varinput.setAttribute("type", "range");
+          varinput.style = "width: 13em;";
+          varinput.value = "8";
+          varinput.maxlength = "1";
+          varinput.min = "0";
+          varinput.max = "8";
+          varinput.size = "3";
+          varinput.removeAttribute("onmousedown");
+          varinput.removeAttribute("ontouchend");
+          varinput.setAttribute(
+            "onmousemove",
+            "showpreviewval('val', 'sliderDsp')"
+          );
+          varinput.setAttribute(
+            "ontouchmove",
+            "showpreviewval('val', 'sliderDsp')"
+          );
+          showpreviewval("val", "sliderDsp");
+        } else if (select.value < 12) {
+          // on off checkbox
+          textinput.style.display = "none";
+          valinput.style.display = "table-row";
+          document.getElementById("onoffinfo").style.display = "inline";
+          document.getElementById("displayinfo").style.display = "none";
+          varlabel.innerHTML = "ein-/ausschalten:";
+          varinput.setAttribute("type", "checkbox");
+          varinput.checked = true;
+          varinput.removeAttribute("style");
+          varinput.removeAttribute("maxlength");
+          varinput.removeAttribute("min");
+          varinput.removeAttribute("max");
+          varinput.removeAttribute("size");
+          varinput.removeAttribute("onmousemove");
+          varinput.removeAttribute("ontouchmove");
+          varinput.setAttribute(
+            "onmousedown",
+            "(this.value = this.checked ? 0 : 1)"
+          );
+          varinput.setAttribute(
+            "ontouchend",
+            "(this.value = this.checked ? 0 : 1)"
+          );
+        }
+      }
 
-function saveConfig()
-{
-	var req = new XMLHttpRequest();
-	req.open('POST', '/setconfig/');
-	var json = {
-		//'TIMEZONE':parseInt(document.getElementById('timezone').value),
-		'TIMEZONE':0,
-		'PRICE':parseFloat(document.getElementById('price').value.replace(',', '.')).toFixed(2),
-		'FINT':parseInt(document.getElementById('finterval').value),
-		'CLINT':parseInt(document.getElementById('clinterval').value),
-		'AUDIO':document.getElementById('audio').checked,
-		'NOTIFY':document.getElementById('notification').checked,
-		'NOTIFTIME':parseInt(document.getElementById('notificationtime').value),
-		'RESTORE':document.getElementById('restore').checked,
-        'VTCAL':document.getElementById('calibration').checked,
-        'LCK':document.getElementById('lock_btn').checked,
-        'TMR':document.getElementById('timer_btn').checked,
-        'AIR':document.getElementById('bubbles_btn').checked,
-        'UNT':document.getElementById('unit_btn').checked,
-        'HTR':document.getElementById('heat_btn').checked,
-        'FLT':document.getElementById('pump_btn').checked,
-        'DN':document.getElementById('down_btn').checked,
-        'UP':document.getElementById('up_btn').checked,
-        'PWR':document.getElementById('power_btn').checked,
-        'HJT':document.getElementById('hydrojets_btn').checked
-	};
-	req.send(JSON.stringify(json));
-	console.log(json);
-}
+      function saveConfig() {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/setconfig/");
+        var json = {
+          //'TIMEZONE':parseInt(document.getElementById('timezone').value),
+          TIMEZONE: 0,
+          PRICE: parseFloat(
+            document.getElementById("price").value.replace(",", ".")
+          ).toFixed(2),
+          FINT: parseInt(document.getElementById("finterval").value),
+          CLINT: parseInt(document.getElementById("clinterval").value),
+          AUDIO: document.getElementById("audio").checked,
+          NOTIFY: document.getElementById("notification").checked,
+          NOTIFTIME: parseInt(
+            document.getElementById("notificationtime").value
+          ),
+          RESTORE: document.getElementById("restore").checked,
+          VTCAL: document.getElementById("calibration").checked,
+          LCK: document.getElementById("lock_btn").checked,
+          TMR: document.getElementById("timer_btn").checked,
+          AIR: document.getElementById("bubbles_btn").checked,
+          UNT: document.getElementById("unit_btn").checked,
+          HTR: document.getElementById("heat_btn").checked,
+          FLT: document.getElementById("pump_btn").checked,
+          DN: document.getElementById("down_btn").checked,
+          UP: document.getElementById("up_btn").checked,
+          PWR: document.getElementById("power_btn").checked,
+          HJT: document.getElementById("hydrojets_btn").checked,
+        };
+        req.send(JSON.stringify(json));
+        console.log(json);
+      }
 
-function toggleAll()
-{
-    document.getElementById('lock_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('timer_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('bubbles_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('unit_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('heat_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('pump_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('down_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('up_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('power_btn').checked = document.getElementById('toggle_all').checked;
-    document.getElementById('hydrojets_btn').checked = document.getElementById('toggle_all').checked;
-}
+      function toggleAll() {
+        document.getElementById("lock_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("timer_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("bubbles_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("unit_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("heat_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("pump_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("down_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("up_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("power_btn").checked =
+          document.getElementById("toggle_all").checked;
+        document.getElementById("hydrojets_btn").checked =
+          document.getElementById("toggle_all").checked;
+      }
 
-function loadCommandQueue()
-{
-	var req = new XMLHttpRequest();
-	req.open('POST', '/getcommands/');
-	req.send();
-	req.onreadystatechange = function()
-	{
-		if (this.readyState == 4 && this.status == 200)
-		{
-			var json = JSON.parse(req.responseText);
-			console.log(json);
-			var table = document.getElementById('cmdq');
-            table.innerHTML = '';
-            
-			for (var i = 0; i < json.LEN; i++)
-			{
-                var row = table.insertRow();
-                var cell = row.insertCell(0);
-                cell.innerHTML = '<button id="editCmd' + i + '" class="button" onclick="editCommandQueue('+i+')">Festlegen</button>';
-                var date = new Date(json.XTIME[i] * 1000);
-                cell = row.insertCell(1);
-                cell.innerHTML = commandlist[json['CMD'][i]] + ':' + json['VALUE'][i] + '<br>' + date.toLocaleString() + '<br>Intervall: ' + json['INTERVAL'][i] + 's';
-                cell = row.insertCell(2);
-                cell.innerHTML = '<button id="delCmd' + i + '" class="button_red" onclick="delCommand('+i+')">Löschen</button>';
-			}
-		}
-	}
-}
+      function loadCommandQueue() {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/getcommands/");
+        req.send();
+        req.onreadystatechange = function () {
+          if (this.readyState == 4 && this.status == 200) {
+            var json = JSON.parse(req.responseText);
+            console.log(json);
+            var table = document.getElementById("cmdq");
+            table.innerHTML = "";
 
-function addCommand()
-{
-	var req = new XMLHttpRequest();
-	req.open('POST', '/addcommand/');
-	var json = {
-		'CMD':parseInt(document.getElementById('commands').value),
-		'VALUE':parseFloat(document.getElementById('val').value),
-		'XTIME':Date.parse(document.getElementById('xtime').value)/1000,
-		'INTERVAL':parseInt(document.getElementById('interval').value),
-        'TXT':document.getElementById('txt').value
-	};
-	req.send(JSON.stringify(json));
-	console.log(json);
-}
+            for (var i = 0; i < json.LEN; i++) {
+              var row = table.insertRow();
+              var cell = row.insertCell(0);
+              cell.innerHTML =
+                '<button id="editCmd' +
+                i +
+                '" class="button" onclick="editCommandQueue(' +
+                i +
+                ')">Festlegen</button>';
+              var date = new Date(json.XTIME[i] * 1000);
+              cell = row.insertCell(1);
+              cell.innerHTML =
+                commandlist[json["CMD"][i]] +
+                ":" +
+                json["VALUE"][i] +
+                "<br>" +
+                date.toLocaleString() +
+                "<br>Intervall: " +
+                json["INTERVAL"][i] +
+                "s";
+              cell = row.insertCell(2);
+              cell.innerHTML =
+                '<button id="delCmd' +
+                i +
+                '" class="button_red" onclick="delCommand(' +
+                i +
+                ')">Löschen</button>';
+            }
+          }
+        };
+      }
 
-function resetCommandQueue()
-{
-	var req = new XMLHttpRequest();
-	req.open('POST', '/addcommand/');
-	var json = {
-		'CMD':resetq,
-		'VAL':1,
-		'XTIME':0,
-		'INTERVAL':0
-	};
-	req.send(JSON.stringify(json));
-	console.log(json);
-	loadCommandQueue();
-}
+      function addCommand() {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/addcommand/");
+        var json = {
+          CMD: parseInt(document.getElementById("commands").value),
+          VALUE: parseFloat(document.getElementById("val").value),
+          XTIME: Date.parse(document.getElementById("xtime").value) / 1000,
+          INTERVAL: parseInt(document.getElementById("interval").value),
+          TXT: document.getElementById("txt").value,
+        };
+        req.send(JSON.stringify(json));
+        console.log(json);
+      }
 
-function savetofile()
-{
-    var filename=prompt("Bitte geben Sie einen Dateinamen ein","meinewarteschlange1");
-    if(filename == null) return;
-	var req = new XMLHttpRequest();
-	req.open('POST', '/cmdq_file/');
-	var json = {
-		'ACT':'save',
-		'NAME':filename
-	};
-	req.send(JSON.stringify(json));
-	console.log(json);
-}
+      function resetCommandQueue() {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/addcommand/");
+        var json = {
+          CMD: resetq,
+          VAL: 1,
+          XTIME: 0,
+          INTERVAL: 0,
+        };
+        req.send(JSON.stringify(json));
+        console.log(json);
+        loadCommandQueue();
+      }
 
-function loadfromfile()
-{
-    var filename=prompt("Bitte geben Sie einen Dateinamen ein","meinewarteschlange1");
-    if(filename == null) return;
-	var req = new XMLHttpRequest();
-	req.open('POST', '/cmdq_file/');
-	var json = {
-		'ACT':'load',
-		'NAME':filename
-	};
-	req.send(JSON.stringify(json));
-	console.log(json);
-}
+      function savetofile() {
+        var filename = prompt(
+          "Bitte gib einen Dateinamen ein",
+          "meinewarteschlange1"
+        );
+        if (filename == null) return;
+        var req = new XMLHttpRequest();
+        req.open("POST", "/cmdq_file/");
+        var json = {
+          ACT: "save",
+          NAME: filename,
+        };
+        req.send(JSON.stringify(json));
+        console.log(json);
+      }
 
-function editCommandQueue(index)
-{
-	var req = new XMLHttpRequest();
-	req.open('POST', '/editcommand/');
-	var json = {
-		'CMD':parseInt(document.getElementById('commands').value),
-		'VALUE':parseFloat(document.getElementById('val').value),
-		'XTIME':Date.parse(document.getElementById('xtime').value)/1000,
-		'INTERVAL':parseInt(document.getElementById('interval').value),
-        'TXT':document.getElementById('txt').value,
-        'IDX':index
-	};
-	req.send(JSON.stringify(json));
-	console.log(json);
-}
+      function loadfromfile() {
+        var filename = prompt(
+          "Bitte gib einen Dateinamen ein",
+          "meinewarteschlange1"
+        );
+        if (filename == null) return;
+        var req = new XMLHttpRequest();
+        req.open("POST", "/cmdq_file/");
+        var json = {
+          ACT: "load",
+          NAME: filename,
+        };
+        req.send(JSON.stringify(json));
+        console.log(json);
+      }
 
-function delCommand(index)
-{
-	var req = new XMLHttpRequest();
-	req.open('POST', '/delcommand/');
-	var json = {
-        'IDX':index
-	};
-	req.send(JSON.stringify(json));
-	console.log(json);
-}
+      function editCommandQueue(index) {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/editcommand/");
+        var json = {
+          CMD: parseInt(document.getElementById("commands").value),
+          VALUE: parseFloat(document.getElementById("val").value),
+          XTIME: Date.parse(document.getElementById("xtime").value) / 1000,
+          INTERVAL: parseInt(document.getElementById("interval").value),
+          TXT: document.getElementById("txt").value,
+          IDX: index,
+        };
+        req.send(JSON.stringify(json));
+        console.log(json);
+      }
 
-function toggleCalibration()
-{
-    let obj = document.getElementById('calibration');
-    if(obj.checked) obj.checked = false;
-}
-</script>
-<script src="darkmode.js" type="text/javascript"></script>
+      function delCommand(index) {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/delcommand/");
+        var json = {
+          IDX: index,
+        };
+        req.send(JSON.stringify(json));
+        console.log(json);
+      }
 
-</body>
+      function toggleCalibration() {
+        let obj = document.getElementById("calibration");
+        if (obj.checked) obj.checked = false;
+      }
+    </script>
+    <script src="darkmode.js" type="text/javascript"></script>
+  </body>
 </html>

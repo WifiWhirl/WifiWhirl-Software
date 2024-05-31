@@ -7,11 +7,10 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <ESP8266httpUpdate.h>
-#include <WiFiClientSecure.h>
+// Update Server
+#include <ESP8266HTTPUpdateServer.h>
+//#include <WiFiClientSecure.h>
 #include <time.h>
-// #include "certs.h"
-#include <CertStoreBearSSL.h>
 
 #else
 
@@ -20,8 +19,10 @@
 
 #endif
 
-#include <OneWire.h>
-#include <DallasTemperature.h>
+// Keeping for later integrations
+// #include <OneWire.h>
+// #include <DallasTemperature.h>
+
 #include <LittleFS.h>
 #include <PubSubClient.h> // ** Requires library 2.8.0 or higher ** https://github.com/knolleary/pubsubclient
 #include <Ticker.h>
@@ -96,14 +97,12 @@ void startOTA();
 void stopall();
 void pause_all(bool action);
 void startWebSocket();
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t len);
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len);
 void startHttpServer();
-void handleGetVersions();
 void handleGetHardware();
 void handleSetHardware();
-void handleHWtest();
 void handleNotFound();
-String getContentType(const String& filename);
+String getContentType(const String &filename);
 bool handleFileRead(String path);
 bool checkHttpPost(HTTPMethod method);
 void handleGetConfig();
@@ -119,7 +118,7 @@ void saveWebConfig();
 void handleGetWebConfig();
 void handleSetWebConfig();
 sWifi_info loadWifi();
-void saveWifi(const sWifi_info& wifi_info);
+void saveWifi(const sWifi_info &wifi_info);
 void handleGetWifi();
 void handleSetWifi();
 void handleResetWifi();
@@ -133,21 +132,15 @@ void handleFileUpload();
 void handleFileRemove();
 void handleRestart();
 void handleWebhook();
-void checkFirmwareUpdate(bool betaversion, String &rtn);
-void handleUpdateMaster();
-void handleUpdateBeta();
-void handleUpdate(bool betaversion);
-bool updateFiles(bool betaversion);
-void updateStart();
-void updateEnd();
-void udpateProgress(int cur, int total);
-void updateError(int err);
+void handleUpdate();
 void startMqtt();
-void mqttCallback(char* topic, byte* payload, unsigned int length);
+void mqttCallback(char *topic, byte *payload, unsigned int length);
 void mqttConnect();
 time_t getBootTime();
 void handleESPInfo();
-void setTemperatureFromSensor();
+
+// Keeping for later integrations
+// void setTemperatureFromSensor();
 
 void setupHA();
 void handlePrometheusMetrics();

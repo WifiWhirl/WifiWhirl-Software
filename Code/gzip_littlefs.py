@@ -10,8 +10,8 @@ def copy_data(src, dst):
   print("drive: " + drive)
   print("path: " + path)
   print("file: " + file)
-  myfile = open(drive + path + '\\' + myfilename, 'a')
-  if (ext in ["js", "css", "html", "ico"]):
+  myfile = open(drive + path + '/' + myfilename, 'a')
+  if (ext in ["js", "css", "html", "ico", "eot", "woff", "txt"]):
     myfile.write(file + ".gz\n")
     with open(src, 'rb') as src, gzip.open(dst + ".gz", 'wb') as dst:
       for chunk in iter(lambda: src.read(4096), b""):
@@ -33,4 +33,4 @@ def del_gzip_data(source, target, env):
   shutil.rmtree(data, True)
 
 env.AddPreAction("$BUILD_DIR/littlefs.bin", copy_gzip_data)
-# env.AddPostAction("$BUILD_DIR/littlefs.bin", del_gzip_data)
+env.AddPostAction("$BUILD_DIR/littlefs.bin", del_gzip_data)

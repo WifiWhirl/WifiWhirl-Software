@@ -1,6 +1,6 @@
 #include "DSP_BASE.h"
 
-void DSP::setRawPayload(const std::vector<uint8_t>& pl)
+void DSP::setRawPayload(const std::vector<uint8_t> &pl)
 {
     _raw_payload_to_dsp = pl;
 
@@ -17,7 +17,8 @@ std::vector<uint8_t> DSP::getRawPayload()
 String DSP::debug()
 {
     String s;
-    for(int i = 0; i<7; i++) s += ' ' + String(_raw_payload_from_dsp[i]);
+    for (int i = 0; i < 7; i++)
+        s += ' ' + String(_raw_payload_from_dsp[i]);
     s += "msg count:" + String(good_packets_count);
     return s;
 }
