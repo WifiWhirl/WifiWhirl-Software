@@ -19,10 +19,12 @@
 // CIO Includes
 #include "CIO_2021.h"
 #include "CIO_2021HJT.h"
+#include "CIO_PRE2021.h"
 
 // DSP Includes
 #include "DSP_2021.h"
 #include "DSP_2021HJT.h"
+#include "DSP_PRE2021.h"
 
 constexpr int MAXCOMMANDS = 20;
 

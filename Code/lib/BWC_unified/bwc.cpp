@@ -75,6 +75,9 @@ void BWC::setup(void)
     }
     switch (ciomodel)
     {
+    case PRE2021:
+        cio = new CIO_PRE2021;
+        break;
     case MIAMI2021:
         cio = new CIO_2021;
         break;
@@ -87,6 +90,9 @@ void BWC::setup(void)
     }
     switch (dspmodel)
     {
+    case PRE2021:
+        dsp = new DSP_PRE2021;
+        break;
     case MIAMI2021:
         dsp = new DSP_2021;
         break;
