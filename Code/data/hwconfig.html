@@ -58,11 +58,11 @@
           checked="checked"
           value="1"
         />
-        <label for="cio_2021">Airjet S100101</label><br />
+        <label for="cio_1">Airjet S100101</label><br />
         <input type="radio" id="cio_2" name="cio_model" value="2" />
-        <label for="cio_2021hjt">Hydrojet S200102</label><br />
+        <label for="cio_2">Hydrojet S200102</label><br />
         <input type="radio" id="cio_0" name="cio_model" value="0" />
-        <label for="cio_pre2021">Eiförmige Airjet Pumpe</label><br />
+        <label for="cio_0">Eiförmige Airjet Pumpe</label><br />
         <p>
           Du findest dein Pumpenmodell seitlich an der Pumpe auf dem
           Typenschild.
@@ -130,7 +130,7 @@
         var json = {
           cio: document.querySelector("input[name='cio_model']:checked").value,
           dsp: document.querySelector("input[name='cio_model']:checked").value,
-          pcb: 'v2b',
+          pcb: "v2b",
           hasTempSensor: 0,
           pins: [p1, p2, p3, p4, p5, p6, p7, p8],
         };
