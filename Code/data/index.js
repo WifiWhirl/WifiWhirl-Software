@@ -195,13 +195,11 @@ function handlemsg(e) {
       // display
       document.getElementById("display").innerHTML =
         "[" + String.fromCharCode(msgobj.CH1, msgobj.CH2, msgobj.CH3) + "]";
-      document.getElementById("display").style.color = rgb(
-        255 -
-          dspBrtMultiplier * 8 +
-          dspBrtMultiplier * (parseInt(msgobj.BRT) + 1),
-        0,
-        0
-      );
+        document.getElementById("display").style.color = rgb(
+          255 - dspBrtMultiplier * 8 + dspBrtMultiplier * (parseInt(msgobj.BRT) + 1),
+          0,
+          0
+        );
 
       // set control values (once)
       if (initControlValues) {
@@ -416,8 +414,11 @@ function getProperValue(val, min, max) {
 }
 
 function rgb(r, g, b) {
-  r = Math.floor(r);
-  g = Math.floor(g);
-  b = Math.floor(b);
-  return ["rgb(", r, ",", g, ",", b, ")"].join("");
+  // Clamp values to valid RGB range (0-255)
+  r = Math.max(0, Math.min(255, Math.floor(r)));
+  g = Math.max(0, Math.min(255, Math.floor(g)));
+  b = Math.max(0, Math.min(255, Math.floor(b)));
+  
+  return `rgb(${r}, ${g}, ${b})`;
 }
+
