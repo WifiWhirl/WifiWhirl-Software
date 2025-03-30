@@ -134,16 +134,14 @@ function handlemsg(e) {
     document.getElementById("fw").innerHTML = "WifiWhirl " + msgobj.FW;
 
     // Set wifi symbol signal strenght
-    if (msgobj.RSSI <= -90) {
+    if (msgobj.RSSI <= -80) {
       document.getElementById("rssi").className = "waveStrength-1";
     } else if (msgobj.RSSI <= -70) {
       document.getElementById("rssi").className = "waveStrength-2";
     } else if (msgobj.RSSI <= -67) {
       document.getElementById("rssi").className = "waveStrength-3";
-    } else if (msgobj.RSSI <= -30) {
-      document.getElementById("rssi").className = "waveStrength-4";
     } else {
-      document.getElementById("rssi").className = "waveStrength-1";
+      document.getElementById("rssi").className = "waveStrength-4";
     }
 
     document
