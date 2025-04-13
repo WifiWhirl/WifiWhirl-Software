@@ -125,12 +125,18 @@ function handlemsg(e) {
       "Fehler: Falsche Zugangsdaten", // 4 / the username/password were rejected
       "Fehler: WifiWhirl darf sich nicht verbinden", // 5 / the client was not authorized to connect
     ];
+
     try {
-      document.getElementById("mqtt").innerHTML =
-        "MQTT: " + mqtt_states[msgobj.MQTT + 4];
+      if (msgobj.MQTT == -1) {
+        document.getElementById("mqtt").innerHTML = "";
+      } else {
+        document.getElementById("mqtt").innerHTML =
+          "MQTT: " + mqtt_states[msgobj.MQTT + 4];
+      }
     } catch (error) {
       console.error(error);
     }
+
     document.getElementById("fw").innerHTML = "WifiWhirl " + msgobj.FW;
 
     // Set wifi symbol signal strenght
@@ -193,13 +199,25 @@ function handlemsg(e) {
       }
 
       // display
-      document.getElementById("display").innerHTML =
-        "[" + String.fromCharCode(msgobj.CH1, msgobj.CH2, msgobj.CH3) + "]";
-        document.getElementById("display").style.color = rgb(
-          255 - dspBrtMultiplier * 8 + dspBrtMultiplier * (parseInt(msgobj.BRT) + 1),
-          0,
-          0
-        );
+      document.getElementById("display").innerHTML = String.fromCharCode(
+        msgobj.CH1,
+        msgobj.CH2,
+        msgobj.CH3
+      );
+      document.getElementById("display").style.color = rgb(
+        255 -
+          dspBrtMultiplier * 8 +
+          dspBrtMultiplier * (parseInt(msgobj.BRT) + 1),
+        0,
+        0
+      );
+      if (msgobj.CH1 != 101 && msgobj.CH3 != 32 && msgobj.CH1 != 54) {
+        msgobj.UNT
+          ? (document.getElementById("display").innerHTML += " °C")
+          : (document.getElementById("display").innerHTML += " °F");
+      } else {
+        document.getElementById("display").innerHTML += " ";
+      }
 
       // set control values (once)
       if (initControlValues) {
@@ -418,7 +436,6 @@ function rgb(r, g, b) {
   r = Math.max(0, Math.min(255, Math.floor(r)));
   g = Math.max(0, Math.min(255, Math.floor(g)));
   b = Math.max(0, Math.min(255, Math.floor(b)));
-  
+
   return `rgb(${r}, ${g}, ${b})`;
 }
-
