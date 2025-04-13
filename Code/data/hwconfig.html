@@ -86,16 +86,6 @@
 
     <script>
       loadHardwareConfig();
-      var p1, p2, p3, p4, p5, p6, p7, p8;
-      p1 = 1;
-      p2 = 2;
-      p3 = 5;
-      p4 = 6;
-      p5 = 4;
-      p6 = 3;
-      p7 = 7;
-      p8 = null;
-
       function loadHardwareConfig() {
         console.log("requesting hardware settings");
         var req = new XMLHttpRequest();
@@ -129,7 +119,7 @@
           dsp: document.querySelector("input[name='cio_model']:checked").value,
           pcb: "v2b",
           hasTempSensor: 0,
-          pins: [p1, p2, p3, p4, p5, p6, p7, p8],
+          pins: [1, 2, 3, 4, 5, 6, 7, null],
         };
         req.send(JSON.stringify(json));
         console.log(JSON.stringify(json));
