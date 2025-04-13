@@ -273,6 +273,30 @@
         <h2>Tasten</h2>
         <table class="fixed">
           <tr>
+            <td class="right">Aus/Ein</td>
+            <td>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  id="ONOFF"
+                  onchange="sendCommand('togglePWR')"
+                />
+                <span class="slider round"></span>
+              </label>
+            </td>
+            <td class="right">Tastensperre</td>
+            <td>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  id="LCK"
+                  onchange="sendCommand('toggleLCK')"
+                />
+                <span class="slider round"></span>
+              </label>
+            </td>
+          </tr>
+          <tr>
             <td class="right">Airjet</td>
             <td>
               <label class="switch">

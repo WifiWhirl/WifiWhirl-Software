@@ -28,6 +28,8 @@ const cmdMap = {
   setFullpower: 18,
   printText: 19,
   setReady: 20,
+  togglePWR: 22,
+  toggleLCK: 23,
 };
 
 // button element ID mapping
@@ -139,6 +141,12 @@ function handlemsg(e) {
 
     document.getElementById("fw").innerHTML = "WifiWhirl " + msgobj.FW;
 
+    try {
+      document.getElementById("fwinfo").innerHTML = "WifiWhirl " + msgobj.FW;
+    } catch (error) {
+      console.error(error);
+    }
+
     // Set wifi symbol signal strenght
     if (msgobj.RSSI <= -80) {
       document.getElementById("rssi").className = "waveStrength-1";
@@ -178,6 +186,9 @@ function handlemsg(e) {
       document.getElementById("ttlabel").innerHTML = msgobj.TGT.toString();
 
       // buttons
+      document.getElementById("ONOFF").checked = msgobj.PWR;
+      document.getElementById("LCK").checked = msgobj.LCK;
+
       document.getElementById("AIR").checked = msgobj.AIR;
       if (document.getElementById("UNT").checked != msgobj.UNT) {
         document.getElementById("UNT").checked = msgobj.UNT;
@@ -324,7 +335,7 @@ function handlemsg(e) {
       document.getElementById("t2r").innerHTML =
         s2dhms(msgobj.T2R * 3600) +
         " (" +
-        (msgobj.RS == "Ready" ? "Bereit" : "Nicht bereit") +
+        (msgobj.RS == "Ready" ? "Zeit für ein Bad!" : "Nicht bereit") +
         ")";
     }
   } catch (error) {
@@ -380,6 +391,8 @@ function sendCommand(cmd) {
       .getElementById("selectorTemp")
       .setAttribute("value", value.toString());
     updateTempState = true;
+  } else if (cmd == "togglePWR" || cmd == "toggleLCK") {
+    value = 0;
   } else if (cmd == "setAmbient" || cmd == "setAmbientSelector") {
     value = parseInt(
       document.getElementById(cmd == "setAmbient" ? "amb" : "selectorAmb").value

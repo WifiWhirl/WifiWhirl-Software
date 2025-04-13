@@ -364,6 +364,16 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
     dsp->text += String(" ") + txt;
     switch (cmd)
     {
+    case TOGGLEPWR:
+    {
+        cio->cio_toggles.power_change = 1;
+        break;
+    }
+    case TOGGLELCK:
+    {
+        cio->cio_toggles.locked_pressed = 1;
+        break;
+    }
     case SETTARGET:
     {
         if (!((val > 0 && val < 41) || (val > 50 && val < 105)))
