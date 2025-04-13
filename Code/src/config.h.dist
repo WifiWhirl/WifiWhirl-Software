@@ -33,9 +33,7 @@ const char *update_path = "/update";
 /** Cloud API URL */
 const char *cloudApi = "";
 /** Cloud API URL */
-// >>> import secrets
-// >>> secrets.token_hex(32)
-const char *cloudApiKey PROGMEM = ""; // 32-bit Hex
+const char *cloudApiKey PROGMEM = "";
 /** Cloud API SSL Certificate */
 const char *x509CA PROGMEM = "";
 
