@@ -141,12 +141,6 @@ function handlemsg(e) {
 
     document.getElementById("fw").innerHTML = "WifiWhirl " + msgobj.FW;
 
-    try {
-      document.getElementById("fwinfo").innerHTML = "WifiWhirl " + msgobj.FW;
-    } catch (error) {
-      console.error(error);
-    }
-
     // Set wifi symbol signal strenght
     if (msgobj.RSSI <= -80) {
       document.getElementById("rssi").className = "waveStrength-1";
@@ -181,8 +175,6 @@ function handlemsg(e) {
     if (msgobj.CONTENT == "STATES") {
       // temperature
       document.getElementById("atlabel").innerHTML = msgobj.TMP.toString();
-      document.getElementById("vtlabel").innerHTML =
-        msgobj.VTM.toFixed(2).toString();
       document.getElementById("ttlabel").innerHTML = msgobj.TGT.toString();
 
       // buttons
@@ -282,7 +274,7 @@ function handlemsg(e) {
       if (elemSelectorAmb.value == msgobj.AMB) updateAmbState = false;
       if (elemSelectorBrt.value == msgobj.BRT) updateBrtState = false;
 
-      const unitsymbols = document.querySelectorAll("[id=unitcf]");
+      const unitsymbols = document.querySelectorAll("[id^=unitcf]");
       if (msgobj.UNT) {
         unitsymbols.forEach((unitsymbol) => {
           unitsymbol.innerHTML = "C";

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
   <head>
     <title>WifiWhirl | SPA-Konfiguration</title>
     <meta charset="utf-8" />
@@ -11,7 +11,11 @@
       href="main.css"
       onload="this.media='all'; this.onload=null;"
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+
     <script src="function.js" type="text/javascript"></script>
     <script src="index.js" type="text/javascript"></script>
   </head>
@@ -31,7 +35,7 @@
         </form>
         <a href="./"
           ><div id="header">
-            <span>SPA-Konfiguration</span><span>WifiWhirl</span>
+            <span>SPA-Konfiguration</span><span id="fw">WifiWhirl</span>
           </div></a
         >
         <a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
@@ -62,6 +66,7 @@
                 required
               /><span class="inputunit" style="margin-left: -12px">€</span>
             </td>
+            <td></td>
           </tr>
           <tr>
             <td><label for="clinterval">Chlor hinzufügen:</label></td>
@@ -76,6 +81,7 @@
                 required
               /><span class="inputunit" style="margin-left: -35px">Tage</span>
             </td>
+            <td></td>
           </tr>
           <tr>
             <td><label for="finterval">Filterwechsel:</label></td>
@@ -90,10 +96,12 @@
                 required
               /><span class="inputunit" style="margin-left: -35px">Tage</span>
             </td>
+            <td></td>
           </tr>
           <tr>
             <td><label for="audio">Ton (ein/aus):</label></td>
             <td><input type="checkbox" id="audio" /></td>
+            <td></td>
           </tr>
           <tr>
             <td>
@@ -105,6 +113,7 @@
               >
             </td>
             <td><input type="checkbox" id="notification" /></td>
+            <td></td>
           </tr>
           <tr>
             <td>
@@ -120,16 +129,18 @@
                 pattern="\d{1,3}"
               /><span class="inputunit" style="margin-left: -30px">Sek</span>
             </td>
+            <td></td>
           </tr>
           <tr>
             <td>
               <label for="restore">Einstellungen dauerhaft speichern:</label>
             </td>
             <td><input type="checkbox" id="restore" /></td>
+            <td></td>
           </tr>
           <tr>
             <td>
-              <label for="calibration">Kalibriert: </label
+              <label for="calibration">Kalibriert:</label
               ><span
                 data-text="Wenn aktiviert, ist die virtuelle Temperatur kalibriert. Kalibrieren: Schalte die Heizung AUS und die Pumpe EIN. Stoppe die Zeit, bis die Temperatur um einige Grad gesunken ist. Schalte währenddessen keine Air- oder Hydrojets ein. Die Wassertemperatur muss sich zu Beginn um mehrere Grad von der Umgebungstemperatur unterscheiden."
                 class="tooltip"
@@ -143,14 +154,67 @@
                 onclick="toggleCalibration()"
               />
             </td>
+          </tr>
+          <tr>
+            <td></td>
             <td><a href="calib.html">manuelle Kalibrierung</a></td>
+          </tr>
+          <tr>
+            <td>
+              <label for="enableWeather"
+                >Außentemperatur automatisch ermitteln:</label
+              >
+              <span
+                data-text="Mit der Ermittlung der Außentemperatur wird die Umgebungstemperatur automatisch gesetzt. Dies sollte nicht aktiviert werden, wenn der Pool im Innenraum steht."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <input
+                type="checkbox"
+                id="enableWeather"
+                onclick="toggleWeatherSettings()"
+              />
+            </td>
+          </tr>
+
+          <tr id="coordinates" style="display: none">
+            <td>Postleitzahl:</td>
+            <td>
+              <input type="text" id="plz" maxlength="5" size="6" />
+            </td>
+          </tr>
+          <tr id="cityhintrow">
+            <td colspan="2" id="cityhint" style="display: none">
+              Die Temperatur wird für <span id="city">...</span> ermittelt.
+            </td>
+          </tr>
+          <tr>
+            <td><label for="poolCap">Poolinhalt in Liter:</label></td>
+            <td>
+              <input
+                type="text"
+                id="poolCap"
+                value="700"
+                maxlength="4"
+                size="6"
+                pattern="\d{3,4}"
+                required
+              /><span class="inputunit" style="margin-left: -32px">Liter</span>
+            </td>
+            <td></td>
           </tr>
         </table>
       </section>
       <section>
         <table>
-          Aktivierte Anzeigetasten<label for="toggle_all"> | Alle:</label
-          ><input type="checkbox" id="toggle_all" onclick="toggleAll()" />
+          <tr>
+            <td colspan="8">
+              Aktivierte Anzeigetasten<label for="toggle_all">| Alle:</label>
+              <input type="checkbox" id="toggle_all" onclick="toggleAll()" />
+            </td>
+          </tr>
           <tr>
             <td><input type="checkbox" id="power_btn" /></td>
             <td><label for="power_btn">Ein/Aus</label></td>
@@ -168,6 +232,8 @@
             <td><label for="up_btn">Aufwärts</label></td>
             <td><input type="checkbox" id="hydrojets_btn" /></td>
             <td><label for="hydrojets_btn">Hydrojet</label></td>
+            <td></td>
+            <td></td>
           </tr>
           <tr>
             <td><input type="checkbox" id="heat_btn" /></td>
@@ -176,27 +242,25 @@
             <td><label for="down_btn">Abwärts</label></td>
             <td><input type="checkbox" id="unit_btn" /></td>
             <td><label for="unit_btn">Einheit</label></td>
+            <td></td>
+            <td></td>
           </tr>
         </table>
-        <table>
-          <tr>
-            <td colspan="2" class="center">
-              <button
-                id="save"
-                class="button"
-                onclick="buttonConfirm(this);saveConfig()"
-              >
-                Speichern
-              </button>
-            </td>
-          </tr>
-        </table>
+        <div class="center">
+          <button
+            id="save"
+            class="button"
+            onclick="buttonConfirm(this);saveConfig()"
+          >
+            Speichern
+          </button>
+        </div>
       </section>
 
       <section>
+        <h2>Warteschlangenkonfiguration</h2>
         <table>
           <tr>
-            <h2>Warteschlangenkonfiguration</h2>
             <td><label for="commands">Befehl:</label></td>
             <td>
               <select name="commands" id="commands" onchange="togglefields()">
@@ -223,18 +287,24 @@
                 <!-- <option value="20">Bereitschaftszeit festlegen (-)</option> -->
               </select>
             </td>
+            <td></td>
           </tr>
           <tr id="valinput">
-            <td><label for="val" id="vallabel">ein-/ausschalten:</label></td>
+            <td id="vallabel">ein-/ausschalten:</td>
             <td>
-              <input type="checkbox" id="val" value="1" /><label
+              <input type="radio" id="val" name="val" value="1" /><label
                 for="val"
                 id="onoffinfo"
-                >ein/aus</label
+                >ein</label
+              >
+              <input type="radio" id="valoff" name="val" value="0" /><label
+                for="valoff"
+                id="offinfo"
+                >aus</label
               >
             </td>
             <td id="displayinfo">
-              <label for="val" id="sliderDsp"></label>
+              <label for="val" id="sliderDsp" valign="middle"></label>
             </td>
           </tr>
           <tr id="textinput" style="display: none">
@@ -253,6 +323,7 @@
                 pattern="[a-z0-9-]*"
               />
             </td>
+            <td></td>
           </tr>
           <tr>
             <td><label for="xtime">Ausführungszeit:</label><br /></td>
@@ -262,29 +333,41 @@
                 id="xtime"
                 name="xtime"
                 onchange="totimestamp()"
-                step="1"
               />
             </td>
+            <td></td>
           </tr>
           <tr>
             <td><label for="interval">Wiederholungsintervall:</label></td>
             <td>
               <input
-                type="text"
+                type="number"
                 id="interval"
                 value="0"
-                maxlength="8"
+                max="2160"
                 size="8"
               />
-              Sekunden
+              Stunden
             </td>
+            <td></td>
           </tr>
           <tr>
             <td colspan="2">
               <p>
-                (0 = Einmal ausführen, 1 Std. = 3600 Sek.,<br />
-                1 Tag = 86400 Sek., 1 Woche = 604800 Sek.)
+                (Einmalig ausführen = 0 Stunden)
               </p>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="center" colspan="2" style="text-align: center">
+              <button
+                id="addcmd"
+                class="button"
+                onclick="buttonConfirm(this);addCommand()"
+              >
+                Hinzufügen
+              </button>
             </td>
           </tr>
         </table>
@@ -292,41 +375,38 @@
 
       <section style="text-align: left">
         <h2>Befehlswarteschlange</h2>
-        <table id="cmdq"></table>
+        <table id="cmdq" width="100%" style="border-spacing: 0">
+          <tr class="queueeven">
+            <td colspan="2" style="text-align: center">
+              Die Warteschlange wird geladen...
+            </td>
+          </tr>
+        </table>
         <table>
           <tr>
-            <td colspan="2" class="center">
-              <button
-                id="addcmd"
-                class="button"
-                onclick="buttonConfirm(this);addCommand()"
-              >
-                Neu hinzufügen
+            <td class="center">
+              <button id="saveq" class="button" onclick="savetofile()">
+                Sichern
               </button>
             </td>
-            <td colspan="2" class="center">
+            <td class="center">
+              <button
+                id="loadq"
+                class="button"
+                onclick="buttonConfirm(this);loadfromfile()"
+              >
+                Wiederherstellen
+              </button>
+            </td>
+          </tr>
+          <tr class="center">
+            <td class="center" colspan="2" style="text-align: center">
               <button
                 id="resetq"
                 class="button_red"
                 onclick="buttonConfirm(this);resetCommandQueue()"
               >
                 Warteschlange leeren
-              </button>
-            </td>
-          </tr>
-          <tr>
-            <td colspan="2" class="center">
-              <button id="saveq" class="button" onclick="savetofile()">
-                In Datei speichern
-              </button>
-            </td>
-            <td colspan="2" class="center">
-              <button
-                id="loadq"
-                class="button"
-                onclick="buttonConfirm(this);loadfromfile()"
-              >
-                Aus Datei laden
               </button>
             </td>
           </tr>
@@ -342,7 +422,10 @@
     </div>
 
     <script>
+      var weatherEnabled = 0;
       loadConfig();
+      toggleWeatherSettings();
+      loadWeatherCity();
 
       const settarget = 0;
       const setunit = 1;
@@ -369,16 +452,16 @@
       const commandlist = [
         "Zieltemperatur festlegen",
         "Einheit festlegen",
-        "Airjet festlegen",
-        "Heizung festlegen",
-        "Filterpumpe festlegen",
+        "Airjet",
+        "Heizung",
+        "Filterpumpe",
         "Warteschlange zurücksetzen",
         "WLAN Modul neu starten",
         "Interner Befehl",
         "Zeiten zurücksetzen",
         "Chlortimer zurücksetzen",
         "Filtertimer zurücksetzen",
-        "Hydrojet festlegen",
+        "Hydrojet",
         "Displayhelligkeit festlegen",
         "Signalton festlegen",
         "Umgebungstemperatur °F festlegen",
@@ -393,6 +476,29 @@
       function totimestamp() {
         console.log(Date.parse(document.getElementById("xtime").value) / 1000);
         console.log("value " + document.getElementById("xtime").value);
+      }
+
+      function loadWeatherCity() {
+        if (!weatherEnabled) return;
+        let cityhint = document.getElementById("cityhint");
+        var req = new XMLHttpRequest();
+        req.open("GET", "/getweather/");
+        req.send();
+        req.onreadystatechange = function () {
+          if (this.readyState == 4 && this.status == 200) {
+            console.log(req.responseText);
+            cityhint.style.display = "table-cell";
+            cityhint.innerHTML =
+              "Die Temperatur wird für <span id='city'>...</span> ermittelt.";
+            document.getElementById("city").innerHTML = req.responseText;
+          }
+          if (this.readyState == 4 && this.status == 500) {
+            console.log(req.responseText);
+            cityhint.style.display = "table-cell";
+            cityhint.innerHTML =
+              "Es ist ein Fehler aufgetreten. Bitte prüfe die eingegebene Postleitzahl. Die aktuelle Temperatur kann nur für deutsche und österreichische Postleitzahlen ermittelt werden.";
+          }
+        };
       }
 
       function loadConfig() {
@@ -418,7 +524,11 @@
             document.getElementById("lastboot").innerHTML =
               "Letzter Neustart: " + date.toLocaleString();
             document.getElementById("calibration").checked = json.VTCAL;
-            document.getElementById("lock_btn").checked = json.LCK;
+            document.getElementById("plz").value = json.PLZ;
+            document.getElementById("enableWeather").checked = json.WEATHER;
+            weatherEnabled = json.WEATHER;
+            (document.getElementById("poolCap").value = json.POOLCAP),
+              (document.getElementById("lock_btn").checked = json.LCK);
             document.getElementById("timer_btn").checked = json.TMR;
             document.getElementById("bubbles_btn").checked = json.AIR;
             document.getElementById("unit_btn").checked = json.UNT;
@@ -428,6 +538,8 @@
             document.getElementById("up_btn").checked = json.UP;
             document.getElementById("power_btn").checked = json.PWR;
             document.getElementById("hydrojets_btn").checked = json.HJT;
+            if (json.WEATHER) loadWeatherCity();
+            toggleWeatherSettings();
           }
         };
 
@@ -451,6 +563,7 @@
         var select = document.getElementById("commands");
         var textinput = document.getElementById("textinput");
         var varinput = document.getElementById("val");
+        var varinput2 = document.getElementById("valoff");
         var varlabel = document.getElementById("vallabel");
         var sliderDsp = document.getElementById("sliderDsp");
 
@@ -461,6 +574,7 @@
           valinput.style.display = "none";
           varinput.value = "1";
           document.getElementById("onoffinfo").style.display = "none";
+          document.getElementById("offinfo").style.display = "none";
           document.getElementById("displayinfo").style.display = "none";
         } else if (select.value == 12) {
           // Brightness
@@ -468,6 +582,8 @@
           valinput.style.display = "table-row";
           document.getElementById("displayinfo").style.display = "table-row";
           document.getElementById("onoffinfo").style.display = "none";
+          document.getElementById("offinfo").style.display = "none";
+          varinput2.style.display = "none";
           varlabel.innerHTML = "Helligkeit:";
           varinput.setAttribute("type", "range");
           varinput.style = "width: 13em;";
@@ -492,10 +608,13 @@
           textinput.style.display = "none";
           valinput.style.display = "table-row";
           document.getElementById("onoffinfo").style.display = "inline";
+          document.getElementById("offinfo").style.display = "inline";
+          document.getElementById("valoff").style.display = "inline";
           document.getElementById("displayinfo").style.display = "none";
           varlabel.innerHTML = "ein-/ausschalten:";
-          varinput.setAttribute("type", "checkbox");
+          varinput.setAttribute("type", "radio");
           varinput.checked = true;
+          varinput.value = 1;
           varinput.removeAttribute("style");
           varinput.removeAttribute("maxlength");
           varinput.removeAttribute("min");
@@ -532,6 +651,9 @@
           ),
           RESTORE: document.getElementById("restore").checked,
           VTCAL: document.getElementById("calibration").checked,
+          PLZ: document.getElementById("plz").value,
+          WEATHER: document.getElementById("enableWeather").checked,
+          POOLCAP: document.getElementById("poolCap").value,
           LCK: document.getElementById("lock_btn").checked,
           TMR: document.getElementById("timer_btn").checked,
           AIR: document.getElementById("bubbles_btn").checked,
@@ -545,6 +667,11 @@
         };
         req.send(JSON.stringify(json));
         console.log(json);
+        if (document.getElementById("enableWeather").checked) {
+          weatherEnabled = 1;
+          loadWeatherCity();
+        }
+        toggleWeatherSettings();
       }
 
       function toggleAll() {
@@ -570,6 +697,16 @@
           document.getElementById("toggle_all").checked;
       }
 
+      let dateoptions = {
+        weekday: "long",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+      };
+
       function loadCommandQueue() {
         var req = new XMLHttpRequest();
         req.open("POST", "/getcommands/");
@@ -580,28 +717,62 @@
             console.log(json);
             var table = document.getElementById("cmdq");
             table.innerHTML = "";
-
+            if (json.LEN == 0) {
+              var row = table.insertRow();
+              row.className = "queueeven";
+              var cell = row.insertCell(0);
+              cell.colSpan = "2";
+              cell.style = "text-align: center;";
+              cell.innerHTML = "Die Warteschlange ist leer.";
+              return;
+            }
             for (var i = 0; i < json.LEN; i++) {
               var row = table.insertRow();
+              if (i % 2) {
+                row.className = "queueodd";
+              } else {
+                row.className = "queueeven";
+              }
               var cell = row.insertCell(0);
+              cell.colSpan = "2";
+              cell.style = "padding: 0.5em;";
+              var date = new Date(json.XTIME[i] * 1000);
+              cell.innerHTML =
+                "<strong>" +
+                commandlist[json["CMD"][i]] +
+                " " +
+                (json["VALUE"][i] == 1
+                  ? "einschalten"
+                  : json["VALUE"][i] == 0
+                  ? "ausschalten"
+                  : json["VALUE"][i]) +
+                "</strong><br>" +
+                "Nächste Ausführung: " +
+                new Intl.DateTimeFormat(undefined, dateoptions).format(date) + //date.toLocaleString()
+                "<br>Wiederholungsintervall: " +
+                (json["INTERVAL"][i] != 0
+                  ? json["INTERVAL"][i] / 3600 +
+                    " Stunde" +
+                    (json["INTERVAL"][i] / 3600 != 1 ? "n" : "")
+                  : "einmalig");
+              var row = table.insertRow();
+              if (i % 2) {
+                row.className = "queueodd";
+              } else {
+                row.className = "queueeven";
+              }
+              cell = row.insertCell(0);
+              cell.width = "50%";
+              cell.style = "padding: 0.5em; text-align: center;";
               cell.innerHTML =
                 '<button id="editCmd' +
                 i +
                 '" class="button" onclick="editCommandQueue(' +
                 i +
-                ')">Festlegen</button>';
-              var date = new Date(json.XTIME[i] * 1000);
+                ')">Überschreiben</button>';
               cell = row.insertCell(1);
-              cell.innerHTML =
-                commandlist[json["CMD"][i]] +
-                ":" +
-                json["VALUE"][i] +
-                "<br>" +
-                date.toLocaleString() +
-                "<br>Intervall: " +
-                json["INTERVAL"][i] +
-                "s";
-              cell = row.insertCell(2);
+              cell.width = "50%";
+              cell.style = "padding: 0.5em; text-align: center;";
               cell.innerHTML =
                 '<button id="delCmd' +
                 i +
@@ -618,9 +789,11 @@
         req.open("POST", "/addcommand/");
         var json = {
           CMD: parseInt(document.getElementById("commands").value),
-          VALUE: parseFloat(document.getElementById("val").value),
+          VALUE: parseFloat(
+            document.querySelector('input[name="val"]:checked').value
+          ),
           XTIME: Date.parse(document.getElementById("xtime").value) / 1000,
-          INTERVAL: parseInt(document.getElementById("interval").value),
+          INTERVAL: parseInt(document.getElementById("interval").value) * 3600,
           TXT: document.getElementById("txt").value,
         };
         req.send(JSON.stringify(json));
@@ -644,9 +817,13 @@
       function savetofile() {
         var filename = prompt(
           "Bitte gib einen Dateinamen ein",
-          "meinewarteschlange1"
+          "wifiwhirl_backup_warteschlange.json"
         );
         if (filename == null) return;
+        if (!filename.endsWith(".json")) {
+          _filename = filename + ".json";
+          filename = _filename;
+        }
         var req = new XMLHttpRequest();
         req.open("POST", "/cmdq_file/");
         var json = {
@@ -655,12 +832,29 @@
         };
         req.send(JSON.stringify(json));
         console.log(json);
+        var reqget = new XMLHttpRequest();
+        reqget.open("GET", "/" + filename);
+        req.onreadystatechange = function () {
+          if (this.status == 200) {
+            console.log(this.status);
+            reqget.responseType = "blob";
+            reqget.onload = function (event) {
+              var blob = reqget.response;
+              var fileName = req.getResponseHeader("fileName");
+              var link = document.createElement("a");
+              link.href = window.URL.createObjectURL(blob);
+              link.download = fileName;
+              link.click();
+            };
+          }
+        };
+        reqget.send();
       }
 
       function loadfromfile() {
         var filename = prompt(
           "Bitte gib einen Dateinamen ein",
-          "meinewarteschlange1"
+          "wifiwhirl_backup_warteschlange.json"
         );
         if (filename == null) return;
         var req = new XMLHttpRequest();
@@ -680,7 +874,7 @@
           CMD: parseInt(document.getElementById("commands").value),
           VALUE: parseFloat(document.getElementById("val").value),
           XTIME: Date.parse(document.getElementById("xtime").value) / 1000,
-          INTERVAL: parseInt(document.getElementById("interval").value),
+          INTERVAL: parseInt(document.getElementById("interval").value) * 3600,
           TXT: document.getElementById("txt").value,
           IDX: index,
         };
@@ -702,7 +896,20 @@
         let obj = document.getElementById("calibration");
         if (obj.checked) obj.checked = false;
       }
+
+      function toggleWeatherSettings() {
+        let obj = document.getElementById("coordinates");
+        let cityhint = document.getElementById("cityhint");
+        if (document.getElementById("enableWeather").checked) {
+          obj.style.display = "table-row";
+          if (weatherEnabled) cityhint.style.display = "table-cell";
+        } else {
+          weatherEnabled = 0;
+          if (!weatherEnabled) cityhint.style.display = "none";
+          obj.style.display = "none";
+        }
+      }
     </script>
-    <script src="darkmode.js" type="text/javascript"></script>
+    <script src="darkmode.js"></script>
   </body>
 </html>

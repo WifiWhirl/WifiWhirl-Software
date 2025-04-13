@@ -21,7 +21,6 @@ BWC::BWC()
     _audio_enabled = true;
     _restore_states_on_start = true;
     _ambient_temp = 20;
-    _virtual_temp_fix = -99;
 }
 
 BWC::~BWC()
@@ -174,7 +173,6 @@ void BWC::loop()
         _saveStates();
     _handleNotification();
     _handleStateChanges();
-    _calcVirtualTemp();
     // logstates();
     if (BWC_DEBUG)
         _log();
@@ -526,11 +524,6 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         }
     }
     break;
-    case SETR:
-        _R_COOLING = val / 1000000.0f;
-        _vt_calibrated = true;
-        _save_settings_needed = true;
-        break;
     default:
         break;
     }
@@ -558,7 +551,6 @@ void BWC::_handleStateChanges()
     if (cio->cio_states.temperature != _prev_cio_states.temperature)
     {
         _deltatemp = cio->cio_states.temperature - _prev_cio_states.temperature;
-        _updateVirtualTempFix_ontempchange();
         _temp_change_timestamp_ms = millis();
     }
 
@@ -566,7 +558,6 @@ void BWC::_handleStateChanges()
     if (cio->cio_states.heatred != _prev_cio_states.heatred)
     {
         _heatred_change_timestamp_ms = millis();
-        _updateVirtualTempFix_onheaterchange();
     }
 
     if (cio->cio_states.pump != _prev_cio_states.pump)
@@ -609,173 +600,39 @@ void BWC::_handleStateChanges()
 // return how many hours until pool is ready. (provided the heater is on)
 float BWC::_estHeatingTime()
 {
-    int targetInC = cio->cio_states.target;
+    int tgtTemp = cio->cio_states.target; // Target temperature (set by user)
     if (!cio->cio_states.unit)
-        targetInC = F2C(targetInC);
-    if (_virtual_temp > targetInC)
-        return -2; // Already
+        tgtTemp = F2C(tgtTemp); // Check if unit is set to fahrenheit and convert to c for calculation
+    if (cio->cio_states.temperature > tgtTemp)
+        return -2; // Pool is ready, target is reached
 
-    // float degAboveAmbient = _virtual_temp - (float)_ambient_temp;
-    // float fraction = 1.0f - (degAboveAmbient - floor(degAboveAmbient));
-    // int deltaTemp = targetInC - _virtual_temp;
+    const int heaterPwr = 2000;                  // Heater power in watts
+    const float heatLoss = 4.85f;                // Heat loss per Kelvin per hour
+    const float tcpH2O = 1.163f;                 // Specific heat capacity of water in Wh/(kg*K)
+    int ambTemp = _ambient_temp;                 // Ambient temperature (set by user or automation)
+    float curTemp = cio->cio_states.temperature; // Current temperature
+    int poolCapacity = _pool_capacity;           // Water capacity in liters (set by user)
 
-    // //integrate the time needed to reach target
-    // //how long to next integer temp
-    // double coolingPerHour = degAboveAmbient / _R_COOLING;
-    // double netRisePerHour;
-    // netRisePerHour = _heating_degperhour - coolingPerHour;
+    // calculate efficiency
+    float avgTemp = (tgtTemp + curTemp) / 2;
+    float heaterEfficiency = 0.99f - ((avgTemp - ambTemp) * 0.005f);
+    heaterEfficiency = std::max(heaterEfficiency, 0.1f);
 
-    // double hoursRemaining = fraction / netRisePerHour;
-
-    double degAboveAmbient;
-    double deltaTemp = targetInC - _virtual_temp;
-    double coolingPerHour;
-    double netRisePerHour;
-    double hoursRemaining = 0;
-    // iterate up to target
-    for (float i = 0; i <= deltaTemp; i += 0.01)
+    // net heating power calculation
+    float netHeatingPower = (heaterPwr * heaterEfficiency) - (heatLoss * (avgTemp - ambTemp));
+    if (netHeatingPower <= 0)
     {
-        degAboveAmbient = _virtual_temp + i - _ambient_temp;
-        coolingPerHour = degAboveAmbient / _R_COOLING;
-        netRisePerHour = _heating_degperhour - coolingPerHour;
-        if (netRisePerHour <= 0)
-            return -1; // Never
-        hoursRemaining += 0.01 / netRisePerHour;
+        return -1;
     }
+
+    // Calculate remaining hours
+    float totalEnergy = poolCapacity * tcpH2O * (tgtTemp - curTemp);
+    float hoursRemaining = totalEnergy / netHeatingPower;
 
     if (hoursRemaining >= 0)
         return hoursRemaining;
     else
         return -1; // Never
-}
-
-// virtual temp is always C in this code and will be converted when sending externally
-void BWC::_calcVirtualTemp()
-{
-    // startup init
-    if (millis() < 30000)
-    {
-        int tempInC = cio->cio_states.temperature;
-        if (!cio->cio_states.unit)
-        {
-            tempInC = F2C(tempInC);
-        }
-        _virtual_temp_fix = tempInC;
-        _virtual_temp = _virtual_temp_fix;
-        _virtual_temp_fix_age = 0;
-        return;
-    }
-
-    // calculate from last updated VTFix.
-    double netRisePerHour;
-    float degAboveAmbient = _virtual_temp - _ambient_temp;
-    double coolingPerHour = degAboveAmbient / _R_COOLING;
-
-    if (cio->cio_states.heatred)
-    {
-        netRisePerHour = _heating_degperhour - coolingPerHour;
-    }
-    else
-    {
-        netRisePerHour = -coolingPerHour;
-    }
-    double elapsed_hours = _virtual_temp_fix_age / 3600.0 / 1000.0;
-    float newvt = _virtual_temp_fix + netRisePerHour * elapsed_hours;
-
-    // clamp VT to +/- 1 from measured temperature if pump is running
-    if (cio->cio_states.pump && ((millis() - _pump_change_timestamp_ms) > 5 * 60000))
-    {
-        float tempInC = cio->cio_states.temperature;
-        float limit = 0.99;
-        if (!cio->cio_states.unit)
-        {
-            tempInC = F2C(tempInC);
-            limit = 1 / 1.8;
-        }
-        float dev = newvt - tempInC;
-        if (dev > limit)
-            dev = limit;
-        if (dev < -limit)
-            dev = -limit;
-        newvt = tempInC + dev;
-    }
-
-    // Rebase start of calculation from new integer temperature
-    if (int(_virtual_temp) != int(newvt))
-    {
-        _virtual_temp_fix = newvt;
-        _virtual_temp_fix_age = 0;
-    }
-    _virtual_temp = newvt;
-
-    /* Using Newtons law of cooling
-        T(t) = Tenv + (T(0) - Tenv)*e^(-t/r)
-        r = -t / ln( (T(t)-Tenv) / (T(0)-Tenv) )
-        dT/dt = (T(t) - Tenv) / r
-        ----------------------------------------
-        T(t) : Temperature at time t
-        Tenv : _ambient_temp (considered constant)
-        T(0) : Temperature at time 0 (_virtual_temp_fix)
-        e    : natural number 2,71828182845904
-        r    : a constant we need to find out by measurements
-    */
-}
-
-// Called on temp change
-void BWC::_updateVirtualTempFix_ontempchange()
-{
-    int tempInC = cio->cio_states.temperature;
-    float conversion = 1;
-    if (!cio->cio_states.unit)
-    {
-        tempInC = F2C(tempInC);
-        conversion = 1 / 1.8;
-    }
-    // Do not process if temperature changed > 1 degree (reading spikes)
-    if (abs(_deltatemp) != 1)
-        return;
-
-    // readings are only valid if pump is running and has been running for 5 min.
-    if (!cio->cio_states.pump || ((millis() - _pump_change_timestamp_ms) < 5 * 60000))
-        return;
-
-    _virtual_temp = tempInC;
-    _virtual_temp_fix = tempInC;
-    _virtual_temp_fix_age = 0;
-    /*
-    update_coolingDegPerHourArray
-    Measured temp has changed by 1 degree over a certain time
-    1 degree/(temperature age in ms / 3600 / 1000)hours = 3 600 000 / temperature age in ms
-    */
-
-    // We can only know something about rate of change if we had continous cooling since last update
-    // (Nobody messed with the heater during the 1 degree change)
-    if (_heatred_change_timestamp_ms > _temp_change_timestamp_ms)
-        return; // bugfix by @cobaltfish
-    // rate of heating is not subject to change (fixed wattage and pool size) so do this only if cooling
-    // and do not calibrate if bubbles has been on
-    if (_vt_calibrated)
-        return;
-    if (cio->cio_states.heatred || cio->cio_states.bubbles || (_bubbles_change_timestamp_ms > _temp_change_timestamp_ms))
-        return;
-    if (_deltatemp > 0 && _virtual_temp > _ambient_temp)
-        return; // temp is rising when it should be falling. Bail out
-    if (_deltatemp < 0 && _virtual_temp < _ambient_temp)
-        return; // temp is falling when it should be rising. Bail out
-    float degAboveAmbient = _virtual_temp - _ambient_temp;
-    // can't calibrate if ambient ~ virtualtemp
-    if (abs(degAboveAmbient) <= 1)
-        return;
-    _R_COOLING = ((millis() - _temp_change_timestamp_ms) / 3600000.0) / log((conversion * degAboveAmbient) / (conversion * (degAboveAmbient + _deltatemp)));
-    _vt_calibrated = true;
-    _save_settings_needed = true;
-}
-
-// Called on heater state change
-void BWC::_updateVirtualTempFix_onheaterchange()
-{
-    _virtual_temp_fix = _virtual_temp;
-    _virtual_temp_fix_age = 0;
 }
 
 void BWC::print(const String &txt)
@@ -803,9 +660,6 @@ void BWC::setAmbientTemperature(int64_t amb, bool unit)
     _ambient_temp = (int)amb;
     if (!unit)
         _ambient_temp = F2C(_ambient_temp);
-
-    _virtual_temp_fix = _virtual_temp;
-    _virtual_temp_fix_age = 0;
 }
 
 String BWC::getModel()
@@ -816,12 +670,6 @@ String BWC::getModel()
 bool BWC::add_command(command_que_item command_item)
 {
     _save_cmdq_needed = true;
-    /* TODO: handle resetq in handlecommandque() instead!!! */
-    // if(command_item.cmd == RESETQ)
-    // {
-    //     _command_que.clear();
-    //     return true;
-    // }
     if (command_item.cmd == SETREADY)
     {
         command_item.val = (int64_t)command_item.xtime; // Use val field to store the time to be ready
@@ -839,12 +687,6 @@ bool BWC::edit_command(uint8_t index, command_que_item command_item)
     if (index > _command_que.size())
         return false;
     _save_cmdq_needed = true;
-    /* TODO: handle resetq in handlecommandque() instead!!! */
-    // if(command_item.cmd == RESETQ)
-    // {
-    //     _command_que.clear();
-    //     return true;
-    // }
     if (command_item.cmd == SETREADY)
     {
         command_item.val = (int64_t)command_item.xtime; // Use val field to store the time to be ready
@@ -909,31 +751,25 @@ void BWC::getJSONStates(String &rtn)
     doc[F("GOD")] = (uint8_t)cio->cio_states.godmode;
     doc[F("TGT")] = cio->cio_states.target;
     doc[F("TMP")] = cio->cio_states.temperature;
-    doc[F("VTMC")] = _virtual_temp;
-    doc[F("VTMF")] = C2F(_virtual_temp);
     doc[F("AMBC")] = _ambient_temp;
     doc[F("AMBF")] = round(C2F(_ambient_temp));
     if (cio->cio_states.unit)
     {
         // celsius
         doc[F("AMB")] = _ambient_temp;
-        doc[F("VTM")] = _virtual_temp;
         doc[F("TGTC")] = cio->cio_states.target;
         doc[F("TMPC")] = cio->cio_states.temperature;
         doc[F("TGTF")] = round(C2F((float)cio->cio_states.target));
         doc[F("TMPF")] = round(C2F((float)cio->cio_states.temperature));
-        doc[F("VTMF")] = C2F(_virtual_temp);
     }
     else
     {
         // farenheit
         doc[F("AMB")] = round(C2F(_ambient_temp));
-        doc[F("VTM")] = C2F(_virtual_temp);
         doc[F("TGTF")] = cio->cio_states.target;
         doc[F("TMPF")] = cio->cio_states.temperature;
         doc[F("TGTC")] = round(F2C((float)cio->cio_states.target));
         doc[F("TMPC")] = round(F2C((float)cio->cio_states.temperature));
-        doc[F("VTMC")] = _virtual_temp;
     }
 
     // Serialize JSON to string
@@ -1014,8 +850,9 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("MODEL")] = cio->getModel();
     doc[F("NOTIFY")] = _notify;
     doc[F("NOTIFTIME")] = _notification_time;
-    doc[F("VTCAL")] = _vt_calibrated;
-
+    doc[F("PLZ")] = _plz;
+    doc[F("WEATHER")] = _weather;
+    doc[F("POOLCAP")] = _pool_capacity;
     doc[F("LCK")] = dsp->EnabledButtons[LOCK];
     doc[F("TMR")] = dsp->EnabledButtons[TIMER];
     doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];
@@ -1100,7 +937,9 @@ void BWC::setJSONSettings(const String &message)
     _restore_states_on_start = doc[F("RESTORE")];
     _notify = doc[F("NOTIFY")];
     _notification_time = doc[F("NOTIFTIME")];
-    _vt_calibrated = doc[F("VTCAL")];
+    _plz = doc[F("PLZ")];
+    _weather = doc[F("WEATHER")];
+    _pool_capacity = doc[F("POOLCAP")];
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
     dsp->EnabledButtons[TIMER] = doc[F("TMR")];
     dsp->EnabledButtons[BUBBLES] = doc[F("AIR")];
@@ -1132,7 +971,6 @@ void BWC::_updateTimes()
     // {
     //     cio->setStateAge(i, cio->getStateAge(i) + elapsedtime_ms);
     // }
-    _virtual_temp_fix_age += elapsedtime_ms;
 
     if (elapsedtime_ms < 0)
         return; // millis() rollover every 24,8 days
@@ -1290,11 +1128,12 @@ void BWC::_loadSettings()
     _energy_total_kWh = doc[F("KWH")];
     _energy_daily_Ws = doc[F("KWHD")];
     _restore_states_on_start = doc[F("RESTORE")];
-    _R_COOLING = doc[F("R")] | 40.0f; // else use default
     _ambient_temp = doc[F("AMB")] | 20;
     _dsp_brightness = doc[F("BRT")] | 7;
-    _vt_calibrated = doc[F("VTCAL")] | false;
-
+    _plz = doc[F("PLZ")];
+    _weather = doc[F("WEATHER")];
+    _pool_capacity = doc[F("POOLCAP")];
+    enableWeather = _weather;
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
     dsp->EnabledButtons[TIMER] = doc[F("TMR")];
     dsp->EnabledButtons[BUBBLES] = doc[F("AIR")];
@@ -1573,12 +1412,14 @@ void BWC::saveSettings()
     doc[F("KWHD")] = _energy_daily_Ws;
     // doc[F("SAVETIME")] = DateTime.format(DateFormatter::SIMPLE);
     doc[F("RESTORE")] = _restore_states_on_start;
-    doc[F("R")] = _R_COOLING;
     doc[F("AMB")] = _ambient_temp;
     doc[F("BRT")] = _dsp_brightness;
     doc[F("NOTIFY")] = _notify;
     doc[F("NOTIFTIME")] = _notification_time;
-    doc[F("VTCAL")] = _vt_calibrated;
+    doc[F("PLZ")] = _plz;
+    doc[F("WEATHER")] = _weather;
+    enableWeather = _weather;
+    doc[F("POOLCAP")] = _pool_capacity;
     doc[F("LCK")] = dsp->EnabledButtons[LOCK];
     doc[F("TMR")] = dsp->EnabledButtons[TIMER];
     doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];

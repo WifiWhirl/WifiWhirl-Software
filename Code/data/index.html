@@ -50,7 +50,7 @@
       <section id="sectionDisplay">
         <table>
           <tr>
-            <td class="center"><div id="display">[DSP]</div></td>
+            <td class="center"><div id="display">DSP</div></td>
           </tr>
         </table>
       </section>
@@ -62,26 +62,13 @@
           <tr>
             <td>Aktuell:</td>
             <td>
-              <span id="atlabel">unbek.</span> °<span id="unitcf">C</span>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              Virtuell:
-              <span
-                data-text="Das WifiWhirl Modul versucht, die Wassertemperatur auch dann im Auge zu behalten, wenn die Pumpe gestoppt ist und die Temperatur in der Pumpe schneller abfällt als im Pool. Verwendet Umgebungstemperatur. Muss vor der Verwendung kalibriert werden. Siehe SPA-Konfigurationsseite."
-                class="tooltip"
-                >?</span
-              >
-            </td>
-            <td>
-              <span id="vtlabel">unbek.</span> °<span id="unitcf">C</span>
+              <span id="atlabel">unbek.</span> °<span id="unitcf1">C</span>
             </td>
           </tr>
           <tr>
             <td>Ziel:</td>
             <td>
-              <span id="ttlabel">unbek.</span> °<span id="unitcf">C</span>
+              <span id="ttlabel">unbek.</span> °<span id="unitcf3">C</span>
             </td>
           </tr>
         </table>
@@ -192,7 +179,6 @@
                   max="40"
                   step="1"
                   value="20"
-                  type="text"
                   class="selectorvalue"
                   onchange="sendCommand('setTargetSelector')"
                 />
@@ -223,7 +209,6 @@
                   max="60"
                   step="1"
                   value="20"
-                  type="text"
                   class="selectorvalue"
                   onchange="sendCommand('setAmbientSelector')"
                 />
@@ -253,7 +238,6 @@
                   max="8"
                   step="1"
                   value="7"
-                  type="text"
                   class="selectorvalue"
                   onchange="sendCommand('setBrightnessSelector')"
                 />
@@ -458,7 +442,8 @@
       <footer>
         <div class="center">
           <p><span id="mqtt">MQTT: Lade Status...</span></p>
-          <p><span id="rssi2" class="rssi2" data-text="Lade Status...">
+          <p>
+            <span id="rssi2" class="rssi2" data-text="Lade Status...">
               <span id="rssi" class="waveStrength-1">
                 <span class="wv4 wave">
                   <span class="wv3 wave">
