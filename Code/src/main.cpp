@@ -151,7 +151,7 @@ void loop()
         periodicTimerFlag = false;
         if (WiFi.status() != WL_CONNECTED)
         {
-            bwc->print(F("check network"));
+            bwc->print(F("  no net connection  "));
             // Serial.println(F("WiFi > Trying to reconnect ..."));
         }
         if (WiFi.status() == WL_CONNECTED)
