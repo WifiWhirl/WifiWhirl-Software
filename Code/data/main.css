@@ -110,28 +110,43 @@ section:nth-of-type(2n + 1) {
   background: #3a3a3a;
 }
 #sectionDisplay {
-  padding: 0;
-  width: calc(100% + 20px);
-  left: -10px;
+  padding-top: 2px;
+  /* width: calc(100% + 20px); */
+  width: 100%;
+  /* left: -10px; */
   box-sizing: border-box;
   height: 47px;
-  background: #000;
+  background: #ededed;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
 }
+.darkmode #sectionDisplay {
+ background-color: #3a3a3a;
+}
 div#display {
   color: red;
   font-size: 1.8em;
   text-align: center;
-  background-color: black;
-  width: 100%;
-  height: 100%;
+  padding-top: 2px;
+  background: rgb(60,60,60);
+  width: 25%;
+  display:block;
+  height: 35px;
+  -webkit-appearance: none;
+  border-radius: 34px;
+  /* padding: 0 4px; */
+  margin: 0 auto;
 }
-.darkmode #display {
-  color: #b23434;
+
+.darkmode div#display {
+  background: #222;
 }
+#display {
+  color: #4d4d4d;
+}
+
 h2 {
   margin: 4px 0 10px;
   font-size: 1.1em;
@@ -153,6 +168,23 @@ table {
 }
 table.fixed {
   table-layout: fixed;
+}
+
+tr.queueeven {
+  width: 100%;
+  border-spacing: 0;
+  background: #e6e6e6;
+}
+tr.queueodd {
+  width: 100%;
+  border-spacing: 0;
+  background: #ededed;
+}
+.darkmode tr.queueeven {
+  background: #404040;
+}
+.darkmode tr.queueodd {
+  background: #3a3a3a;
 }
 
 .center {
@@ -184,7 +216,7 @@ table.fixed {
   outline: none;
   margin: 4px auto;
   display: inline-block;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
   letter-spacing: 1.1px;
 }
 .button_red {
