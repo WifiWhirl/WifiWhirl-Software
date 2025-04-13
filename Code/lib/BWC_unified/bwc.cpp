@@ -354,6 +354,17 @@ void BWC::_handleCommandQ()
             _command_que[0].xtime += _command_que[0].interval;
         _command_que.push_back(_command_que[0]);
     }
+
+    // Do not turn off pump if Heater is running
+    // Fixes situations when you want to heat your pool but your daily pump cycle is running and turning off your heater
+    if (_command_que[0].cmd == SETPUMP && cio->cio_states.heat)
+    {
+        _command_que.erase(_command_que.begin());
+        _next_notification_time = _notification_time; // reset alarm time
+        _save_cmdq_needed = true;
+        return;
+    }
+
     _handlecommand(_command_que[0].cmd, _command_que[0].val, _command_que[0].text);
 }
 
