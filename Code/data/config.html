@@ -138,7 +138,7 @@
             <td><input type="checkbox" id="restore" /></td>
             <td></td>
           </tr>
-          <tr>
+          <!-- <tr>
             <td>
               <label for="calibration">Kalibriert:</label
               ><span
@@ -154,11 +154,11 @@
                 onclick="toggleCalibration()"
               />
             </td>
-          </tr>
-          <tr>
+          </tr> -->
+          <!-- <tr>
             <td></td>
             <td><a href="calib.html">manuelle Kalibrierung</a></td>
-          </tr>
+          </tr> -->
           <tr>
             <td>
               <label for="enableWeather"
@@ -523,7 +523,7 @@
             var date = new Date(json.REBOOTTIME * 1000);
             document.getElementById("lastboot").innerHTML =
               "Letzter Neustart: " + date.toLocaleString();
-            document.getElementById("calibration").checked = json.VTCAL;
+            // document.getElementById("calibration").checked = json.VTCAL;
             document.getElementById("plz").value = json.PLZ;
             document.getElementById("enableWeather").checked = json.WEATHER;
             weatherEnabled = json.WEATHER;
@@ -650,7 +650,7 @@
             document.getElementById("notificationtime").value
           ),
           RESTORE: document.getElementById("restore").checked,
-          VTCAL: document.getElementById("calibration").checked,
+          // VTCAL: document.getElementById("calibration").checked,
           PLZ: document.getElementById("plz").value,
           WEATHER: document.getElementById("enableWeather").checked,
           POOLCAP: document.getElementById("poolCap").value,
@@ -892,10 +892,10 @@
         console.log(json);
       }
 
-      function toggleCalibration() {
-        let obj = document.getElementById("calibration");
-        if (obj.checked) obj.checked = false;
-      }
+      // function toggleCalibration() {
+      //   let obj = document.getElementById("calibration");
+      //   if (obj.checked) obj.checked = false;
+      // }
 
       function toggleWeatherSettings() {
         let obj = document.getElementById("coordinates");
