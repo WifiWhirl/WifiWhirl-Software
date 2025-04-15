@@ -264,27 +264,13 @@
             <td><label for="commands">Befehl:</label></td>
             <td>
               <select name="commands" id="commands" onchange="togglefields()">
-                <!-- <option value="0">Zieltemp. festlegen (20-40/68-104)</option> -->
-                <!-- <option value="1">Einheit festlegen (0/1)</option> -->
                 <option value="4">Filterpumpe ein/aus</option>
                 <option value="3">Heizung ein/aus</option>
                 <option value="2">Airjet ein/aus</option>
-                <!-- <option value="5">Warteschlange zurücksetzen (-)</option> -->
-                <!-- <option value="6">WLAN Modul neu starten</option> -->
-                <!-- <option value="7">Interner Befehl (Ziel abrufen) (-)</option> -->
-                <!-- <option value="8">Zeiten zurücksetzen (-)</option> -->
-                <!-- <option value="9">Chlortimer zurücksetzen (-)</option> -->
-                <!-- <option value="10">Filtertimer zurücksetzen (-)</option> -->
                 <option value="11">Hydrojet ein/aus</option>
+                <option value="23">Tastensperre ein/aus</option>
                 <option value="12">Displayhelligkeit festlegen</option>
-                <!-- <option value="13">Ton (0/1 oder 2+Text=Datei)</option> -->
-                <!-- <option value="14">Umgebungstemp. °F festlegen (Zahl)</option> -->
-                <!-- <option value="15">Umgebungstemp. °C setzen (Zahl)</option> -->
-                <!-- <option value="16">Tageszähler zurücksetzen (Zahl)</option> -->
-                <!-- <option value="17">Steuerung übernehmen (0/1)</option> -->
-                <!-- <option value="18">Volle Leistung (0/1)</option> -->
                 <option value="19">Text ausgeben</option>
-                <!-- <option value="20">Bereitschaftszeit festlegen (-)</option> -->
               </select>
             </td>
             <td></td>
@@ -448,6 +434,7 @@
       const fullpower = 18;
       const printtext = 19;
       const setready = 20;
+      const setlck = 23;
 
       const commandlist = [
         "Zieltemperatur festlegen",
@@ -471,6 +458,9 @@
         "Volle Leistung",
         "Text ausgeben",
         "Bereitschaftszeit festlegen",
+        "",
+        "Pumpe festlegen",
+        "Tastensperre",
       ];
 
       function totimestamp() {
@@ -603,7 +593,7 @@
             "showpreviewval('val', 'sliderDsp')"
           );
           showpreviewval("val", "sliderDsp");
-        } else if (select.value < 12) {
+        } else if (select.value < 12 || select.value == 23) {
           // on off checkbox
           textinput.style.display = "none";
           valinput.style.display = "table-row";
