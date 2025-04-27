@@ -327,7 +327,7 @@ function handlemsg(e) {
       document.getElementById("t2r").innerHTML =
         s2dhms(msgobj.T2R * 3600) +
         " (" +
-        (msgobj.RS == "Ready" ? "Zeit für ein Bad!" : "Nicht bereit") +
+        (msgobj.T2R <= 0 ? "Zeit für ein Bad!" : "Nicht bereit") +
         ")";
     }
   } catch (error) {
