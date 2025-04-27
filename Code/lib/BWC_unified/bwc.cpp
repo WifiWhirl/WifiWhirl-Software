@@ -10,14 +10,18 @@ BWC::BWC()
     _dsp_brightness = 7;
     _cl_timestamp_s = time(nullptr);
     _filter_timestamp_s = time(nullptr);
+    _fc_timestamp_s = time(nullptr);
+    _wc_timestamp_s = time(nullptr);
     _uptime = 0;
     _pumptime = 0;
     _heatingtime = 0;
     _airtime = 0;
     _jettime = 0;
     _price = 0.35;
-    _filter_interval = 30;
     _cl_interval = 14;
+    _filter_interval = 30;
+    _fc_interval = 60;
+    _wc_interval = 90;
     _audio_enabled = true;
     _restore_states_on_start = true;
     _ambient_temp = 20;
@@ -461,6 +465,16 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         _save_settings_needed = true;
         _new_data_available = true;
         break;
+    case RESETFCTIMER:
+        _fc_timestamp_s = _timestamp_secs;
+        _save_settings_needed = true;
+        _new_data_available = true;
+        break;
+    case RESETWCTIMER:
+        _wc_timestamp_s = _timestamp_secs;
+        _save_settings_needed = true;
+        _new_data_available = true;
+        break;
     case SETJETS:
         if (val != cio->cio_states.jets)
             cio->cio_toggles.jets_change = 1;
@@ -795,14 +809,18 @@ void BWC::getJSONTimes(String &rtn)
     doc[F("TIME")] = _timestamp_secs;
     doc[F("CLTIME")] = _cl_timestamp_s;
     doc[F("FTIME")] = _filter_timestamp_s;
+    doc[F("FCTIME")] = _fc_timestamp_s;
+    doc[F("WCTIME")] = _wc_timestamp_s;
     doc[F("UPTIME")] = _uptime + _uptime_ms / 1000;
     doc[F("PUMPTIME")] = _pumptime + _pumptime_ms / 1000;
     doc[F("HEATINGTIME")] = _heatingtime + _heatingtime_ms / 1000;
     doc[F("AIRTIME")] = _airtime + _airtime_ms / 1000;
     doc[F("JETTIME")] = _jettime + _jettime_ms / 1000;
     doc[F("COST")] = _energy_total_kWh * _price;
-    doc[F("FINT")] = _filter_interval;
     doc[F("CLINT")] = _cl_interval;
+    doc[F("FINT")] = _filter_interval;
+    doc[F("FCINT")] = _fc_interval;
+    doc[F("WCINT")] = _wc_interval;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws / 3600000.0; // Ws -> kWh
     doc[F("WATT")] = _energy_power_W;
@@ -839,8 +857,10 @@ void BWC::getJSONSettings(String &rtn)
     // Set the values in the document
     doc[F("CONTENT")] = F("SETTINGS");
     doc[F("PRICE")] = _price;
-    doc[F("FINT")] = _filter_interval;
     doc[F("CLINT")] = _cl_interval;
+    doc[F("FINT")] = _filter_interval;
+    doc[F("FCINT")] = _fc_interval;
+    doc[F("WCINT")] = _wc_interval;
     doc[F("AUDIO")] = _audio_enabled;
 #ifdef ESP8266
     doc[F("REBOOTINFO")] = ESP.getResetReason();
@@ -931,8 +951,10 @@ void BWC::setJSONSettings(const String &message)
 
     // Copy values from the JsonDocument to the variables
     _price = doc[F("PRICE")];
-    _filter_interval = doc[F("FINT")];
     _cl_interval = doc[F("CLINT")];
+    _filter_interval = doc[F("FINT")];
+    _fc_interval = doc[F("FCINT")];
+    _wc_interval = doc[F("WCINT")];
     _audio_enabled = doc[F("AUDIO")];
     _restore_states_on_start = doc[F("RESTORE")];
     _notify = doc[F("NOTIFY")];
@@ -1114,14 +1136,18 @@ void BWC::_loadSettings()
     // Copy values from the JsonDocument to the variables
     _cl_timestamp_s = doc[F("CLTIME")];
     _filter_timestamp_s = doc[F("FTIME")];
+    _fc_timestamp_s = doc[F("FCTIME")];
+    _wc_timestamp_s = doc[F("WCIME")];
     _uptime = doc[F("UPTIME")];
     _pumptime = doc[F("PUMPTIME")];
     _heatingtime = doc[F("HEATINGTIME")];
     _airtime = doc[F("AIRTIME")];
     _jettime = doc[F("JETTIME")];
     _price = doc[F("PRICE")];
-    _filter_interval = doc[F("FINT")];
     _cl_interval = doc[F("CLINT")];
+    _filter_interval = doc[F("FINT")];
+    _fc_interval = doc[F("FCINT")];
+    _wc_interval = doc[F("WCINT")];
     _audio_enabled = doc[F("AUDIO")];
     _notify = doc[F("NOTIFY")];
     _notification_time = doc[F("NOTIFTIME")];
@@ -1399,14 +1425,20 @@ void BWC::saveSettings()
     // Set the values in the document
     doc[F("CLTIME")] = _cl_timestamp_s;
     doc[F("FTIME")] = _filter_timestamp_s;
+    doc[F("FCTIME")] = _fc_timestamp_s;
+    doc[F("WCIME")] = _wc_timestamp_s;
+    doc[F("FCTIME")] = _fc_timestamp_s;
+    doc[F("WCTIME")] = _wc_timestamp_s;
     doc[F("UPTIME")] = _uptime;
     doc[F("PUMPTIME")] = _pumptime;
     doc[F("HEATINGTIME")] = _heatingtime;
     doc[F("AIRTIME")] = _airtime;
     doc[F("JETTIME")] = _jettime;
     doc[F("PRICE")] = _price;
-    doc[F("FINT")] = _filter_interval;
     doc[F("CLINT")] = _cl_interval;
+    doc[F("FINT")] = _filter_interval;
+    doc[F("FCINT")] = _fc_interval;
+    doc[F("WCINT")] = _wc_interval;
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;

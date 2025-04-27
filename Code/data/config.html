@@ -84,12 +84,42 @@
             <td></td>
           </tr>
           <tr>
-            <td><label for="finterval">Filterwechsel:</label></td>
+            <td><label for="finterval">Filterreinigung:</label></td>
             <td>
               <input
                 type="text"
                 id="finterval"
                 value="30"
+                maxlength="2"
+                size="6"
+                pattern="\d{1,2}"
+                required
+              /><span class="inputunit" style="margin-left: -35px">Tage</span>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><label for="fcinterval">Filterwechsel:</label></td>
+            <td>
+              <input
+                type="text"
+                id="fcinterval"
+                value="60"
+                maxlength="2"
+                size="6"
+                pattern="\d{1,2}"
+                required
+              /><span class="inputunit" style="margin-left: -35px">Tage</span>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><label for="wcinterval">Wasserwechsel:</label></td>
+            <td>
+              <input
+                type="text"
+                id="wcinterval"
+                value="90"
                 maxlength="2"
                 size="6"
                 pattern="\d{1,2}"
@@ -326,21 +356,14 @@
           <tr>
             <td><label for="interval">Wiederholungsintervall:</label></td>
             <td>
-              <input
-                type="text"
-                id="interval"
-                value="0"
-                size="8"
-              />
+              <input type="text" id="interval" value="0" size="8" />
               Stunden
             </td>
             <td></td>
           </tr>
           <tr>
             <td colspan="2">
-              <p>
-                (Einmalig ausführen = 0 Stunden)
-              </p>
+              <p>(Einmalig ausführen = 0 Stunden)</p>
             </td>
             <td></td>
           </tr>
@@ -502,8 +525,10 @@
             document.getElementById("price").value = json.PRICE.toFixed(2)
               .toString()
               .replace(".", ",");
-            document.getElementById("finterval").value = json.FINT.toString();
             document.getElementById("clinterval").value = json.CLINT.toString();
+            document.getElementById("finterval").value = json.FINT.toString();
+            document.getElementById("fcinterval").value = json.FCINT.toString();
+            document.getElementById("wcinterval").value = json.WCINT.toString();
             document.getElementById("audio").checked = json.AUDIO;
             document.getElementById("notification").checked = json.NOTIFY;
             document.getElementById("notificationtime").value =
@@ -631,8 +656,10 @@
           PRICE: parseFloat(
             document.getElementById("price").value.replace(",", ".")
           ).toFixed(2),
-          FINT: parseInt(document.getElementById("finterval").value),
           CLINT: parseInt(document.getElementById("clinterval").value),
+          FINT: parseInt(document.getElementById("finterval").value),
+          FCINT: parseInt(document.getElementById("fcinterval").value),
+          WCINT: parseInt(document.getElementById("wcinterval").value),
           AUDIO: document.getElementById("audio").checked,
           NOTIFY: document.getElementById("notification").checked,
           NOTIFTIME: parseInt(

@@ -30,6 +30,8 @@ const cmdMap = {
   setReady: 20,
   togglePWR: 22,
   toggleLCK: 23,
+  resetTimerCleanFilter: 24,
+  resetTimerWaterChange: 25,
 };
 
 // button element ID mapping
@@ -312,6 +314,26 @@ function handlemsg(e) {
         (fDateRound != 1 ? "en" : "");
       document.getElementById("ftimerbtn").className =
         fDate > msgobj.FINT ? "button_red" : "button";
+
+      // filter clean reset timer
+      var fDate = (Date.now() / 1000 - msgobj.FCTIME) / (24 * 3600.0);
+      var fDateRound = Math.round(fDate);
+      document.getElementById("fctimer").innerHTML =
+        (fDateRound == 1 ? "einem " : fDateRound) +
+        " Tag" +
+        (fDateRound != 1 ? "en" : "");
+      document.getElementById("fctimerbtn").className =
+        fDate > msgobj.FCINT ? "button_red" : "button";
+
+      // water change reset timer
+      var fDate = (Date.now() / 1000 - msgobj.WCTIME) / (24 * 3600.0);
+      var fDateRound = Math.round(fDate);
+      document.getElementById("wctimer").innerHTML =
+        (fDateRound == 1 ? "einem " : fDateRound) +
+        " Tag" +
+        (fDateRound != 1 ? "en" : "");
+      document.getElementById("wctimerbtn").className =
+        fDate > msgobj.WCINT ? "button_red" : "button";
 
       // statistics
       document.getElementById("heatingtime").innerHTML = s2dhms(

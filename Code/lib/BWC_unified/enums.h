@@ -80,7 +80,9 @@ enum Commands : byte
     SETREADY,
     SETR,
     TOGGLEPWR,
-    TOGGLELCK
+    TOGGLELCK,
+    RESETFCTIMER,
+    RESETWCTIMER
 };
 
 enum ToggleButtons : byte

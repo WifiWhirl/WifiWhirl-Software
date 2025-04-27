@@ -133,6 +133,8 @@ private:
     int _note_duration;
     uint32_t _cl_timestamp_s;
     uint32_t _filter_timestamp_s;
+    uint32_t _fc_timestamp_s;
+    uint32_t _wc_timestamp_s;
     uint32_t _uptime;
     uint32_t _pumptime;
     uint32_t _heatingtime;
@@ -144,8 +146,10 @@ private:
     uint32_t _airtime_ms;
     uint32_t _jettime_ms;
     float _price;
-    uint32_t _filter_interval;
     uint32_t _cl_interval;
+    uint32_t _filter_interval;
+    uint32_t _fc_interval;
+    uint32_t _wc_interval;
     bool _audio_enabled;
     float _energy_total_kWh;
     double _energy_daily_Ws; // Wattseconds internally
