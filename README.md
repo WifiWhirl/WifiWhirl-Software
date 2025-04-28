@@ -111,7 +111,7 @@ Nachdem die Software erfolgreich auf den ESP8266 geflasht wurde:
     * Du findest die IP-Adresse oft über die Weboberfläche deines Routers heraus. Alternativ kannst du das Modul per mDNS unter dem konfigurierten `DEVICE_NAME` finden. Damit erreichst du das Modul unter http://[DEVICE_NAME].local (Standard: [wifiwhirl.local](http://wifiwhirl.local)).
     * Gib alternativ die IP-Adresse in deinem Browser ein, um auf das WifiWhirl-Webinterface zuzugreifen und deinen Pool zu steuern.
 
-**➡️ Details zur WLAN Verbindung:** [wifiwhirl.de/Modul/WLAN](https://wifiwhirl.de/Modul/WLAN/)
+**➡️ Details zur WLAN Verbindung:** [wifiwhirl.de/Modul/WLAN](https://wifiwhirl.de/Modul/WLAN/)  
 **➡️ Details zur Einrichtung:** [wifiwhirl.de/Modul/Einrichtung](https://wifiwhirl.de/Modul/Einrichtung/)
 
 ---
