@@ -9,7 +9,7 @@
 #include <ESP8266HTTPClient.h>
 // Update Server
 #include <ESP8266HTTPUpdateServer.h>
-//#include <WiFiClientSecure.h>
+// #include <WiFiClientSecure.h>
 #include <time.h>
 
 #else
@@ -83,9 +83,11 @@ Ticker updateMqttTimer;
 /**  */
 bool sendMQTTFlag = false;
 bool enableMqtt = false;
+bool enableWeather = false;
 
 /** used for handleAUX() */
 bool runonce = true;
+uint64_t ambExpires = 0;
 
 void sendWS();
 void getOtherInfo(String &rtn);
@@ -105,6 +107,9 @@ void handleNotFound();
 String getContentType(const String &filename);
 bool handleFileRead(String path);
 bool checkHttpPost(HTTPMethod method);
+String queryAmbientTemperature();
+void handleGetLatestVersion();
+void handleGetWeather();
 void handleGetConfig();
 void handleSetConfig();
 void handleGetCommandQueue();

@@ -14,7 +14,7 @@ bool enableWmApFallback = true;
 /** get the name for the WiFi configuration manager access point */
 const char *wmApName = DEVICE_NAME;
 /** get the password for the WiFi configuration manager (min. 8, max. 63 chars; NULL to disable) */
-const char *wmApPassword = "wifiwhirl-AP";
+const char *wmApPassword = "wifiwhirl";
 /** get the network hostname of the device (max. length 26) */
 const char *netHostname = DEVICE_NAME;
 
@@ -24,15 +24,26 @@ const char *netHostname = DEVICE_NAME;
 /** get the name for the OTA service */
 const char *OTAName = DEVICE_NAME;
 /** get the password for the OTA service  */
-const char *OTAPassword = "wifiwhirl-OTA";
+const char *OTAPassword = "wifiwhirl";
 const char *update_path = "/update";
+
+/*
+ * WifiWhirl Cloud Settings
+ */
+/** Cloud API URL */
+const char *cloudApi = "";
+/** Cloud API URL */
+const char *cloudApiKey PROGMEM = "";
+/** Cloud API SSL Certificate */
+const char *x509CA PROGMEM = "";
+
 /*
  * Web UI Configuration
  *
  * You can modify this via Web UI.
  */
 /** get or set the state of displaying the "Temperature" section */
-bool showSectionTemperature = true;
+bool showSectionTemperature = false;
 /** get or set the state of displaying the "Display" section */
 bool showSectionDisplay = true;
 /** get or set the state of displaying the "Control" section */

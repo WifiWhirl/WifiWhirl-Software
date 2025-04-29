@@ -93,7 +93,8 @@ Buttons DSP_6_TYPE1::getPressedButton()
     /*End of packet*/
     digitalWrite(_CS_PIN, HIGH);
     delayMicroseconds(30);
-
+    if (newButtonCode != 0xFFFF)
+        good_packets_count++;
     newButton = buttonCodeToIndex(newButtonCode);
     _old_button = newButton;
     _raw_payload_from_dsp[0] = newButtonCode >> 8;
@@ -181,9 +182,9 @@ void DSP_6_TYPE1::uploadPayload(uint8_t brightness)
         brightness -= 1;
     }
     delayMicroseconds(30);
-    digitalWrite(_CS_PIN, LOW); // start of packet
-    _sendBitsToDSP(DSP_CMD1_MODE6_11_7, 8);
-    digitalWrite(_CS_PIN, HIGH); // end of packet
+    digitalWrite(_CS_PIN, LOW);                    // start of packet
+    _sendBitsToDSP(DSP_CMD1_MODE6_11_7_P05504, 8); // This should work for all models... Else change to DSP_CMD1_MODE6_11_7
+    digitalWrite(_CS_PIN, HIGH);                   // end of packet
 
     delayMicroseconds(50);
     digitalWrite(_CS_PIN, LOW); // start of packet

@@ -28,6 +28,10 @@ const cmdMap = {
   setFullpower: 18,
   printText: 19,
   setReady: 20,
+  togglePWR: 22,
+  toggleLCK: 23,
+  resetTimerCleanFilter: 24,
+  resetTimerWaterChange: 25,
 };
 
 // button element ID mapping
@@ -125,25 +129,29 @@ function handlemsg(e) {
       "Fehler: Falsche Zugangsdaten", // 4 / the username/password were rejected
       "Fehler: WifiWhirl darf sich nicht verbinden", // 5 / the client was not authorized to connect
     ];
+
     try {
-      document.getElementById("mqtt").innerHTML =
-        "MQTT: " + mqtt_states[msgobj.MQTT + 4];
+      if (msgobj.MQTT == -1) {
+        document.getElementById("mqtt").innerHTML = "";
+      } else {
+        document.getElementById("mqtt").innerHTML =
+          "MQTT: " + mqtt_states[msgobj.MQTT + 4];
+      }
     } catch (error) {
       console.error(error);
     }
+
     document.getElementById("fw").innerHTML = "WifiWhirl " + msgobj.FW;
 
     // Set wifi symbol signal strenght
-    if (msgobj.RSSI <= -90) {
+    if (msgobj.RSSI <= -80) {
       document.getElementById("rssi").className = "waveStrength-1";
     } else if (msgobj.RSSI <= -70) {
       document.getElementById("rssi").className = "waveStrength-2";
     } else if (msgobj.RSSI <= -67) {
       document.getElementById("rssi").className = "waveStrength-3";
-    } else if (msgobj.RSSI <= -30) {
-      document.getElementById("rssi").className = "waveStrength-4";
     } else {
-      document.getElementById("rssi").className = "waveStrength-1";
+      document.getElementById("rssi").className = "waveStrength-4";
     }
 
     document
@@ -169,11 +177,12 @@ function handlemsg(e) {
     if (msgobj.CONTENT == "STATES") {
       // temperature
       document.getElementById("atlabel").innerHTML = msgobj.TMP.toString();
-      document.getElementById("vtlabel").innerHTML =
-        msgobj.VTM.toFixed(2).toString();
       document.getElementById("ttlabel").innerHTML = msgobj.TGT.toString();
 
       // buttons
+      document.getElementById("ONOFF").checked = msgobj.PWR;
+      document.getElementById("LCK").checked = msgobj.LCK;
+
       document.getElementById("AIR").checked = msgobj.AIR;
       if (document.getElementById("UNT").checked != msgobj.UNT) {
         document.getElementById("UNT").checked = msgobj.UNT;
@@ -195,8 +204,11 @@ function handlemsg(e) {
       }
 
       // display
-      document.getElementById("display").innerHTML =
-        "[" + String.fromCharCode(msgobj.CH1, msgobj.CH2, msgobj.CH3) + "]";
+      document.getElementById("display").innerHTML = String.fromCharCode(
+        msgobj.CH1,
+        msgobj.CH2,
+        msgobj.CH3
+      );
       document.getElementById("display").style.color = rgb(
         255 -
           dspBrtMultiplier * 8 +
@@ -204,6 +216,13 @@ function handlemsg(e) {
         0,
         0
       );
+      if (msgobj.CH1 != 101 && msgobj.CH3 != 32 && msgobj.CH1 != 54) {
+        msgobj.UNT
+          ? (document.getElementById("display").innerHTML += " °C")
+          : (document.getElementById("display").innerHTML += " °F");
+      } else {
+        document.getElementById("display").innerHTML += " ";
+      }
 
       // set control values (once)
       if (initControlValues) {
@@ -257,7 +276,7 @@ function handlemsg(e) {
       if (elemSelectorAmb.value == msgobj.AMB) updateAmbState = false;
       if (elemSelectorBrt.value == msgobj.BRT) updateBrtState = false;
 
-      const unitsymbols = document.querySelectorAll("[id=unitcf]");
+      const unitsymbols = document.querySelectorAll("[id^=unitcf]");
       if (msgobj.UNT) {
         unitsymbols.forEach((unitsymbol) => {
           unitsymbol.innerHTML = "C";
@@ -296,6 +315,26 @@ function handlemsg(e) {
       document.getElementById("ftimerbtn").className =
         fDate > msgobj.FINT ? "button_red" : "button";
 
+      // filter clean reset timer
+      var fDate = (Date.now() / 1000 - msgobj.FCTIME) / (24 * 3600.0);
+      var fDateRound = Math.round(fDate);
+      document.getElementById("fctimer").innerHTML =
+        (fDateRound == 1 ? "einem " : fDateRound) +
+        " Tag" +
+        (fDateRound != 1 ? "en" : "");
+      document.getElementById("fctimerbtn").className =
+        fDate > msgobj.FCINT ? "button_red" : "button";
+
+      // water change reset timer
+      var fDate = (Date.now() / 1000 - msgobj.WCTIME) / (24 * 3600.0);
+      var fDateRound = Math.round(fDate);
+      document.getElementById("wctimer").innerHTML =
+        (fDateRound == 1 ? "einem " : fDateRound) +
+        " Tag" +
+        (fDateRound != 1 ? "en" : "");
+      document.getElementById("wctimerbtn").className =
+        fDate > msgobj.WCINT ? "button_red" : "button";
+
       // statistics
       document.getElementById("heatingtime").innerHTML = s2dhms(
         msgobj.HEATINGTIME
@@ -310,7 +349,7 @@ function handlemsg(e) {
       document.getElementById("t2r").innerHTML =
         s2dhms(msgobj.T2R * 3600) +
         " (" +
-        (msgobj.RS == "Ready" ? "Bereit" : "Nicht bereit") +
+        (msgobj.T2R <= 0 ? "Zeit für ein Bad!" : "Nicht bereit") +
         ")";
     }
   } catch (error) {
@@ -366,6 +405,8 @@ function sendCommand(cmd) {
       .getElementById("selectorTemp")
       .setAttribute("value", value.toString());
     updateTempState = true;
+  } else if (cmd == "togglePWR" || cmd == "toggleLCK") {
+    value = 0;
   } else if (cmd == "setAmbient" || cmd == "setAmbientSelector") {
     value = parseInt(
       document.getElementById(cmd == "setAmbient" ? "amb" : "selectorAmb").value
@@ -418,8 +459,10 @@ function getProperValue(val, min, max) {
 }
 
 function rgb(r, g, b) {
-  r = Math.floor(r);
-  g = Math.floor(g);
-  b = Math.floor(b);
-  return ["rgb(", r, ",", g, ",", b, ")"].join("");
+  // Clamp values to valid RGB range (0-255)
+  r = Math.max(0, Math.min(255, Math.floor(r)));
+  g = Math.max(0, Math.min(255, Math.floor(g)));
+  b = Math.max(0, Math.min(255, Math.floor(b)));
+
+  return `rgb(${r}, ${g}, ${b})`;
 }

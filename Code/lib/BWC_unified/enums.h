@@ -78,7 +78,11 @@ enum Commands : byte
     SETFULLPOWER,
     PRINTTEXT,
     SETREADY,
-    SETR
+    SETR,
+    TOGGLEPWR,
+    TOGGLELCK,
+    RESETFCTIMER,
+    RESETWCTIMER
 };
 
 enum ToggleButtons : byte

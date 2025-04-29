@@ -53,6 +53,12 @@ void setup()
     startHttpServer();
     startWebSocket();
     startMqtt();
+
+    if (bwc->enableWeather)
+    {
+        queryAmbientTemperature();
+    }
+
     // Keeping for later integrations
     // if(bwc->hasTempSensor)
     // {
@@ -151,7 +157,7 @@ void loop()
         periodicTimerFlag = false;
         if (WiFi.status() != WL_CONNECTED)
         {
-            bwc->print(F("check network"));
+            bwc->print(F("  no net connection  "));
             // Serial.println(F("WiFi > Trying to reconnect ..."));
         }
         if (WiFi.status() == WL_CONNECTED)
@@ -170,7 +176,11 @@ void loop()
                 // Serial.println(F("MQTT > Not connected"));
                 mqttConnect();
             }
-            
+
+            if (bwc->enableWeather && ambExpires < (uint64_t)time(nullptr))
+            {
+                queryAmbientTemperature();
+            }
         }
         // Keep for later integrations
         // // Leverage the pre-existing periodicTimerFlag to also set temperature, if enabled
@@ -611,24 +621,33 @@ void startHttpServer()
     server->on(F("/resetwifi/"), handleResetWifi);
     server->on(F("/getmqtt/"), handleGetMqtt);
     server->on(F("/setmqtt/"), handleSetMqtt);
-    server->on(F("/dir/"), handleDir);
+    server->on(F("/getweather/"), handleGetWeather);
+    server->on(F("/dir/"), []()
+               {
+            if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); }
+            handleDir(); });
     server->on(
         F("/upload.html"), HTTP_POST, []()
         { server->send(200, F("text/plain"), ""); },
         handleFileUpload);
-    server->on(F("/remove.html"), HTTP_POST, handleFileRemove);
-    server->on(F("/remove/"), HTTP_GET, handleFileRemove);
+    server->on(F("/remove.html"), HTTP_POST, []()
+               {
+        if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } handleFileRemove(); });
+    server->on(F("/remove/"), HTTP_GET, []()
+               {
+        if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } handleFileRemove(); });
     server->on(F("/restart/"), handleRestart);
     server->on(F("/metrics"), handlePrometheusMetrics); // prometheus metrics
     server->on(F("/info/"), handleESPInfo);
     server->on(F("/sethardware/"), handleSetHardware);
     server->on(F("/gethardware/"), handleGetHardware);
     server->on(F("/debug-on/"), []()
-               {bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok"); });
+               {if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/debug-off/"), []()
-               {bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
+               {if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/cmdq_file/"), handle_cmdq_file);
     server->on(F("/hook/"), handleWebhook);
+    server->on(F("/getlatestversion/"), handleGetLatestVersion);
     // server->on(F("/getfiles/"), updateFiles);
 
     server->on(F("/update"), HTTP_GET, []()
@@ -646,10 +665,142 @@ void startHttpServer()
     // Serial.println(F("HTTP > server started"));
 }
 
+String queryAmbientTemperature()
+{
+    WiFiClientSecure client;
+    HTTPClient http;
+    BearSSL::X509List x509(x509CA);
+    client.setTrustAnchors(&x509);
+    client.setBufferSizes(16, 16);
+    http.setUserAgent(DEVICE_NAME);
+    String json;
+    json.reserve(320);
+    bwc->getJSONSettings(json);
+
+    DynamicJsonDocument doc(1024);
+
+    // Deserialize the JSON document
+    DeserializationError error = deserializeJson(doc, json);
+    if (error)
+    {
+        // Serial.println(F("Failed to read config file"));
+        return "Error reading config";
+    }
+
+    String _plz = doc[F("PLZ")];
+
+    String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/"; // Accepts German and Austrian ZIP Codes in _plz
+    if (http.begin(client, weatherURL))
+    {
+        http.addHeader("X-WW-Firmware", FW_VERSION);
+        http.addHeader("X-WW-Apikey", String(cloudApiKey));
+        http.addHeader("Accept", "application/json");
+        int httpResponseCode = http.GET();
+        if (httpResponseCode == 200)
+        {
+            String payload = http.getString();
+            DynamicJsonDocument resp(1024);
+            DeserializationError error = deserializeJson(resp, payload);
+            if (error)
+            {
+                return "Error while getting weather data";
+            }
+
+            ambExpires = resp[F("expires")];
+            int64_t _temperature = resp[F("temperature")];
+            char const *_name = resp[F("name")];
+            // Serial.println(payload);
+            // Serial.println(_temperature);
+            // Serial.println(_name);
+            http.end();
+            client.stop();
+            bwc->setAmbientTemperature(_temperature, true);
+            return _name;
+        }
+        else if (httpResponseCode == 404)
+        {
+            Serial.print(F("Error code: "));
+            Serial.println(httpResponseCode);
+            http.end();
+            client.stop();
+            return "Error: ZIP code not found";
+        }
+        else
+        {
+            Serial.print(F("Error code: "));
+            Serial.println(httpResponseCode);
+            http.end();
+            client.stop();
+            return "Error while getting weather data";
+        }
+    }
+    else
+    {
+        Serial.println(F("Could not connect to server"));
+        http.end();
+        client.stop();
+        return "Error while getting weather data";
+    }
+}
+
+void handleGetLatestVersion()
+{
+    WiFiClientSecure client;
+    HTTPClient http;
+    BearSSL::X509List x509(x509CA);
+    client.setTrustAnchors(&x509);
+    client.setBufferSizes(16, 16);
+    http.setUserAgent(DEVICE_NAME);
+    String const versionURL = String(cloudApi) + "/v1/software/version/current/";
+
+    if (http.begin(client, versionURL))
+    {
+        http.addHeader("X-WW-Firmware", FW_VERSION);
+        http.addHeader("X-WW-Apikey", String(cloudApiKey));
+        http.addHeader("Accept", "application/json");
+        int httpResponseCode = http.GET();
+        if (httpResponseCode == 200)
+        {
+            String payload = http.getString();
+            http.end();
+            client.stop();
+            server->send(200, F("text/plain"), payload);
+        }
+        else
+        {
+            Serial.print(F("Error code: "));
+            Serial.println(httpResponseCode);
+            http.end();
+            client.stop();
+            server->send(500, F("text/plain"), F("Error"));
+        }
+    }
+    else
+    {
+        Serial.println(F("Could not connect to server"));
+        http.end();
+        client.stop();
+        server->send(500, F("text/plain"), F("Error"));
+    }
+}
+
+void handleGetWeather()
+{
+    String ambient = queryAmbientTemperature();
+    if (ambient.indexOf("Error") >= 0)
+    {
+        server->send(500, F("text/plain"), "Es ist ein Fehler aufgetreten. Bitte prüfe die PLZ.");
+    }
+    else
+    {
+        server->send(200, F("text/plain"), ambient);
+    }
+}
+
 void handleGetHardware()
 {
-    if (!checkHttpPost(server->method()))
-        return;
+    // if (!checkHttpPost(server->method()))
+    //     return;
     File file = LittleFS.open("hwcfg.json", "r");
     if (!file)
     {
@@ -809,6 +960,11 @@ void handleSetConfig()
     String message = server->arg(0);
     bwc->setJSONSettings(message);
 
+    if (bwc->enableWeather)
+    {
+        queryAmbientTemperature();
+    }
+
     server->send(200, F("text/plain"), "");
 }
 
@@ -937,10 +1093,8 @@ void handle_cmdq_file()
     }
 
     String action = doc[F("ACT")].as<String>();
-    ;
     String filename = "/";
     filename += doc[F("NAME")].as<String>();
-    ;
 
     if (action.equals("load"))
     {
@@ -958,7 +1112,7 @@ void handle_cmdq_file()
 
 void copyFile(String source, String dest)
 {
-    char ibuffer[64]; // declare a buffer
+    char ibuffer[128]; // declare a buffer
 
     File f_source = LittleFS.open(source, "r"); // open source file to read
     if (!f_source)
@@ -974,8 +1128,8 @@ void copyFile(String source, String dest)
 
     while (f_source.available() > 0)
     {
-        byte i = f_source.readBytes(ibuffer, 64); // i = number of bytes placed in buffer from file f_source
-        f_dest.write(ibuffer, i);                 // write i bytes from buffer to file f_dest
+        byte i = f_source.readBytes(ibuffer, 128); // i = number of bytes placed in buffer from file f_source
+        f_dest.write(ibuffer, i);                  // write i bytes from buffer to file f_dest
     }
 
     f_dest.close();   // done, close the destination file
@@ -1006,7 +1160,7 @@ void loadWebConfig()
         // Serial.println(F("Failed to read webconfig.json. Using defaults."));
     }
 
-    showSectionTemperature = (doc.containsKey("SST") ? doc[F("SST")] : true);
+    showSectionTemperature = (doc.containsKey("SST") ? doc[F("SST")] : false);
     showSectionDisplay = (doc.containsKey("SSD") ? doc[F("SSD")] : true);
     showSectionControl = (doc.containsKey("SSC") ? doc[F("SSC")] : true);
     showSectionButtons = (doc.containsKey("SSB") ? doc[F("SSB")] : true);
@@ -1105,6 +1259,7 @@ void handleSetWebConfig()
 
     server->send(200, F("text/plain"), "");
 }
+
 
 /**
  * load WiFi json configuration from "wifi.json"
@@ -1587,7 +1742,7 @@ void handleFileRemove()
 void handleRestart()
 {
     // send restart page
-    handleFileRead(F("restart.html"));
+    handleFileRead(F("/restart.html"));
 
     // save all settings
     bwc->saveSettings();
@@ -1608,7 +1763,7 @@ void handleRestart()
  */
 void handleUpdate()
 {
-    handleFileRead("update.html");
+    handleFileRead("/update.html");
 }
 
 /**

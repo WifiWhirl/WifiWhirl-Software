@@ -22,11 +22,11 @@ void CIO_6W::handleToggles()
     if (cio_toggles.locked_pressed && (_button_que_len == 0))
     {
         item.btncode = getButtonCode(LOCK);
-        // item.p_state = &sStates::locked;
-        // item.value = !cio_states.locked;
-        item.p_state = &sStates::char1; // This field will never meet the value condition.
-        item.value = 0xFF;              // Just a trick to press this button for the duration, no matter what
-        item.duration_ms = 100;
+        item.p_state = &sStates::locked;
+        item.value = !cio_states.locked;
+        //item.p_state = &sStates::char1; // This field will never meet the value condition.
+        //item.value = 0xFF;              // Just a trick to press this button for the duration, no matter what
+        item.duration_ms = 5000;
         _qButton(item);
         return;
     }
