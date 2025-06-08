@@ -268,8 +268,11 @@ function handlemsg(e) {
         elemSelectorAmb.parentElement.querySelector(".numDisplay").textContent =
           msgobj.AMB;
       }
-      if (document.activeElement !== elemSelectorBrt && !updateBrtState)
+      if (document.activeElement !== elemSelectorBrt && !updateBrtState) {
         elemSelectorBrt.value = msgobj.BRT;
+        elemSelectorBrt.parentElement.querySelector(".numDisplay").textContent =
+          msgobj.BRT;
+      }
 
       // reset update states when the set target matches the input
       if (elemSelectorTemp.value == msgobj.TGT) updateTempState = false;
@@ -417,11 +420,9 @@ function sendCommand(cmd) {
     cmd = "setAmbient" + (unit ? "C" : "F");
     updateAmbState = true;
   } else if (cmd == "setBrightness" || cmd == "setBrightnessSelector") {
-    value = parseInt(
-      document.getElementById(cmd == "setBrightness" ? "brt" : "selectorBrt")
-        .value
-    );
-    value = getProperValue(value, 0, 8);
+    var brtElement = document.getElementById(cmd == "setBrightness" ? "brt" : "selectorBrt");
+    value = parseInt(brtElement.value);
+    value = getProperValue(value, Number(brtElement.min), Number(brtElement.max));
     document.getElementById("sliderBrtVal").innerHTML = value.toString();
     document.getElementById("selectorBrt").value = value.toString();
     document.getElementById("display").style.color = rgb(

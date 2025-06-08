@@ -16,37 +16,33 @@ function validatePassword(id) {
 }
 
 // Function to update the displayed number
-function updateNumber(opt, parent) {
+function updateNumber(parent) {
   var parentElement = parent.parentElement;
+  var input = parentElement.querySelector(".selectorvalue");
   var numDisplay = parentElement.querySelector(".numDisplay");
-  var number = parseInt(numDisplay.textContent);
-  if (opt == "up") number += 1;
-  if (opt == "dn") number -= 1;
-  numDisplay.textContent = number;
+  numDisplay.textContent = input.value;
 }
 
 function increaseNumber(id) {
   var x = document.getElementById(id);
   var val = Number(x.value);
-  var max = x.max;
-  if (max > val) {
+  var max = Number(x.max);
+  if (val < max) {
     val += 1;
     x.value = val;
   }
-  var opt = "up";
-  updateNumber(opt, x);
+  updateNumber(x);
 }
 
 function decreaseNumber(id) {
   var x = document.getElementById(id);
   var val = Number(x.value);
-  var min = x.min;
-  if (min < val) {
+  var min = Number(x.min);
+  if (val > min) {
     val -= 1;
     x.value = val;
   }
-  var opt = "dn";
-  updateNumber(opt, x);
+  updateNumber(x);
 }
 
 function buttonConfirm(elem, text = "", timeout = 3, reset = true) {
