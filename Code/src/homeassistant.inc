@@ -1040,6 +1040,102 @@ void setupHA()
     doc.clear();
     doc.garbageCollect();
 
+    /* spa reset clean filter timer button */
+    doc[_dev] = devicedoc[_dev];
+    payload = "";
+    topic = String(HA_PREFIX) + F("/button/") + mqttBaseTopic + F("_reset_clean_filter/config");
+    doc[_name] = mqttBaseTopic + F(" reset clean filter timer");
+    doc[_uniq_id] = F("button.") + mqttBaseTopic + F("_reset_clean_filter") + mychipid;
+    doc[_cmd_t] = mqttBaseTopic + F("/command");
+    doc["payload_press"] = F("{CMD:24,VALUE:true,XTIME:0,INTERVAL:0}");
+    doc["icon"] = F("mdi:filter-variant");
+    doc[_avty_t] = mqttBaseTopic + F("/Status");
+    doc[_pl_avail] = F("Alive");
+    doc[_pl_not_avail] = F("Dead");
+    if (serializeJson(doc, payload) == 0)
+    {
+        return;
+    }
+    mqttClient->publish(topic.c_str(), payload.c_str(), true);
+    mqttClient->loop();
+    doc.clear();
+    doc.garbageCollect();
+
+    /* spa reset water change timer button */
+    doc[_dev] = devicedoc[_dev];
+    payload = "";
+    topic = String(HA_PREFIX) + F("/button/") + mqttBaseTopic + F("_reset_water_change/config");
+    doc[_name] = mqttBaseTopic + F(" reset water change timer");
+    doc[_uniq_id] = F("button.") + mqttBaseTopic + F("_reset_water_change") + mychipid;
+    doc[_cmd_t] = mqttBaseTopic + F("/command");
+    doc["payload_press"] = F("{CMD:25,VALUE:true,XTIME:0,INTERVAL:0}");
+    doc["icon"] = F("mdi:water-sync");
+    doc[_avty_t] = mqttBaseTopic + F("/Status");
+    doc[_pl_avail] = F("Alive");
+    doc[_pl_not_avail] = F("Dead");
+    if (serializeJson(doc, payload) == 0)
+    {
+        return;
+    }
+    mqttClient->publish(topic.c_str(), payload.c_str(), true);
+    mqttClient->loop();
+    doc.clear();
+    doc.garbageCollect();
+
+    /* spa power switch */
+    doc[_dev] = devicedoc[_dev];
+    payload = "";
+    topic = String(HA_PREFIX) + F("/switch/") + mqttBaseTopic + F("_power/config");
+    doc[_name] = mqttBaseTopic + F(" power");
+    doc[_uniq_id] = F("switch.") + mqttBaseTopic + F("_power") + mychipid;
+    doc[_stat_t] = mqttBaseTopic + F("/message");
+    doc[_cmd_t] = mqttBaseTopic + F("/command");
+    doc[_val_tpl] = F("{{ value_json.PWR }}");
+    doc["expire_after"] = 700;
+    doc["icon"] = F("mdi:power");
+    doc[_avty_t] = mqttBaseTopic + F("/Status");
+    doc[_pl_avail] = F("Alive");
+    doc[_pl_not_avail] = F("Dead");
+    doc["pl_on"] = F("{CMD:22,VALUE:true,XTIME:0,INTERVAL:0}");
+    doc["pl_off"] = F("{CMD:22,VALUE:false,XTIME:0,INTERVAL:0}");
+    doc["state_on"] = 1;
+    doc["state_off"] = 0;
+    if (serializeJson(doc, payload) == 0)
+    {
+        return;
+    }
+    mqttClient->publish(topic.c_str(), payload.c_str(), true);
+    mqttClient->loop();
+    doc.clear();
+    doc.garbageCollect();
+
+    /* spa lock switch */
+    doc[_dev] = devicedoc[_dev];
+    payload = "";
+    topic = String(HA_PREFIX) + F("/switch/") + mqttBaseTopic + F("_lock/config");
+    doc[_name] = mqttBaseTopic + F(" lock");
+    doc[_uniq_id] = F("switch.") + mqttBaseTopic + F("_lock") + mychipid;
+    doc[_stat_t] = mqttBaseTopic + F("/message");
+    doc[_cmd_t] = mqttBaseTopic + F("/command");
+    doc[_val_tpl] = F("{{ value_json.LCK }}");
+    doc["expire_after"] = 700;
+    doc["icon"] = F("mdi:lock");
+    doc[_avty_t] = mqttBaseTopic + F("/Status");
+    doc[_pl_avail] = F("Alive");
+    doc[_pl_not_avail] = F("Dead");
+    doc["pl_on"] = F("{CMD:23,VALUE:true,XTIME:0,INTERVAL:0}");
+    doc["pl_off"] = F("{CMD:23,VALUE:false,XTIME:0,INTERVAL:0}");
+    doc["state_on"] = 1;
+    doc["state_off"] = 0;
+    if (serializeJson(doc, payload) == 0)
+    {
+        return;
+    }
+    mqttClient->publish(topic.c_str(), payload.c_str(), true);
+    mqttClient->loop();
+    doc.clear();
+    doc.garbageCollect();
+
     /******************/
     /* BUTTONS        */
     /******************/
