@@ -647,11 +647,43 @@
         }
       }
 
+      function getCommandJson() {
+        // Safely determine the value for the VALUE field
+        let valueToSend;
+        const commandValue = parseInt(document.getElementById("commands").value);
+        if (commandValue === 12) {
+          // Case for command 12 (brightness slider)
+          const inputElement = document.querySelector('input[name="val"]');
+          valueToSend = inputElement ? parseFloat(inputElement.value) : 0;
+        } else {
+          // Case for other commands (on/off radio buttons)
+          const checkedInput = document.querySelector('input[name="val"]:checked');
+          valueToSend = checkedInput ? parseFloat(checkedInput.value) : 0;
+        }
+        // Safely parse time and interval, providing defaults if parsing fails
+        const parsedTime = Date.parse(document.getElementById("xtime").value) / 1000;
+        const xtimeToSend = isNaN(parsedTime) ? 0 : parsedTime;
+
+        const parsedInterval = parseInt(document.getElementById("interval").value) * 3600;
+        const intervalToSend = isNaN(parsedInterval) ? 0 : parsedInterval;
+
+        return {
+          CMD: commandValue,
+          VALUE: valueToSend,
+          XTIME: xtimeToSend,
+          INTERVAL: intervalToSend,
+          TXT: document.getElementById("txt").value,
+        };
+      }
+
       function saveConfig() {
         var req = new XMLHttpRequest();
         req.open("POST", "/setconfig/");
+
+        // Get command data from the helper
+        const commandJson = getCommandJson();
+
         var json = {
-          //'TIMEZONE':parseInt(document.getElementById('timezone').value),
           TIMEZONE: 0,
           PRICE: parseFloat(
             document.getElementById("price").value.replace(",", ".")
@@ -666,7 +698,6 @@
             document.getElementById("notificationtime").value
           ),
           RESTORE: document.getElementById("restore").checked,
-          // VTCAL: document.getElementById("calibration").checked,
           PLZ: document.getElementById("plz").value,
           WEATHER: document.getElementById("enableWeather").checked,
           POOLCAP: document.getElementById("poolCap").value,
@@ -680,9 +711,13 @@
           UP: document.getElementById("up_btn").checked,
           PWR: document.getElementById("power_btn").checked,
           HJT: document.getElementById("hydrojets_btn").checked,
+          ...commandJson, // Merge the command data
         };
-        req.send(JSON.stringify(json));
-        console.log(json);
+
+        var jsonstring = JSON.stringify(json);
+        req.send(jsonstring);
+        console.log(jsonstring);
+
         if (document.getElementById("enableWeather").checked) {
           weatherEnabled = 1;
           loadWeatherCity();
@@ -803,15 +838,7 @@
       function addCommand() {
         var req = new XMLHttpRequest();
         req.open("POST", "/addcommand/");
-        var json = {
-          CMD: parseInt(document.getElementById("commands").value),
-          VALUE: parseFloat(
-            document.querySelector('input[name="val"]:checked').value
-          ),
-          XTIME: Date.parse(document.getElementById("xtime").value) / 1000,
-          INTERVAL: parseInt(document.getElementById("interval").value) * 3600,
-          TXT: document.getElementById("txt").value,
-        };
+        var json = getCommandJson();
         req.send(JSON.stringify(json));
         console.log(json);
       }
@@ -886,14 +913,8 @@
       function editCommandQueue(index) {
         var req = new XMLHttpRequest();
         req.open("POST", "/editcommand/");
-        var json = {
-          CMD: parseInt(document.getElementById("commands").value),
-          VALUE: parseFloat(document.getElementById("val").value),
-          XTIME: Date.parse(document.getElementById("xtime").value) / 1000,
-          INTERVAL: parseInt(document.getElementById("interval").value) * 3600,
-          TXT: document.getElementById("txt").value,
-          IDX: index,
-        };
+        var json = getCommandJson();
+        json.IDX = index;
         req.send(JSON.stringify(json));
         console.log(json);
       }
