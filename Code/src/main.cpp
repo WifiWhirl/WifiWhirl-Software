@@ -1467,32 +1467,49 @@ void loadMqtt()
     File file = LittleFS.open("mqtt.json", "r");
     if (!file)
     {
-        Serial.println(F("Failed to read mqtt.json. Using defaults."));
         return;
     }
 
     DynamicJsonDocument doc(1024);
 
     DeserializationError error = deserializeJson(doc, file);
+    file.close(); // Close file once read
     if (error)
     {
-        // Serial.println(F("Failed to deserialize mqtt.json."));
-        file.close();
         return;
     }
 
+    bool needsMigration = false;
     useMqtt = doc[F("enableMqtt")];
-    // enableMqtt = useMqtt; //will be set with start complete timer
-    mqttIpAddress[0] = doc[F("mqttIpAddress")][0];
-    mqttIpAddress[1] = doc[F("mqttIpAddress")][1];
-    mqttIpAddress[2] = doc[F("mqttIpAddress")][2];
-    mqttIpAddress[3] = doc[F("mqttIpAddress")][3];
+    
+    if (doc.containsKey(F("mqttServer")))
+    {
+        mqttServer = doc[F("mqttServer")].as<String>();
+    }
+    // Backwards compatibility for old IPAddress format
+    else if (doc.containsKey(F("mqttIpAddress"))) 
+    {
+        IPAddress ip;
+        ip[0] = doc[F("mqttIpAddress")][0];
+        ip[1] = doc[F("mqttIpAddress")][1];
+        ip[2] = doc[F("mqttIpAddress")][2];
+        ip[3] = doc[F("mqttIpAddress")][3];
+        mqttServer = ip.toString();
+        needsMigration = true; // Mark for migration
+    }
+    
     mqttPort = doc[F("mqttPort")];
     mqttUsername = doc[F("mqttUsername")].as<String>();
     mqttPassword = doc[F("mqttPassword")].as<String>();
     mqttClientId = doc[F("mqttClientId")].as<String>();
     mqttBaseTopic = doc[F("mqttBaseTopic")].as<String>();
     mqttTelemetryInterval = doc[F("mqttTelemetryInterval")];
+
+    // If an old config was found, migrate it to the new format now.
+    if (needsMigration)
+    {
+        saveMqtt();
+    }
 }
 
 /**
@@ -1503,17 +1520,13 @@ void saveMqtt()
     File file = LittleFS.open("mqtt.json", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save mqtt.json"));
         return;
     }
 
     DynamicJsonDocument doc(1024);
 
     doc[F("enableMqtt")] = useMqtt;
-    doc[F("mqttIpAddress")][0] = mqttIpAddress[0];
-    doc[F("mqttIpAddress")][1] = mqttIpAddress[1];
-    doc[F("mqttIpAddress")][2] = mqttIpAddress[2];
-    doc[F("mqttIpAddress")][3] = mqttIpAddress[3];
+    doc[F("mqttServer")] = mqttServer;
     doc[F("mqttPort")] = mqttPort;
     doc[F("mqttUsername")] = mqttUsername;
     doc[F("mqttPassword")] = mqttPassword;
@@ -1523,7 +1536,6 @@ void saveMqtt()
 
     if (serializeJson(doc, file) == 0)
     {
-        // Serial.println(F("{\"error\": \"Failed to serialize file\"}"));
     }
     file.close();
 }
@@ -1540,10 +1552,7 @@ void handleGetMqtt()
     DynamicJsonDocument doc(1024);
 
     doc[F("enableMqtt")] = useMqtt;
-    doc[F("mqttIpAddress")][0] = mqttIpAddress[0];
-    doc[F("mqttIpAddress")][1] = mqttIpAddress[1];
-    doc[F("mqttIpAddress")][2] = mqttIpAddress[2];
-    doc[F("mqttIpAddress")][3] = mqttIpAddress[3];
+    doc[F("mqttServer")] = mqttServer;
     doc[F("mqttPort")] = mqttPort;
     doc[F("mqttUsername")] = mqttUsername;
     doc[F("mqttPassword")] = "<Passwort eingeben>";
@@ -1577,17 +1586,17 @@ void handleSetMqtt()
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
-        // Serial.println(F("Failed to read config file"));
         server->send(400, F("text/plain"), F("Error deserializing message"));
         return;
     }
 
     useMqtt = doc[F("enableMqtt")];
     enableMqtt = useMqtt;
-    mqttIpAddress[0] = doc[F("mqttIpAddress")][0];
-    mqttIpAddress[1] = doc[F("mqttIpAddress")][1];
-    mqttIpAddress[2] = doc[F("mqttIpAddress")][2];
-    mqttIpAddress[3] = doc[F("mqttIpAddress")][3];
+    
+    if (doc.containsKey(F("mqttServer"))) {
+        mqttServer = doc[F("mqttServer")].as<String>();
+    }
+
     mqttPort = doc[F("mqttPort")];
     mqttUsername = doc[F("mqttUsername")].as<String>();
     mqttPassword = doc[F("mqttPassword")].as<String>();
@@ -1789,7 +1798,7 @@ void startMqtt()
     mqttClient->disconnect();
 
     // setup MQTT broker information as defined earlier
-    mqttClient->setServer(mqttIpAddress, mqttPort);
+    mqttClient->setServer(mqttServer.c_str(), mqttPort);
     // set buffer for larger messages, new to library 2.8.0
     if (mqttClient->setBufferSize(1536))
     {
