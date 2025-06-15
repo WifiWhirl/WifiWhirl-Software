@@ -37,7 +37,7 @@ void setup()
     periodicTimer.attach(periodicTimerInterval, []
                          { periodicTimerFlag = true; });
     // delayed mqtt start
-    startComplete.attach(61, []
+    startComplete.attach(20, []
                          { if(useMqtt) enableMqtt = true; startComplete.detach(); });
     // update webpage every 2 seconds. (will also be updated on state changes)
     updateWSTimer.attach(2.0, []
