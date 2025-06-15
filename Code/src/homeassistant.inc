@@ -44,7 +44,7 @@ struct HaEntityConfig
 
 static const HaEntityConfig entities[] = {
     {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRT }}", "/command", "{CMD:12,VALUE:{{ value | int }},XTIME:0,INTERVAL:0}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
-    {"sensor", "_reboot_time", "Letzter Neustart", "sensor.", "/reboot_time", "{{as_timestamp(as_datetime(value).isoformat()) | timestamp_custom('%F %T')}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_reboot_time", "Letzter Neustart", "sensor.", "/reboot_time", "{{as_datetime(value)}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_reboot_reason", "Neustartgrund", "sensor.", "/reboot_reason", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_ssid", "WLAN-SSID", "sensor.", "/other", "{{ value_json.SSID }}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_rssi", "WLAN-RSSI", "sensor.", "/other", "{{ value_json.RSSI }}", nullptr, nullptr, "mdi:wifi", "dBm", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -56,10 +56,10 @@ static const HaEntityConfig entities[] = {
     {"sensor", "_energy", "Gesamtenergieverbrauch", "sensor.", "/times", "{{ value_json.KWH | round(3) }}", nullptr, nullptr, "mdi:flash", "kWh", "energy", "total_increasing", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_today", "Energieverbrauch heute", "sensor.", "/times", "{{ value_json.KWHD | round(3) }}", nullptr, nullptr, "mdi:flash", "kWh", "energy", "total_increasing", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_power", "Aktuelle Leistungsaufnahme", "sensor.", "/times", "{{ value_json.WATT | int }}", nullptr, nullptr, "mdi:flash", "W", "power", "measurement", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_chlorine_age", "Letzer Wechsel Chlor", "sensor.", "/times", "{{ ( ( (now().timestamp()|int) - value_json.CLTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "hass:hand-coin-outline", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_filter_age", "Letzer Wechsel Filter", "sensor.", "/times", "{{ ( ( (now().timestamp()|int) - value_json.FTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "hass:air-filter", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_filter_clean_age", "Letzer Filter gereinigt", "sensor.", "/times", "{{ ( ( (now().timestamp()|int) - value_json.FCTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "mdi:filter-check-outline", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_water_change_age", "Letzer Wasserwechsel", "sensor.", "/times", "{{ ( ( (now().timestamp()|int) - value_json.WCTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "mdi:water-sync", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_chlorine_age", "Letzte Chlorung", "sensor.", "/times", "{{ ( ( (now().timestamp()|int) - value_json.CLTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "hass:hand-coin-outline", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_filter_age", "Letzter Filterwechsel", "sensor.", "/times", "{{ ( ( (now().timestamp()|int) - value_json.FTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "hass:air-filter", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_filter_clean_age", "Letzte Filterreinigung", "sensor.", "/times", "{{ ( ( (now().timestamp()|int) - value_json.FCTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "mdi:filter-check-outline", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_water_change_age", "Letzter Wasserwechsel", "sensor.", "/times", "{{ ( ( (now().timestamp()|int) - value_json.WCTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "mdi:water-sync", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_uptime", "Betriebszeit", "sensor.", "/times", "{{ ( (value_json.UPTIME|int)/3600/24) | round(2) }}", nullptr, nullptr, "mdi:clock-outline", "Tage", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_pumptime", "Pumpenlaufzeit", "sensor.", "/times", "{{ ( (value_json.PUMPTIME|int)/3600) | round(2) }}", nullptr, nullptr, "mdi:clock-outline", "Stunden", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_heatertime", "Heizungslaufzeit", "sensor.", "/times", "{{ ( (value_json.HEATINGTIME|int)/3600) | round(2) }}", nullptr, nullptr, "mdi:clock-outline", "Stunden", nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -71,6 +71,7 @@ static const HaEntityConfig entities[] = {
     //{"sensor", "_target_temp_f", "Solltemperatur (F)", "sensor.", "/message", "{{ value_json.TGTF }}", nullptr, nullptr, nullptr, "°F", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_target_temp_c", "Zieltemperatur", "sensor.", "/message", "{{ value_json.TGTC }}", nullptr, nullptr, nullptr, "°C", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_amb_temp_c", "Umgebungstemperatur", "sensor.", "/message", "{{ value_json.AMBC }}", nullptr, nullptr, nullptr, "°C", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"number", "_amb_temp_c_manual", "Umgebungstemperatur", "number.", "/message", "{{ value_json.AMBC }}", "/command", "{CMD:15,VALUE:{{ value | int }},XTIME:0,INTERVAL:0}", "mdi:thermometer", "°C", "temperature", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "-20", "50", "box", nullptr},
     {"binary_sensor", "_lock", "Tastensperre", "binary_sensor.", "/message", "{% if value_json.LCK == 1 %}OFF{% else %}ON{% endif %}", nullptr, nullptr, nullptr, nullptr, "lock", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"binary_sensor", "_heater", "Heizung", "binary_sensor.", "/message", "{% if value_json.RED == 1 %}ON{% else %}OFF{% endif %}", nullptr, nullptr, nullptr, nullptr, "heat", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"binary_sensor", "_ready", "Bereit", "binary_sensor.", "/message", "{% if value_json.TMP > 30 %}{% if value_json.TMP >= value_json.TGT-1 %}ON{% else %}OFF{% endif %}{% else %}OFF{% endif %}", nullptr, nullptr, "mdi:hot-tub", nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -131,7 +132,7 @@ void setupHA()
 
     for (const auto &entity : entities)
     {
-        if (strcmp(entity.entity_id_suffix, "_amb_temp_c") == 0 && bwc->enableWeather)
+        if (strcmp(entity.entity_id_suffix, "_amb_temp_c_manual") == 0 && bwc->enableWeather)
         {
             continue;
         }
@@ -142,9 +143,14 @@ void setupHA()
         DynamicJsonDocument doc(1536);
         doc[_dev] = devicedoc[_dev];
 
-        doc[_name] = String(entity.name_suffix);
-        doc[_uniq_id] = String(entity.uniq_id_prefix) + mqttBaseTopic + String(entity.entity_id_suffix) + mychipid;
-
+        if (strcmp(entity.entity_id_suffix, "_amb_temp_c_manual") == 0) {
+            doc[_name] = String(entity.name_suffix);
+            doc[_uniq_id] = String(entity.uniq_id_prefix) + mqttBaseTopic + String("_amb_temp_c") + mychipid;
+        } else {
+            doc[_name] = String(entity.name_suffix);
+            doc[_uniq_id] = String(entity.uniq_id_prefix) + mqttBaseTopic + String(entity.entity_id_suffix) + mychipid;
+        }
+        
         if (entity.stat_t_suffix)
             doc[_stat_t] = mqttBaseTopic + String(entity.stat_t_suffix);
         if (entity.val_tpl)
@@ -186,9 +192,16 @@ void setupHA()
         doc[_pl_avail] = F("Alive");
         doc[_pl_not_avail] = F("Dead");
 
-        if (!publishHaEntity(entity.component, entity.entity_id_suffix, doc))
-        {
-            return;
+        if (strcmp(entity.entity_id_suffix, "_amb_temp_c_manual") == 0) {
+            if (!publishHaEntity(entity.component, "_amb_temp_c", doc))
+            {
+                return;
+            }
+        } else {
+            if (!publishHaEntity(entity.component, entity.entity_id_suffix, doc))
+            {
+                return;
+            }
         }
     }
 
