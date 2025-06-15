@@ -431,8 +431,14 @@ void startNTP()
     sWifi_info wifi_info;
     wifi_info = loadWifi();
     Serial.println(F("start NTP"));
-    // configTime(0,0,"pool.ntp.org", "time.nist.gov");
-    configTime(0, 0, wifi_info.ip4NTP_str, F("0.de.pool.ntp.org"), F("1.de.pool.ntp.org"));
+    if (wifi_info.ip4NTP_str.length() > 0)
+    {
+        configTime(0, 0, wifi_info.ip4NTP_str.c_str());
+    }
+    else
+    {
+        configTime(0, 0, "ptbtime1.ptb.de", "ptbtime2.ptb.de", "ptbtime3.ptb.de");
+    }
     time_t now = time(nullptr);
     int count = 0;
     while (now < 8 * 3600 * 2)
