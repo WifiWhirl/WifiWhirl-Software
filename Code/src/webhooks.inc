@@ -6,6 +6,8 @@
  * Pump off: http://[ipaddress]/hook/?send={"CMD":4,"VALUE":false}
  * Heating on: http://[ipaddress]/hook/?send={"CMD":3,"VALUE":true}
  * Heating off: http://[ipaddress]/hook/?send={"CMD":3,"VALUE":false}
+ * 
+ * See https://wifiwhirl.de/Integrationen/Webhooks/ for details
  */
 
 void handleWebhook()
@@ -36,4 +38,32 @@ void handleWebhook()
     bwc->add_command(item);
 
     server->send(200, F("text/plain"), String(item.cmd) + " " + String(item.val) + " " + String(item.xtime));
+}
+
+/**
+ * response for /getstates/
+ * Returns a JSON document with the current ON/OFF states of main components
+ * Example response:
+ * {"pump":true,"heater":false,"bubbles":false,"jets":true,"power":true,"lock":false}
+ */
+
+void handleGetStates()
+{
+    if (!checkHttpGet(server->method()))
+        return;
+
+    StaticJsonDocument<256> doc;
+
+    // Map internal cio states to human-readable keys
+    doc[F("pump")] = static_cast<bool>(bwc->cio->cio_states.pump);
+    doc[F("heater")] = static_cast<bool>(bwc->cio->cio_states.heatred || bwc->cio->cio_states.heatgrn);
+    doc[F("bubbles")] = static_cast<bool>(bwc->cio->cio_states.bubbles);
+    doc[F("jets")] = static_cast<bool>(bwc->cio->cio_states.jets);
+    doc[F("power")] = static_cast<bool>(bwc->cio->cio_states.power);
+    doc[F("lock")] = static_cast<bool>(bwc->cio->cio_states.locked);
+
+    String json;
+    serializeJson(doc, json);
+
+    server->send(200, F("application/json"), json);
 }
