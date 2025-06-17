@@ -57,7 +57,7 @@ struct HaEntityConfig
 };
 
 static const HaEntityConfig entities[] PROGMEM = {
-    {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRT }}", "/command", "{CMD:12,VALUE:{{ value | int }},XTIME:0,INTERVAL:0}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
+    {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRT }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
     {"sensor", "_reboot_time", "Letzter Neustart", "sensor.", "/reboot_time", "{{as_datetime(value)}}", nullptr, nullptr, nullptr, nullptr, "timestamp", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_reboot_reason", "Neustartgrund", "sensor.", "/reboot_reason", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_ssid", "WLAN-SSID", "sensor.", "/other", "{{ value_json.SSID }}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -85,24 +85,25 @@ static const HaEntityConfig entities[] PROGMEM = {
     //{"sensor", "_target_temp_f", "Solltemperatur (F)", "sensor.", "/message", "{{ value_json.TGTF }}", nullptr, nullptr, nullptr, "°F", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_target_temp_c", "Zieltemperatur", "sensor.", "/message", "{{ value_json.TGTC }}", nullptr, nullptr, nullptr, "°C", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_amb_temp_c", "Umgebungstemperatur", "sensor.", "/message", "{{ value_json.AMBC }}", nullptr, nullptr, nullptr, "°C", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"number", "_amb_temp_c_manual", "Umgebungstemperatur", "number.", "/message", "{{ value_json.AMBC }}", "/command", "{CMD:15,VALUE:{{ value | int }},XTIME:0,INTERVAL:0}", "mdi:thermometer", "°C", "temperature", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "-20", "50", "box", nullptr},
+    {"number", "_amb_temp_c_manual", "Umgebungstemperatur", "number.", "/message", "{{ value_json.AMBC }}", "/command", "{CMD:15,VALUE:{{ value | int }}}", "mdi:thermometer", "°C", "temperature", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "-20", "50", "slider", nullptr},
     {"binary_sensor", "_lock", "Tastensperre", "binary_sensor.", "/message", "{% if value_json.LCK == 1 %}OFF{% else %}ON{% endif %}", nullptr, nullptr, nullptr, nullptr, "lock", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"binary_sensor", "_heater", "Heizung", "binary_sensor.", "/message", "{% if value_json.RED == 1 %}ON{% else %}OFF{% endif %}", nullptr, nullptr, nullptr, nullptr, "heat", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"binary_sensor", "_ready", "Bereit", "binary_sensor.", "/message", "{% if value_json.TMP > 30 %}{% if value_json.TMP >= value_json.TGT-1 %}ON{% else %}OFF{% endif %}{% else %}OFF{% endif %}", nullptr, nullptr, "mdi:hot-tub", nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     //{"binary_sensor", "_connection", "Verbindung", "binary_sensor.", "/Status", nullptr, nullptr, nullptr, nullptr, nullptr, "connectivity", nullptr, nullptr, "Alive", "Dead", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_heat_regulation", "Heizung", "switch.", "/message", "{% if value_json.RED == 1 %}1{% elif value_json.GRN == 1 %}1{% else %}0{% endif %}", "/command", nullptr, "mdi:radiator", nullptr, nullptr, nullptr, "700", "{CMD:3,VALUE:true,XTIME:0,INTERVAL:0}", "{CMD:3,VALUE:false,XTIME:0,INTERVAL:0}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_jets", "HydroJet", "switch.", "/message", "{{ value_json.HJT }}", "/command", nullptr, "mdi:hydro-power", nullptr, nullptr, nullptr, "700", "{CMD:11,VALUE:true,XTIME:0,INTERVAL:0}", "{CMD:11,VALUE:false,XTIME:0,INTERVAL:0}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_airbubbles", "AirJet", "switch.", "/message", "{{ value_json.AIR }}", "/command", nullptr, "mdi:chart-bubble", nullptr, nullptr, nullptr, "700", "{CMD:2,VALUE:true,XTIME:0,INTERVAL:0}", "{CMD:2,VALUE:false,XTIME:0,INTERVAL:0}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_pump", "Filterpumpe", "switch.", "/message", "{{ value_json.FLT }}", "/command", nullptr, "mdi:pump", nullptr, nullptr, nullptr, "700", "{CMD:4,VALUE:true,XTIME:0,INTERVAL:0}", "{CMD:4,VALUE:false,XTIME:0,INTERVAL:0}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_unit", "°F/°C", "switch.", "/message", "{{ value_json.UNT }}", "/command", nullptr, "mdi:circle-outline", nullptr, nullptr, nullptr, "700", "{CMD:1,VALUE:true,XTIME:0,INTERVAL:0}", "{CMD:1,VALUE:false,XTIME:0,INTERVAL:0}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    //{"switch", "_ctrl", "Steuerung übernehmen", "switch.", "/message", "{{ value_json.GOD }}", "/command", nullptr, "mdi:steering", nullptr, nullptr, nullptr, "700", "{CMD:17,VALUE:true,XTIME:0,INTERVAL:0}", "{CMD:17,VALUE:false,XTIME:0,INTERVAL:0}", "1", "0", nullptr, nullptr, nullptr, nullptr, "0"},
-    {"switch", "_power", "Ein/Aus", "switch.", "/message", "{{ value_json.PWR }}", "/command", nullptr, "mdi:power", nullptr, nullptr, nullptr, "700", "{CMD:22,VALUE:true,XTIME:0,INTERVAL:0}", "{CMD:22,VALUE:false,XTIME:0,INTERVAL:0}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_lock", "Tastensperre", "switch.", "/message", "{{ value_json.LCK }}", "/command", nullptr, "mdi:lock", nullptr, nullptr, nullptr, "700", "{CMD:23,VALUE:true,XTIME:0,INTERVAL:0}", "{CMD:23,VALUE:false,XTIME:0,INTERVAL:0}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"button", "_reset_chlorine", "Timer Chlor zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:9,VALUE:true,XTIME:0,INTERVAL:0}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_reset_filter", "Timer Filterwechsel zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:10,VALUE:true,XTIME:0,INTERVAL:0}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_reset_clean_filter", "Timer Filterreinigung zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:filter-variant", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:24,VALUE:true,XTIME:0,INTERVAL:0}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_reset_water_change", "Timer Wasserwechsel zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:water-sync", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:25,VALUE:true,XTIME:0,INTERVAL:0}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_restart_esp", "WifiWhirl-Modul neustarten", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, "restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:6,VALUE:true,XTIME:0,INTERVAL:0}", nullptr, nullptr, nullptr, nullptr},
+    {"switch", "_heat_regulation", "Heizung", "switch.", "/message", "{% if value_json.RED == 1 %}1{% elif value_json.GRN == 1 %}1{% else %}0{% endif %}", "/command", nullptr, "mdi:radiator", nullptr, nullptr, nullptr, "700", "{CMD:3,VALUE:true}", "{CMD:3,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"switch", "_jets", "HydroJet", "switch.", "/message", "{{ value_json.HJT }}", "/command", nullptr, "mdi:hydro-power", nullptr, nullptr, nullptr, "700", "{CMD:11,VALUE:true}", "{CMD:11,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"switch", "_airbubbles", "AirJet", "switch.", "/message", "{{ value_json.AIR }}", "/command", nullptr, "mdi:chart-bubble", nullptr, nullptr, nullptr, "700", "{CMD:2,VALUE:true}", "{CMD:2,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"switch", "_pump", "Filterpumpe", "switch.", "/message", "{{ value_json.FLT }}", "/command", nullptr, "mdi:pump", nullptr, nullptr, nullptr, "700", "{CMD:4,VALUE:true}", "{CMD:4,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"switch", "_unit", "°F/°C", "switch.", "/message", "{{ value_json.UNT }}", "/command", nullptr, "mdi:circle-outline", nullptr, nullptr, nullptr, "700", "{CMD:1,VALUE:true}", "{CMD:1,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    //{"switch", "_ctrl", "Steuerung übernehmen", "switch.", "/message", "{{ value_json.GOD }}", "/command", nullptr, "mdi:steering", nullptr, nullptr, nullptr, "700", "{CMD:17,VALUE:true}", "{CMD:17,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, "0"},
+    {"switch", "_power", "Ein/Aus", "switch.", "/message", "{{ value_json.PWR }}", "/command", nullptr, "mdi:power", nullptr, nullptr, nullptr, "700", "{CMD:22,VALUE:true}", "{CMD:22,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"switch", "_lock", "Tastensperre", "switch.", "/message", "{{ value_json.LCK }}", "/command", nullptr, "mdi:lock", nullptr, nullptr, nullptr, "700", "{CMD:23,VALUE:true}", "{CMD:23,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"button", "_reset_chlorine", "Timer Chlor zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:9,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
+    {"button", "_reset_filter", "Timer Filterwechsel zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:10,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
+    {"button", "_reset_clean_filter", "Timer Filterreinigung zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:filter-variant", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:24,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
+    {"button", "_reset_water_change", "Timer Wasserwechsel zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:water-sync", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:25,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
+    {"button", "_restart_esp", "WifiWhirl-Modul neustarten", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, "restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:6,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
+    {"number", "_target_temp_c_set", "Zieltemperatur einstellen", "number.", "/message", "{{ value_json.TGTC }}", "/command", "{CMD:0,VALUE:{{ value | int }}}", "mdi:thermometer", "°C", "temperature", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "20", "40", "slider", nullptr},
 };
 
 constexpr size_t MQTT_TOPIC_LEN = 256; // MQTT topic must be <=255 per spec
@@ -350,7 +351,7 @@ void setupHA()
     char topic_buf[256];
     snprintf(topic_buf, sizeof(topic_buf), "%s/command_batch", mqttBaseTopic.c_str());
     doc["mode_cmd_t"] = topic_buf;
-    doc["mode_cmd_tpl"] = F("[{CMD:3,VALUE:{%if value == \\\"heat\\\" %}1{% else %}0{% endif %},XTIME:0,INTERVAL:0},{CMD:4,VALUE:{%if value == \\\"fan_only\\\" %}1{% elif value == \\\"heat\\\" %}1{% else %}0{% endif %},XTIME:0,INTERVAL:0}]");
+    doc["mode_cmd_tpl"] = F("[{CMD:3,VALUE:{%if value == \\\"heat\\\" %}1{% else %}0{% endif %}},{CMD:4,VALUE:{%if value == \\\"fan_only\\\" %}1{% elif value == \\\"heat\\\" %}1{% else %}0{% endif %}}]");
 
     snprintf(topic_buf, sizeof(topic_buf), "%s/message", mqttBaseTopic.c_str());
     doc["mode_stat_t"] = topic_buf;
@@ -367,7 +368,7 @@ void setupHA()
 
     snprintf(topic_buf, sizeof(topic_buf), "%s/command", mqttBaseTopic.c_str());
     doc["temp_cmd_t"] = topic_buf;
-    doc["temp_cmd_tpl"] = F("{CMD:0,VALUE:{{ value|int }},XTIME:0,INTERVAL:0}");
+    doc["temp_cmd_tpl"] = F("{CMD:0,VALUE:{{ value|int }}}");
 
     snprintf(topic_buf, sizeof(topic_buf), "%s/Status", mqttBaseTopic.c_str());
     doc[FPSTR(_avty_t)] = topic_buf;
