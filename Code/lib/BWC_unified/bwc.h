@@ -154,7 +154,7 @@ private:
     float _energy_total_kWh;
     double _energy_daily_Ws; // Wattseconds internally
     int _energy_power_W;
-    float _plz;
+    String _plz;
     bool _weather = 0;
     int _pool_capacity = 700;
     bool _restore_states_on_start = false;

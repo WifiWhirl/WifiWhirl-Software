@@ -959,7 +959,7 @@ void BWC::setJSONSettings(const String &message)
     _restore_states_on_start = doc[F("RESTORE")];
     _notify = doc[F("NOTIFY")];
     _notification_time = doc[F("NOTIFTIME")];
-    _plz = doc[F("PLZ")];
+    _plz = doc[F("PLZ")].as<String>();
     _weather = doc[F("WEATHER")];
     _pool_capacity = doc[F("POOLCAP")];
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
@@ -1156,7 +1156,7 @@ void BWC::_loadSettings()
     _restore_states_on_start = doc[F("RESTORE")];
     _ambient_temp = doc[F("AMB")] | 20;
     _dsp_brightness = doc[F("BRT")] | 7;
-    _plz = doc[F("PLZ")];
+    _plz = doc[F("PLZ")].as<String>();
     _weather = doc[F("WEATHER")];
     _pool_capacity = doc[F("POOLCAP")];
     enableWeather = _weather;

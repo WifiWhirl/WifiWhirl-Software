@@ -28,7 +28,7 @@ void setup()
     LittleFS.begin();
     {
         HeapSelectIram ephemeral;
-        Serial.printf_P(PSTR("IRamheap %d\n"), ESP.getFreeHeap());
+        Serial.printf("IRamheap %d\n", ESP.getFreeHeap());
         bwc = new BWC;
     }
     bwc->setup();
@@ -539,7 +539,7 @@ void pause_all(bool action)
 void startWebSocket()
 {
     HeapSelectIram ephemeral;
-    Serial.printf_P(PSTR("WS IRamheap %d\n"), ESP.getFreeHeap());
+    Serial.printf("WS IRamheap %d\n", ESP.getFreeHeap());
 
     webSocket = new WebSocketsServer(81);
     // In case we are already running
@@ -693,7 +693,7 @@ String queryAmbientTemperature()
         return "Error reading config";
     }
 
-    String _plz = doc[F("PLZ")];
+    String _plz = doc[F("PLZ")].as<String>();
 
     String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/"; // Accepts German and Austrian ZIP Codes in _plz
     if (http.begin(client, weatherURL))
@@ -1623,7 +1623,7 @@ void handleSetMqtt()
 void handleDir()
 {
     HeapSelectIram ephemeral;
-    Serial.printf_P(PSTR("dir IRamheap %d\n"), ESP.getFreeHeap());
+    Serial.printf("dir IRamheap %d\n", ESP.getFreeHeap());
 
     String mydir;
     Dir root = LittleFS.openDir("/");
