@@ -289,6 +289,22 @@ function handlemsg(e) {
           unitsymbol.innerHTML = "F";
         });
       }
+
+      // get slider elements
+      var sliderTemp = document.getElementById("temp");
+      var sliderAmb = document.getElementById("amb");
+      var sliderBrt = document.getElementById("brt");
+
+      // Update slider positions as long as the user is not actively interacting
+      if (document.activeElement !== sliderTemp && !updateTempState) {
+        sliderTemp.value = msgobj.TGT;
+      }
+      if (document.activeElement !== sliderAmb && !updateAmbState) {
+        sliderAmb.value = msgobj.AMB;
+      }
+      if (document.activeElement !== sliderBrt && !updateBrtState) {
+        sliderBrt.value = msgobj.BRT;
+      }
     }
   } catch (error) {
     console.error(error);
