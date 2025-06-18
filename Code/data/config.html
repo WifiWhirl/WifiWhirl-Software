@@ -129,7 +129,22 @@
             <td></td>
           </tr>
           <tr>
-            <td><label for="audio">Ton (ein/aus):</label></td>
+            <td><label for="poolCap">Poolinhalt in Liter:</label></td>
+            <td>
+              <input
+                type="text"
+                id="poolCap"
+                value="700"
+                maxlength="4"
+                size="6"
+                pattern="\d{3,4}"
+                required
+              /><span class="inputunit" style="margin-left: -32px">Liter</span>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><label for="audio">Töne (ein/aus):</label></td>
             <td><input type="checkbox" id="audio" /></td>
             <td></td>
           </tr>
@@ -212,21 +227,6 @@
             <td colspan="2" id="cityhint" style="display: none">
               Die Temperatur wird für <span id="city">...</span> ermittelt.
             </td>
-          </tr>
-          <tr>
-            <td><label for="poolCap">Poolinhalt in Liter:</label></td>
-            <td>
-              <input
-                type="text"
-                id="poolCap"
-                value="700"
-                maxlength="4"
-                size="6"
-                pattern="\d{3,4}"
-                required
-              /><span class="inputunit" style="margin-left: -32px">Liter</span>
-            </td>
-            <td></td>
           </tr>
         </table>
       </section>
@@ -642,21 +642,27 @@
       function getCommandJson() {
         // Safely determine the value for the VALUE field
         let valueToSend;
-        const commandValue = parseInt(document.getElementById("commands").value);
+        const commandValue = parseInt(
+          document.getElementById("commands").value
+        );
         if (commandValue === 12) {
           // Case for command 12 (brightness slider)
           const inputElement = document.querySelector('input[name="val"]');
           valueToSend = inputElement ? parseFloat(inputElement.value) : 0;
         } else {
           // Case for other commands (on/off radio buttons)
-          const checkedInput = document.querySelector('input[name="val"]:checked');
+          const checkedInput = document.querySelector(
+            'input[name="val"]:checked'
+          );
           valueToSend = checkedInput ? parseFloat(checkedInput.value) : 0;
         }
         // Safely parse time and interval, providing defaults if parsing fails
-        const parsedTime = Date.parse(document.getElementById("xtime").value) / 1000;
+        const parsedTime =
+          Date.parse(document.getElementById("xtime").value) / 1000;
         const xtimeToSend = isNaN(parsedTime) ? 0 : parsedTime;
 
-        const parsedInterval = parseInt(document.getElementById("interval").value) * 3600;
+        const parsedInterval =
+          parseInt(document.getElementById("interval").value) * 3600;
         const intervalToSend = isNaN(parsedInterval) ? 0 : parsedInterval;
 
         return {
