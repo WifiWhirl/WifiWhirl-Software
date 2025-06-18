@@ -234,36 +234,36 @@
         <table>
           <tr>
             <td colspan="8">
-              Aktivierte Bedientasten <label for="toggle_all">| Alle:</label>
-              <input type="checkbox" id="toggle_all" onclick="toggleAll()" />
+              Aktivierte Bedientasten | <label for="toggle_all">Alle:</label>
+              <input type="checkbox" id="toggle_all" onchange="confirmDisable(this);toggleAll();" />
             </td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="power_btn" /></td>
+            <td><input type="checkbox" id="power_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="power_btn">Ein/Aus</label></td>
-            <td><input type="checkbox" id="lock_btn" /></td>
+            <td><input type="checkbox" id="lock_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="lock_btn">Tastensperre</label></td>
-            <td><input type="checkbox" id="bubbles_btn" /></td>
+            <td><input type="checkbox" id="bubbles_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="bubbles_btn">Airjet</label></td>
-            <td><input type="checkbox" id="timer_btn" /></td>
+            <td><input type="checkbox" id="timer_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="timer_btn">Timer</label></td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="pump_btn" /></td>
+            <td><input type="checkbox" id="pump_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="pump_btn">Pumpe</label></td>
-            <td><input type="checkbox" id="up_btn" /></td>
+            <td><input type="checkbox" id="up_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="up_btn">Aufwärts</label></td>
-            <td><input type="checkbox" id="hydrojets_btn" /></td>
+            <td><input type="checkbox" id="hydrojets_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="hydrojets_btn">Hydrojet</label></td>
             <td></td>
             <td></td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="heat_btn" /></td>
+            <td><input type="checkbox" id="heat_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="heat_btn">Heizung</label></td>
-            <td><input type="checkbox" id="down_btn" /></td>
+            <td><input type="checkbox" id="down_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="down_btn">Abwärts</label></td>
-            <td><input type="checkbox" id="unit_btn" /></td>
+            <td><input type="checkbox" id="unit_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="unit_btn">Einheit</label></td>
             <td></td>
             <td></td>
@@ -941,6 +941,23 @@
           weatherEnabled = 0;
           if (!weatherEnabled) cityhint.style.display = "none";
           obj.style.display = "none";
+        }
+      }
+
+      function confirmDisable(elem) {
+        if (elem.checked) return; // only on uncheck
+        var label = document.querySelector("label[for='" + elem.id + "']");
+        var btnName = label ? label.innerText.trim() : elem.id;
+        var msg = "Mit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl-Modul möglich. " +
+                  "Die Bedientasten auf der Pumpe werden damit deaktiviert! Bist du dir sicher, dass du ";
+
+        if (btnName === "Alle:") {
+          msg += "ALLE Tasten deaktivieren möchtest?";
+        } else {
+          msg += "die Taste \"" + btnName + "\" deaktivieren möchtest?";
+        }
+        if (!confirm(msg)) {
+          elem.checked = true; // revert change
         }
       }
     </script>
