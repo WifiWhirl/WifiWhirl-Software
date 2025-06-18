@@ -1,9 +1,9 @@
-/*
-    Note, following does not work!
-    doc[F("key")] = F("Value")
-    String s; doc[s] = ...
-    Throws all kind of errors. String throws stack smashing.
-*/
+//--------------------------------------------------------------------------------------------------
+/**  
+ * Build and publish Home-Assistant MQTT auto-discovery payloads for all WifiWhirl entities
+ * keeping RAM usage to a minimum by storing constant metadata in flash (PROGMEM).
+ */
+//--------------------------------------------------------------------------------------------------
 
 const char _dev[] PROGMEM = "dev";
 const char _name[] PROGMEM = "name";
@@ -29,7 +29,19 @@ const char _min_key[] PROGMEM = "min";
 const char _max_key[] PROGMEM = "max";
 const char _mode_key[] PROGMEM = "mode";
 const char _assumed_state[] PROGMEM = "assumed_state";
+const char _object_id[] PROGMEM = "object_id";
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Descriptor for one Home-Assistant entity.
+ *
+ * Each field holds the raw metadata that will later be copied from flash
+ * (PROGMEM) into RAM while composing the JSON auto-discovery payload.
+ * The meaning of the members closely mirrors the keys expected by Home
+ * Assistant for MQTT discovery.  Leaving a pointer as nullptr means that
+ * the respective attribute is not applicable for this entity.
+ */
+//--------------------------------------------------------------------------------------------------
 struct HaEntityConfig
 {
     const char *component;
@@ -56,6 +68,13 @@ struct HaEntityConfig
     const char *assumed_state;
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Lookup table holding the static definition for *all* entities that shall
+ * be announced to Home Assistant.  Storing the table in PROGMEM keeps RAM
+ * usage minimal on the constrained ESP micro-controller.
+ */
+//--------------------------------------------------------------------------------------------------
 static const HaEntityConfig entities[] PROGMEM = {
     {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRT }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
     {"sensor", "_reboot_time", "Letzter Neustart", "sensor.", "/reboot_time", "{{as_datetime(value)}}", nullptr, nullptr, nullptr, nullptr, "timestamp", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -108,6 +127,20 @@ static const HaEntityConfig entities[] PROGMEM = {
 
 constexpr size_t MQTT_TOPIC_LEN = 256; // MQTT topic must be <=255 per spec
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Helper that publishes a single discovery payload to the correct
+ * Home-Assistant topic.
+ *
+ * The topic is built according to the MQTT discovery spec:
+ *    <HA_PREFIX>/<component>/<node_id><entity_id_suffix>/config
+ * The payload is already prepared by the caller in the provided JSON
+ * document. This function just measures, publishes and flushes the MQTT
+ * client so the network stack can process the data.
+ *
+ * @return true if the payload has been sent successfully.
+ */
+//--------------------------------------------------------------------------------------------------
 bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDocument &doc)
 {
     char topic[MQTT_TOPIC_LEN];
@@ -127,11 +160,21 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
     return published;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Build and publish the MQTT discovery payloads for all configured
+ * WifiWhirl entities as well as the composite "climate" component.
+ *
+ * The function is intentionally large but mostly mechanical: it iterates
+ * over the compile-time `entities` table, resolves all strings from
+ * PROGMEM, fills the JSON template and finally calls `publishHaEntity()`.
+ *
+ * Because RAM is scarce, temporary buffers are reused aggressively and the
+ * StaticJsonDocument size has been tuned to the required minimum.
+ */
+//--------------------------------------------------------------------------------------------------
 void setupHA()
 {
-    // HeapSelectIram ephemeral;
-    // HeapSelectDram ephemeral;
-
     char mychipid_str[16];
 #if defined(ESP8266)
     snprintf(mychipid_str, sizeof(mychipid_str), "%u", ESP.getChipId());
@@ -173,12 +216,28 @@ void setupHA()
 
     for (size_t i = 0; i < (sizeof(entities) / sizeof(entities[0])); i++)
     {
+        // Iterate over every entity definition and publish its Home-Assistant
+        // auto-discovery payload.
         doc.clear();
         PGM_P pgm_p;
+        
+        // --------------------------------------------------------------------
+        // Pull the *entity_id_suffix* pointer out of PROGMEM.  Because the
+        // ESP32/ESP8266 store string literals in flash, we cannot access them
+        // directly with a normal `const char *` – we must first read the
+        // 32-bit address from flash using `pgm_read_ptr()` and cast it to
+        // `PGM_P` (pointer to PROGMEM).  Only then can we copy the bytes into
+        // the mutable `ram_buffer` with `strcpy_P()` for normal RAM access.
+        // --------------------------------------------------------------------
         
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
         strcpy_P(ram_buffer, pgm_p);
 
+        // Skip entities that are either redundant or incompatible with the
+        // current runtime configuration.  Saves MQTT traffic and HA entities.
+        // 1. `_amb_temp_c_manual` is omitted when the external weather module
+        //    (bwc->enableWeather) already supplies the ambient temperature.
+        // 2. `_jets` exists only for the Maldives-2021 model variant.
         if (strcmp(ram_buffer, "_amb_temp_c_manual") == 0 && bwc->enableWeather)
         {
             continue;
@@ -191,6 +250,13 @@ void setupHA()
         doc[FPSTR(_dev)] = devicedoc[FPSTR(_dev)];
 
         char uniq_id_buf[256];
+        // --------------------------------------------------------------------
+        // Compose the globally-unique entity ID that Home Assistant will use
+        // for this object.  Some entities (like `_amb_temp_c_manual`) must be
+        // mapped to an alternative canonical name so that the manual and
+        // automatic variants don't collide inside HA.
+        // --------------------------------------------------------------------
+
         if (strcmp(ram_buffer, "_amb_temp_c_manual") == 0)
         {
             pgm_p = (PGM_P)pgm_read_ptr(&entities[i].name_suffix);
@@ -217,7 +283,15 @@ void setupHA()
             snprintf(uniq_id_buf, sizeof(uniq_id_buf), "%s%s%s%s", uniq_id_prefix_ram, mqttBaseTopic.c_str(), entity_id_suffix_ram, mychipid_str);
         }
         doc[FPSTR(_uniq_id)] = uniq_id_buf;
-
+    
+        PGM_P suffix_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
+        char suffix_ram[64];
+        strcpy_P(suffix_ram, suffix_p);
+        const char *suffix_ptr = (suffix_ram[0] == '_') ? suffix_ram + 1 : suffix_ram;
+        char object_id_buf[256];
+        snprintf(object_id_buf, sizeof(object_id_buf), "%s_%s", mqttBaseTopic.c_str(), suffix_ptr);
+        doc[FPSTR(_object_id)] = object_id_buf;
+        
         char topic_buf[256];
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].stat_t_suffix);
         if (pgm_p)
