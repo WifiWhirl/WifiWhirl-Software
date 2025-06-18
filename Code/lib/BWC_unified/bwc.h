@@ -157,7 +157,6 @@ private:
     String _plz;
     bool _weather = 0;
     int _pool_capacity = 700;
-    bool _restore_states_on_start = false;
     bool _save_settings_needed = false;
     bool _save_cmdq_needed = false;
     bool _save_states_needed = false;

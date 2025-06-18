@@ -161,13 +161,6 @@
             </td>
             <td></td>
           </tr>
-          <tr>
-            <td>
-              <label for="restore">Einstellungen dauerhaft speichern:</label>
-            </td>
-            <td><input type="checkbox" id="restore" /></td>
-            <td></td>
-          </tr>
           <!-- <tr>
             <td>
               <label for="calibration">Kalibriert:</label
@@ -533,7 +526,6 @@
             document.getElementById("notification").checked = json.NOTIFY;
             document.getElementById("notificationtime").value =
               json.NOTIFTIME.toString();
-            document.getElementById("restore").checked = json.RESTORE;
             var date = new Date(json.REBOOTTIME * 1000);
             document.getElementById("lastboot").innerHTML =
               "Letzter Neustart: " + date.toLocaleString();
@@ -697,7 +689,6 @@
           NOTIFTIME: parseInt(
             document.getElementById("notificationtime").value
           ),
-          RESTORE: document.getElementById("restore").checked,
           PLZ: document.getElementById("plz").value,
           WEATHER: document.getElementById("enableWeather").checked,
           POOLCAP: document.getElementById("poolCap").value,

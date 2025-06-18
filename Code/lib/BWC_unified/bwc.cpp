@@ -23,7 +23,6 @@ BWC::BWC()
     _fc_interval = 60;
     _wc_interval = 90;
     _audio_enabled = true;
-    _restore_states_on_start = true;
     _ambient_temp = 20;
 }
 
@@ -866,7 +865,6 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("REBOOTINFO")] = ESP.getResetReason();
 #endif
     doc[F("REBOOTTIME")] = reboot_time_t;
-    doc[F("RESTORE")] = _restore_states_on_start;
     doc[F("MODEL")] = cio->getModel();
     doc[F("NOTIFY")] = _notify;
     doc[F("NOTIFTIME")] = _notification_time;
@@ -956,7 +954,6 @@ void BWC::setJSONSettings(const String &message)
     _fc_interval = doc[F("FCINT")];
     _wc_interval = doc[F("WCINT")];
     _audio_enabled = doc[F("AUDIO")];
-    _restore_states_on_start = doc[F("RESTORE")];
     _notify = doc[F("NOTIFY")];
     _notification_time = doc[F("NOTIFTIME")];
     _plz = doc[F("PLZ")].as<String>();
@@ -1153,7 +1150,6 @@ void BWC::_loadSettings()
     _notification_time = doc[F("NOTIFTIME")];
     _energy_total_kWh = doc[F("KWH")];
     _energy_daily_Ws = doc[F("KWHD")];
-    _restore_states_on_start = doc[F("RESTORE")];
     _ambient_temp = doc[F("AMB")] | 20;
     _dsp_brightness = doc[F("BRT")] | 7;
     _plz = doc[F("PLZ")].as<String>();
@@ -1176,8 +1172,6 @@ void BWC::_loadSettings()
 
 void BWC::_restoreStates()
 {
-    if (!_restore_states_on_start)
-        return;
     File file = LittleFS.open("states.txt", "r");
     if (!file)
     {
@@ -1443,7 +1437,6 @@ void BWC::saveSettings()
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;
     // doc[F("SAVETIME")] = DateTime.format(DateFormatter::SIMPLE);
-    doc[F("RESTORE")] = _restore_states_on_start;
     doc[F("AMB")] = _ambient_temp;
     doc[F("BRT")] = _dsp_brightness;
     doc[F("NOTIFY")] = _notify;
