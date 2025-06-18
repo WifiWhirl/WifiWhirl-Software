@@ -948,8 +948,8 @@
         if (elem.checked) return; // only on uncheck
         var label = document.querySelector("label[for='" + elem.id + "']");
         var btnName = label ? label.innerText.trim() : elem.id;
-        var msg = "Mit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl-Modul möglich. " +
-                  "Die Bedientasten auf der Pumpe werden damit deaktiviert! Bist du dir sicher, dass du ";
+        var msg = "Achtung!\n\nMit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl-Modul möglich. " +
+                  "Die Bedientasten auf der Pumpe werden damit deaktiviert!\n\nBist du dir sicher, dass du ";
 
         if (btnName === "Alle:") {
           msg += "ALLE Tasten deaktivieren möchtest?";

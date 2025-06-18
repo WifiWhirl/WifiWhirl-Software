@@ -79,7 +79,7 @@
           </tr>
           <tr>
             <td><label for="enableWM">Fallback WLAN aktivieren:</label></td>
-            <td><input type="checkbox" id="enableWM" /></td>
+            <td><input type="checkbox" id="enableWM" onchange="confirmDisableWM(this)" /></td>
           </tr>
         </table>
       </section>
@@ -164,7 +164,6 @@
                 id="ip4NTP"
                 maxlength="30"
                 style="width: 185px"
-                value="de.pool.ntp.org"
               />
             </td>
           </tr>
@@ -228,6 +227,18 @@
             document.getElementById("ip4NTP").value = json.ip4NTP;
           }
         };
+      }
+
+      function confirmDisableWM(elem) {
+        if (elem.checked) return;
+        var msg =
+          "Achtung!\n\n" +
+          "Mit dem Deaktivieren des Fallback WLANs kannst du dein WifiWhirl-Modul " +
+          "mit keinem neuem WLAN Netz verbinden, ohne das Modul zurückzusetzen.\n\n" +
+          "Bist du dir sicher, dass du das Fallback WLAN deaktivieren möchtest?";
+        if (!confirm(msg)) {
+          elem.checked = true; // revert change
+        }
       }
 
       function saveNetworkConfig() {
