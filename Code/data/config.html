@@ -245,16 +245,17 @@
             <td><label for="lock_btn">Tastensperre</label></td>
             <td><input type="checkbox" id="bubbles_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="bubbles_btn">Airjet</label></td>
-            <td><input type="checkbox" id="timer_btn" onchange="confirmDisable(this)" /></td>
-            <td><label for="timer_btn">Timer</label></td>
+            <td><input type="checkbox" id="hydrojets_btn" onchange="confirmDisable(this)" /></td>
+            <td><label for="hydrojets_btn">Hydrojet</label></td>
+            
           </tr>
           <tr>
             <td><input type="checkbox" id="pump_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="pump_btn">Pumpe</label></td>
             <td><input type="checkbox" id="up_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="up_btn">Aufwärts</label></td>
-            <td><input type="checkbox" id="hydrojets_btn" onchange="confirmDisable(this)" /></td>
-            <td><label for="hydrojets_btn">Hydrojet</label></td>
+            <td><input type="checkbox" id="timer_btn" onchange="confirmDisable(this)" /></td>
+            <td><label for="timer_btn">Timer</label></td>
             <td></td>
             <td></td>
           </tr>
@@ -533,8 +534,20 @@
             document.getElementById("plz").value = json.PLZ;
             document.getElementById("enableWeather").checked = json.WEATHER;
             weatherEnabled = json.WEATHER;
-            (document.getElementById("poolCap").value = json.POOLCAP),
-              (document.getElementById("lock_btn").checked = json.LCK);
+            
+            // Hide Hydrojet command if hardware has no jets
+            const hydroOption = document.querySelector("#commands option[value='11']");
+            if (hydroOption) hydroOption.style.display = json.HASJETS ? "" : "none";
+
+            // Hide Hydrojet enable-checkboxes if no jets available
+            const hydroCheckboxCell = document.getElementById("hydrojets_btn")?.parentElement;
+            const hydroLabelCell = document.querySelector("label[for='hydrojets_btn']")?.parentElement;
+            const displayState = json.HASJETS ? "" : "none";
+            if (hydroCheckboxCell) hydroCheckboxCell.style.display = displayState;
+            if (hydroLabelCell) hydroLabelCell.style.display = displayState;
+            
+            document.getElementById("poolCap").value = json.POOLCAP;
+            document.getElementById("lock_btn").checked = json.LCK;
             document.getElementById("timer_btn").checked = json.TMR;
             document.getElementById("bubbles_btn").checked = json.AIR;
             document.getElementById("unit_btn").checked = json.UNT;

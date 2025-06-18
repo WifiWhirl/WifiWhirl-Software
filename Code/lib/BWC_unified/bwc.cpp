@@ -870,6 +870,7 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("NOTIFTIME")] = _notification_time;
     doc[F("PLZ")] = _plz;
     doc[F("WEATHER")] = _weather;
+    doc[F("HASJETS")] = cio->getHasjets();
     doc[F("POOLCAP")] = _pool_capacity;
     doc[F("LCK")] = dsp->EnabledButtons[LOCK];
     doc[F("TMR")] = dsp->EnabledButtons[TIMER];
