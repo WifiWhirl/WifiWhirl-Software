@@ -680,6 +680,11 @@ String BWC::getModel()
     return cio->getModel();
 }
 
+bool BWC::getWeather()
+{
+    return _weather;
+}
+
 bool BWC::add_command(command_que_item command_item)
 {
     _save_cmdq_needed = true;

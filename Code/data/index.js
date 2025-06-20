@@ -172,6 +172,12 @@ function handlemsg(e) {
     } catch (error) {
       console.error(error);
     }
+
+    const ambElement = document.getElementById("amb");
+    ambElement.disabled = msgobj.WEATHER;
+    ambElement.title = msgobj.WEATHER
+      ? "Umgebungstemperatur wird per Wetterdatenabfrage gesetzt."
+      : "";
   }
   try {
     if (msgobj.CONTENT == "STATES") {
@@ -436,9 +442,15 @@ function sendCommand(cmd) {
     cmd = "setAmbient" + (unit ? "C" : "F");
     updateAmbState = true;
   } else if (cmd == "setBrightness" || cmd == "setBrightnessSelector") {
-    var brtElement = document.getElementById(cmd == "setBrightness" ? "brt" : "selectorBrt");
+    var brtElement = document.getElementById(
+      cmd == "setBrightness" ? "brt" : "selectorBrt"
+    );
     value = parseInt(brtElement.value);
-    value = getProperValue(value, Number(brtElement.min), Number(brtElement.max));
+    value = getProperValue(
+      value,
+      Number(brtElement.min),
+      Number(brtElement.max)
+    );
     document.getElementById("sliderBrtVal").innerHTML = value.toString();
     document.getElementById("selectorBrt").value = value.toString();
     document.getElementById("display").style.color = rgb(

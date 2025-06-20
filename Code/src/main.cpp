@@ -243,6 +243,7 @@ void getOtherInfo(String &rtn)
     doc[F("HASJETS")] = bwc->hasjets;
     doc[F("HASGOD")] = bwc->hasgod;
     doc[F("MODEL")] = bwc->getModel();
+    doc[F("WEATHER")] = bwc->getWeather();
     doc[F("RSSI")] = WiFi.RSSI();
     doc[F("IP")] = WiFi.localIP().toString();
     doc[F("SSID")] = WiFi.SSID();
