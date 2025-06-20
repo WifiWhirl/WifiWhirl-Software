@@ -28,7 +28,7 @@ void setup()
     LittleFS.begin();
     {
         HeapSelectIram ephemeral;
-        Serial.printf_P(PSTR("IRamheap %d\n"), ESP.getFreeHeap());
+        Serial.printf("IRamheap %d\n", ESP.getFreeHeap());
         bwc = new BWC;
     }
     bwc->setup();
@@ -37,7 +37,7 @@ void setup()
     periodicTimer.attach(periodicTimerInterval, []
                          { periodicTimerFlag = true; });
     // delayed mqtt start
-    startComplete.attach(61, []
+    startComplete.attach(20, []
                          { if(useMqtt) enableMqtt = true; startComplete.detach(); });
     // update webpage every 2 seconds. (will also be updated on state changes)
     updateWSTimer.attach(2.0, []
@@ -243,6 +243,7 @@ void getOtherInfo(String &rtn)
     doc[F("HASJETS")] = bwc->hasjets;
     doc[F("HASGOD")] = bwc->hasgod;
     doc[F("MODEL")] = bwc->getModel();
+    doc[F("WEATHER")] = bwc->getWeather();
     doc[F("RSSI")] = WiFi.RSSI();
     doc[F("IP")] = WiFi.localIP().toString();
     doc[F("SSID")] = WiFi.SSID();
@@ -431,8 +432,14 @@ void startNTP()
     sWifi_info wifi_info;
     wifi_info = loadWifi();
     Serial.println(F("start NTP"));
-    // configTime(0,0,"pool.ntp.org", "time.nist.gov");
-    configTime(0, 0, wifi_info.ip4NTP_str, F("0.de.pool.ntp.org"), F("1.de.pool.ntp.org"));
+    if (wifi_info.ip4NTP_str.length() > 0)
+    {
+        configTime(0, 0, wifi_info.ip4NTP_str.c_str());
+    }
+    else
+    {
+        configTime(0, 0, "ptbtime1.ptb.de", "ptbtime2.ptb.de", "ptbtime3.ptb.de");
+    }
     time_t now = time(nullptr);
     int count = 0;
     while (now < 8 * 3600 * 2)
@@ -533,7 +540,7 @@ void pause_all(bool action)
 void startWebSocket()
 {
     HeapSelectIram ephemeral;
-    Serial.printf_P(PSTR("WS IRamheap %d\n"), ESP.getFreeHeap());
+    Serial.printf("WS IRamheap %d\n", ESP.getFreeHeap());
 
     webSocket = new WebSocketsServer(81);
     // In case we are already running
@@ -622,6 +629,7 @@ void startHttpServer()
     server->on(F("/getmqtt/"), handleGetMqtt);
     server->on(F("/setmqtt/"), handleSetMqtt);
     server->on(F("/getweather/"), handleGetWeather);
+    server->on(F("/getstates/"), handleGetStates);
     server->on(F("/dir/"), []()
                {
             if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); }
@@ -687,7 +695,7 @@ String queryAmbientTemperature()
         return "Error reading config";
     }
 
-    String _plz = doc[F("PLZ")];
+    String _plz = doc[F("PLZ")].as<String>();
 
     String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/"; // Accepts German and Austrian ZIP Codes in _plz
     if (http.begin(client, weatherURL))
@@ -1467,32 +1475,49 @@ void loadMqtt()
     File file = LittleFS.open("mqtt.json", "r");
     if (!file)
     {
-        Serial.println(F("Failed to read mqtt.json. Using defaults."));
         return;
     }
 
     DynamicJsonDocument doc(1024);
 
     DeserializationError error = deserializeJson(doc, file);
+    file.close(); // Close file once read
     if (error)
     {
-        // Serial.println(F("Failed to deserialize mqtt.json."));
-        file.close();
         return;
     }
 
+    bool needsMigration = false;
     useMqtt = doc[F("enableMqtt")];
-    // enableMqtt = useMqtt; //will be set with start complete timer
-    mqttIpAddress[0] = doc[F("mqttIpAddress")][0];
-    mqttIpAddress[1] = doc[F("mqttIpAddress")][1];
-    mqttIpAddress[2] = doc[F("mqttIpAddress")][2];
-    mqttIpAddress[3] = doc[F("mqttIpAddress")][3];
+    
+    if (doc.containsKey(F("mqttServer")))
+    {
+        mqttServer = doc[F("mqttServer")].as<String>();
+    }
+    // Backwards compatibility for old IPAddress format
+    else if (doc.containsKey(F("mqttIpAddress"))) 
+    {
+        IPAddress ip;
+        ip[0] = doc[F("mqttIpAddress")][0];
+        ip[1] = doc[F("mqttIpAddress")][1];
+        ip[2] = doc[F("mqttIpAddress")][2];
+        ip[3] = doc[F("mqttIpAddress")][3];
+        mqttServer = ip.toString();
+        needsMigration = true; // Mark for migration
+    }
+    
     mqttPort = doc[F("mqttPort")];
     mqttUsername = doc[F("mqttUsername")].as<String>();
     mqttPassword = doc[F("mqttPassword")].as<String>();
     mqttClientId = doc[F("mqttClientId")].as<String>();
     mqttBaseTopic = doc[F("mqttBaseTopic")].as<String>();
     mqttTelemetryInterval = doc[F("mqttTelemetryInterval")];
+
+    // If an old config was found, migrate it to the new format now.
+    if (needsMigration)
+    {
+        saveMqtt();
+    }
 }
 
 /**
@@ -1503,17 +1528,13 @@ void saveMqtt()
     File file = LittleFS.open("mqtt.json", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save mqtt.json"));
         return;
     }
 
     DynamicJsonDocument doc(1024);
 
     doc[F("enableMqtt")] = useMqtt;
-    doc[F("mqttIpAddress")][0] = mqttIpAddress[0];
-    doc[F("mqttIpAddress")][1] = mqttIpAddress[1];
-    doc[F("mqttIpAddress")][2] = mqttIpAddress[2];
-    doc[F("mqttIpAddress")][3] = mqttIpAddress[3];
+    doc[F("mqttServer")] = mqttServer;
     doc[F("mqttPort")] = mqttPort;
     doc[F("mqttUsername")] = mqttUsername;
     doc[F("mqttPassword")] = mqttPassword;
@@ -1523,7 +1544,6 @@ void saveMqtt()
 
     if (serializeJson(doc, file) == 0)
     {
-        // Serial.println(F("{\"error\": \"Failed to serialize file\"}"));
     }
     file.close();
 }
@@ -1540,10 +1560,7 @@ void handleGetMqtt()
     DynamicJsonDocument doc(1024);
 
     doc[F("enableMqtt")] = useMqtt;
-    doc[F("mqttIpAddress")][0] = mqttIpAddress[0];
-    doc[F("mqttIpAddress")][1] = mqttIpAddress[1];
-    doc[F("mqttIpAddress")][2] = mqttIpAddress[2];
-    doc[F("mqttIpAddress")][3] = mqttIpAddress[3];
+    doc[F("mqttServer")] = mqttServer;
     doc[F("mqttPort")] = mqttPort;
     doc[F("mqttUsername")] = mqttUsername;
     doc[F("mqttPassword")] = "<Passwort eingeben>";
@@ -1577,17 +1594,17 @@ void handleSetMqtt()
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
-        // Serial.println(F("Failed to read config file"));
         server->send(400, F("text/plain"), F("Error deserializing message"));
         return;
     }
 
     useMqtt = doc[F("enableMqtt")];
     enableMqtt = useMqtt;
-    mqttIpAddress[0] = doc[F("mqttIpAddress")][0];
-    mqttIpAddress[1] = doc[F("mqttIpAddress")][1];
-    mqttIpAddress[2] = doc[F("mqttIpAddress")][2];
-    mqttIpAddress[3] = doc[F("mqttIpAddress")][3];
+    
+    if (doc.containsKey(F("mqttServer"))) {
+        mqttServer = doc[F("mqttServer")].as<String>();
+    }
+
     mqttPort = doc[F("mqttPort")];
     mqttUsername = doc[F("mqttUsername")].as<String>();
     mqttPassword = doc[F("mqttPassword")].as<String>();
@@ -1608,7 +1625,7 @@ void handleSetMqtt()
 void handleDir()
 {
     HeapSelectIram ephemeral;
-    Serial.printf_P(PSTR("dir IRamheap %d\n"), ESP.getFreeHeap());
+    Serial.printf("dir IRamheap %d\n", ESP.getFreeHeap());
 
     String mydir;
     Dir root = LittleFS.openDir("/");
@@ -1789,7 +1806,7 @@ void startMqtt()
     mqttClient->disconnect();
 
     // setup MQTT broker information as defined earlier
-    mqttClient->setServer(mqttIpAddress, mqttPort);
+    mqttClient->setServer(mqttServer.c_str(), mqttPort);
     // set buffer for larger messages, new to library 2.8.0
     if (mqttClient->setBufferSize(1536))
     {

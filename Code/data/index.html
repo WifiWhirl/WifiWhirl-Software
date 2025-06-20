@@ -185,7 +185,7 @@
                   class="selectorvalue"
                   onchange="sendCommand('setTargetSelector')"
                 />
-                <div class="wrapper">
+                <div class="wrapper degrees">
                   <span class="numDisplay"></span>
                 </div>
                 <button
@@ -215,7 +215,7 @@
                   class="selectorvalue"
                   onchange="sendCommand('setAmbientSelector')"
                 />
-                <div class="wrapper">
+                <div class="wrapper degrees">
                   <span class="numDisplay"></span>
                 </div>
                 <button
@@ -235,6 +235,7 @@
                   ᐱ
                 </button>
                 <input
+                  style="display: none"
                   type="number"
                   id="selectorBrt"
                   min="0"
@@ -244,6 +245,9 @@
                   class="selectorvalue"
                   onchange="sendCommand('setBrightnessSelector')"
                 />
+                <div class="wrapper">
+                  <span class="numDisplay"></span>
+                </div>
                 <button
                   onclick="decreaseNumber('selectorBrt');sendCommand('setBrightnessSelector')"
                   class="selectorbutton selectorbottom"
@@ -356,7 +360,7 @@
               <button
                 id="cltimerbtn"
                 class="button"
-                onclick="buttonConfirm(this);sendCommand('resetTimerChlorine')"
+                onclick="if(confirm('Möchtest du den Timer für die Chlorzugabe wirklich zurücksetzen?')) { buttonConfirm(this); sendCommand('resetTimerChlorine'); }"
               >
                 zurücksetzen
               </button>
@@ -368,7 +372,7 @@
               <button
                 id="fctimerbtn"
                 class="button"
-                onclick="buttonConfirm(this);sendCommand('resetTimerCleanFilter')"
+                onclick="if(confirm('Möchtest du den Timer für die Filterreinigung wirklich zurücksetzen?')) { buttonConfirm(this); sendCommand('resetTimerCleanFilter'); }"
               >
                 zurücksetzen
               </button>
@@ -380,7 +384,7 @@
               <button
                 id="ftimerbtn"
                 class="button"
-                onclick="buttonConfirm(this);sendCommand('resetTimerFilter')"
+                onclick="if(confirm('Möchtest du den Timer für den Filterwechsel wirklich zurücksetzen?')) { buttonConfirm(this); sendCommand('resetTimerFilter'); }"
               >
                 zurücksetzen
               </button>
@@ -392,7 +396,7 @@
               <button
                 id="wctimerbtn"
                 class="button"
-                onclick="buttonConfirm(this);sendCommand('resetTimerWaterChange')"
+                onclick="if(confirm('Möchtest du den Timer für den Wasserwechsel wirklich zurücksetzen?')) { buttonConfirm(this); sendCommand('resetTimerWaterChange'); }"
               >
                 zurücksetzen
               </button>
@@ -412,7 +416,7 @@
             <td>
               Bereit in:
               <span
-                data-text="Funktioniert am besten, wenn die Umgebungstemperatur automatisch ermittelt wird (Spa-Konfiguration)."
+                data-text="Funktioniert am besten, wenn die Umgebungstemperatur automatisch ermittelt wird (SPA-Konfiguration)."
                 class="tooltip"
                 >?</span
               >

@@ -73,11 +73,12 @@ const bool hidePasswords = true;
  * MQTT Server
  *
  * You can modify this via Web UI.
+ *
  */
 /** get or set the state of the MQTT server connection */
 bool useMqtt = false;
-/** get or set the MQTT server IP address */
-IPAddress mqttIpAddress(192, 168, 0, 20);
+/** get or set the MQTT server IP address or hostname */
+String mqttServer = "192.168.0.20";
 /** get or set the MQTT server port */
 int mqttPort = 1883;
 /** get or set the MQTT server username */

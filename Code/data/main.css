@@ -687,7 +687,7 @@ table#tableSelector {
   position: relative;
   left: -2px;
 }
-.selector .numDisplay::after {
+.selector .degrees .numDisplay::after {
   content: "\00B0";
   position: absolute;
   right: -14px;

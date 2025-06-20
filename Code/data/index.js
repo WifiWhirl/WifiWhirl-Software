@@ -172,6 +172,12 @@ function handlemsg(e) {
     } catch (error) {
       console.error(error);
     }
+
+    const ambElement = document.getElementById("amb");
+    ambElement.disabled = msgobj.WEATHER;
+    ambElement.title = msgobj.WEATHER
+      ? "Umgebungstemperatur wird per Wetterdatenabfrage gesetzt."
+      : "";
   }
   try {
     if (msgobj.CONTENT == "STATES") {
@@ -268,8 +274,11 @@ function handlemsg(e) {
         elemSelectorAmb.parentElement.querySelector(".numDisplay").textContent =
           msgobj.AMB;
       }
-      if (document.activeElement !== elemSelectorBrt && !updateBrtState)
+      if (document.activeElement !== elemSelectorBrt && !updateBrtState) {
         elemSelectorBrt.value = msgobj.BRT;
+        elemSelectorBrt.parentElement.querySelector(".numDisplay").textContent =
+          msgobj.BRT;
+      }
 
       // reset update states when the set target matches the input
       if (elemSelectorTemp.value == msgobj.TGT) updateTempState = false;
@@ -285,6 +294,22 @@ function handlemsg(e) {
         unitsymbols.forEach((unitsymbol) => {
           unitsymbol.innerHTML = "F";
         });
+      }
+
+      // get slider elements
+      var sliderTemp = document.getElementById("temp");
+      var sliderAmb = document.getElementById("amb");
+      var sliderBrt = document.getElementById("brt");
+
+      // Update slider positions as long as the user is not actively interacting
+      if (document.activeElement !== sliderTemp && !updateTempState) {
+        sliderTemp.value = msgobj.TGT;
+      }
+      if (document.activeElement !== sliderAmb && !updateAmbState) {
+        sliderAmb.value = msgobj.AMB;
+      }
+      if (document.activeElement !== sliderBrt && !updateBrtState) {
+        sliderBrt.value = msgobj.BRT;
       }
     }
   } catch (error) {
@@ -417,11 +442,15 @@ function sendCommand(cmd) {
     cmd = "setAmbient" + (unit ? "C" : "F");
     updateAmbState = true;
   } else if (cmd == "setBrightness" || cmd == "setBrightnessSelector") {
-    value = parseInt(
-      document.getElementById(cmd == "setBrightness" ? "brt" : "selectorBrt")
-        .value
+    var brtElement = document.getElementById(
+      cmd == "setBrightness" ? "brt" : "selectorBrt"
     );
-    value = getProperValue(value, 0, 8);
+    value = parseInt(brtElement.value);
+    value = getProperValue(
+      value,
+      Number(brtElement.min),
+      Number(brtElement.max)
+    );
     document.getElementById("sliderBrtVal").innerHTML = value.toString();
     document.getElementById("selectorBrt").value = value.toString();
     document.getElementById("display").style.color = rgb(

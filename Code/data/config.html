@@ -129,7 +129,22 @@
             <td></td>
           </tr>
           <tr>
-            <td><label for="audio">Ton (ein/aus):</label></td>
+            <td><label for="poolCap">Poolinhalt in Liter:</label></td>
+            <td>
+              <input
+                type="text"
+                id="poolCap"
+                value="700"
+                maxlength="4"
+                size="6"
+                pattern="\d{3,4}"
+                required
+              /><span class="inputunit" style="margin-left: -32px">Liter</span>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><label for="audio">Töne (ein/aus):</label></td>
             <td><input type="checkbox" id="audio" /></td>
             <td></td>
           </tr>
@@ -159,13 +174,6 @@
                 pattern="\d{1,3}"
               /><span class="inputunit" style="margin-left: -30px">Sek</span>
             </td>
-            <td></td>
-          </tr>
-          <tr>
-            <td>
-              <label for="restore">Einstellungen dauerhaft speichern:</label>
-            </td>
-            <td><input type="checkbox" id="restore" /></td>
             <td></td>
           </tr>
           <!-- <tr>
@@ -220,57 +228,43 @@
               Die Temperatur wird für <span id="city">...</span> ermittelt.
             </td>
           </tr>
-          <tr>
-            <td><label for="poolCap">Poolinhalt in Liter:</label></td>
-            <td>
-              <input
-                type="text"
-                id="poolCap"
-                value="700"
-                maxlength="4"
-                size="6"
-                pattern="\d{3,4}"
-                required
-              /><span class="inputunit" style="margin-left: -32px">Liter</span>
-            </td>
-            <td></td>
-          </tr>
         </table>
       </section>
       <section>
         <table>
           <tr>
             <td colspan="8">
-              Aktivierte Anzeigetasten<label for="toggle_all">| Alle:</label>
-              <input type="checkbox" id="toggle_all" onclick="toggleAll()" />
+              Aktivierte Bedientasten | <label for="toggle_all">Alle:</label>
+              <input type="checkbox" id="toggle_all" onchange="confirmDisable(this);toggleAll();" />
             </td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="power_btn" /></td>
+            <td><input type="checkbox" id="power_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="power_btn">Ein/Aus</label></td>
-            <td><input type="checkbox" id="lock_btn" /></td>
+            <td><input type="checkbox" id="lock_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="lock_btn">Tastensperre</label></td>
-            <td><input type="checkbox" id="bubbles_btn" /></td>
+            <td><input type="checkbox" id="bubbles_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="bubbles_btn">Airjet</label></td>
-            <td><input type="checkbox" id="timer_btn" /></td>
-            <td><label for="timer_btn">Timer</label></td>
-          </tr>
-          <tr>
-            <td><input type="checkbox" id="pump_btn" /></td>
-            <td><label for="pump_btn">Pumpe</label></td>
-            <td><input type="checkbox" id="up_btn" /></td>
-            <td><label for="up_btn">Aufwärts</label></td>
-            <td><input type="checkbox" id="hydrojets_btn" /></td>
+            <td><input type="checkbox" id="hydrojets_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="hydrojets_btn">Hydrojet</label></td>
+            
+          </tr>
+          <tr>
+            <td><input type="checkbox" id="pump_btn" onchange="confirmDisable(this)" /></td>
+            <td><label for="pump_btn">Pumpe</label></td>
+            <td><input type="checkbox" id="up_btn" onchange="confirmDisable(this)" /></td>
+            <td><label for="up_btn">Aufwärts</label></td>
+            <td><input type="checkbox" id="timer_btn" onchange="confirmDisable(this)" /></td>
+            <td><label for="timer_btn">Timer</label></td>
             <td></td>
             <td></td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="heat_btn" /></td>
+            <td><input type="checkbox" id="heat_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="heat_btn">Heizung</label></td>
-            <td><input type="checkbox" id="down_btn" /></td>
+            <td><input type="checkbox" id="down_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="down_btn">Abwärts</label></td>
-            <td><input type="checkbox" id="unit_btn" /></td>
+            <td><input type="checkbox" id="unit_btn" onchange="confirmDisable(this)" /></td>
             <td><label for="unit_btn">Einheit</label></td>
             <td></td>
             <td></td>
@@ -298,6 +292,7 @@
                 <option value="3">Heizung ein/aus</option>
                 <option value="2">Airjet ein/aus</option>
                 <option value="11">Hydrojet ein/aus</option>
+                <option value="22">Pumpe ein/aus</option>
                 <option value="23">Tastensperre ein/aus</option>
                 <option value="12">Displayhelligkeit festlegen</option>
                 <option value="19">Text ausgeben</option>
@@ -533,7 +528,6 @@
             document.getElementById("notification").checked = json.NOTIFY;
             document.getElementById("notificationtime").value =
               json.NOTIFTIME.toString();
-            document.getElementById("restore").checked = json.RESTORE;
             var date = new Date(json.REBOOTTIME * 1000);
             document.getElementById("lastboot").innerHTML =
               "Letzter Neustart: " + date.toLocaleString();
@@ -541,8 +535,20 @@
             document.getElementById("plz").value = json.PLZ;
             document.getElementById("enableWeather").checked = json.WEATHER;
             weatherEnabled = json.WEATHER;
-            (document.getElementById("poolCap").value = json.POOLCAP),
-              (document.getElementById("lock_btn").checked = json.LCK);
+            
+            // Hide Hydrojet command if hardware has no jets
+            const hydroOption = document.querySelector("#commands option[value='11']");
+            if (hydroOption) hydroOption.style.display = json.HASJETS ? "" : "none";
+
+            // Hide Hydrojet enable-checkboxes if no jets available
+            const hydroCheckboxCell = document.getElementById("hydrojets_btn")?.parentElement;
+            const hydroLabelCell = document.querySelector("label[for='hydrojets_btn']")?.parentElement;
+            const displayState = json.HASJETS ? "" : "none";
+            if (hydroCheckboxCell) hydroCheckboxCell.style.display = displayState;
+            if (hydroLabelCell) hydroLabelCell.style.display = displayState;
+            
+            document.getElementById("poolCap").value = json.POOLCAP;
+            document.getElementById("lock_btn").checked = json.LCK;
             document.getElementById("timer_btn").checked = json.TMR;
             document.getElementById("bubbles_btn").checked = json.AIR;
             document.getElementById("unit_btn").checked = json.UNT;
@@ -647,11 +653,49 @@
         }
       }
 
+      function getCommandJson() {
+        // Safely determine the value for the VALUE field
+        let valueToSend;
+        const commandValue = parseInt(
+          document.getElementById("commands").value
+        );
+        if (commandValue === 12) {
+          // Case for command 12 (brightness slider)
+          const inputElement = document.querySelector('input[name="val"]');
+          valueToSend = inputElement ? parseFloat(inputElement.value) : 0;
+        } else {
+          // Case for other commands (on/off radio buttons)
+          const checkedInput = document.querySelector(
+            'input[name="val"]:checked'
+          );
+          valueToSend = checkedInput ? parseFloat(checkedInput.value) : 0;
+        }
+        // Safely parse time and interval, providing defaults if parsing fails
+        const parsedTime =
+          Date.parse(document.getElementById("xtime").value) / 1000;
+        const xtimeToSend = isNaN(parsedTime) ? 0 : parsedTime;
+
+        const parsedInterval =
+          parseInt(document.getElementById("interval").value) * 3600;
+        const intervalToSend = isNaN(parsedInterval) ? 0 : parsedInterval;
+
+        return {
+          CMD: commandValue,
+          VALUE: valueToSend,
+          XTIME: xtimeToSend,
+          INTERVAL: intervalToSend,
+          TXT: document.getElementById("txt").value,
+        };
+      }
+
       function saveConfig() {
         var req = new XMLHttpRequest();
         req.open("POST", "/setconfig/");
+
+        // Get command data from the helper
+        const commandJson = getCommandJson();
+
         var json = {
-          //'TIMEZONE':parseInt(document.getElementById('timezone').value),
           TIMEZONE: 0,
           PRICE: parseFloat(
             document.getElementById("price").value.replace(",", ".")
@@ -665,8 +709,6 @@
           NOTIFTIME: parseInt(
             document.getElementById("notificationtime").value
           ),
-          RESTORE: document.getElementById("restore").checked,
-          // VTCAL: document.getElementById("calibration").checked,
           PLZ: document.getElementById("plz").value,
           WEATHER: document.getElementById("enableWeather").checked,
           POOLCAP: document.getElementById("poolCap").value,
@@ -680,9 +722,13 @@
           UP: document.getElementById("up_btn").checked,
           PWR: document.getElementById("power_btn").checked,
           HJT: document.getElementById("hydrojets_btn").checked,
+          ...commandJson, // Merge the command data
         };
-        req.send(JSON.stringify(json));
-        console.log(json);
+
+        var jsonstring = JSON.stringify(json);
+        req.send(jsonstring);
+        console.log(jsonstring);
+
         if (document.getElementById("enableWeather").checked) {
           weatherEnabled = 1;
           loadWeatherCity();
@@ -803,15 +849,7 @@
       function addCommand() {
         var req = new XMLHttpRequest();
         req.open("POST", "/addcommand/");
-        var json = {
-          CMD: parseInt(document.getElementById("commands").value),
-          VALUE: parseFloat(
-            document.querySelector('input[name="val"]:checked').value
-          ),
-          XTIME: Date.parse(document.getElementById("xtime").value) / 1000,
-          INTERVAL: parseInt(document.getElementById("interval").value) * 3600,
-          TXT: document.getElementById("txt").value,
-        };
+        var json = getCommandJson();
         req.send(JSON.stringify(json));
         console.log(json);
       }
@@ -886,14 +924,8 @@
       function editCommandQueue(index) {
         var req = new XMLHttpRequest();
         req.open("POST", "/editcommand/");
-        var json = {
-          CMD: parseInt(document.getElementById("commands").value),
-          VALUE: parseFloat(document.getElementById("val").value),
-          XTIME: Date.parse(document.getElementById("xtime").value) / 1000,
-          INTERVAL: parseInt(document.getElementById("interval").value) * 3600,
-          TXT: document.getElementById("txt").value,
-          IDX: index,
-        };
+        var json = getCommandJson();
+        json.IDX = index;
         req.send(JSON.stringify(json));
         console.log(json);
       }
@@ -923,6 +955,23 @@
           weatherEnabled = 0;
           if (!weatherEnabled) cityhint.style.display = "none";
           obj.style.display = "none";
+        }
+      }
+
+      function confirmDisable(elem) {
+        if (elem.checked) return; // only on uncheck
+        var label = document.querySelector("label[for='" + elem.id + "']");
+        var btnName = label ? label.innerText.trim() : elem.id;
+        var msg = "Achtung!\n\nMit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl-Modul möglich. " +
+                  "Die Bedientasten auf der Pumpe werden damit deaktiviert!\n\nBist du dir sicher, dass du ";
+
+        if (btnName === "Alle:") {
+          msg += "ALLE Tasten deaktivieren möchtest?";
+        } else {
+          msg += "die Taste \"" + btnName + "\" deaktivieren möchtest?";
+        }
+        if (!confirm(msg)) {
+          elem.checked = true; // revert change
         }
       }
     </script>

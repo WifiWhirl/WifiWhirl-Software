@@ -62,6 +62,7 @@ public:
     bool del_command(uint8_t index);
     // bool qCommand(int64_t cmd, int64_t val, int64_t xtime, int64_t interval);
     bool newData();
+    bool getWeather();
     void getJSONStates(String &rtn);
     void getJSONTimes(String &rtn);
     void getJSONSettings(String &rtn);
@@ -154,10 +155,9 @@ private:
     float _energy_total_kWh;
     double _energy_daily_Ws; // Wattseconds internally
     int _energy_power_W;
-    float _plz;
+    String _plz;
     bool _weather = 0;
     int _pool_capacity = 700;
-    bool _restore_states_on_start = false;
     bool _save_settings_needed = false;
     bool _save_cmdq_needed = false;
     bool _save_states_needed = false;
