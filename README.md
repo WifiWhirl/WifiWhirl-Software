@@ -166,4 +166,6 @@ Wie erwähnt, basiert dieses Projekt auf der Arbeit von [visualapproach](https:/
 *LAY-Z-SPA™ ist eine eingetragene Marke von Bestway Inflatables & Material Corp. Dieses Projekt steht in keiner Verbindung zu Bestway®.*
 
 ## English
+If you're looking for the English version of this README, you can find it in the README_EN.md file: [https://github.com/WifiWhirl/WifiWhirl-Software/blob/master/README_EN.md](https://github.com/WifiWhirl/WifiWhirl-Software/blob/master/README_EN.md)
+
 If you are searching for the original software in English please visit the visualapproach repo: [https://github.com/visualapproach/WiFi-remote-for-Bestway-Lay-Z-SPA](https://github.com/visualapproach/WiFi-remote-for-Bestway-Lay-Z-SPA)
