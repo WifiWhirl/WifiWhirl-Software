@@ -1607,7 +1607,24 @@ void handleSetMqtt()
 
     mqttPort = doc[F("mqttPort")];
     mqttUsername = doc[F("mqttUsername")].as<String>();
-    mqttPassword = doc[F("mqttPassword")].as<String>();
+    
+    // Only update password if a new one is provided (not empty or placeholder)
+    String newPassword = doc[F("mqttPassword")].as<String>();
+    if (newPassword.length() > 0 && newPassword != "<Passwort eingeben>") {
+        mqttPassword = newPassword;
+    } else {
+        // Load existing password from file to ensure we don't save empty password
+        File file = LittleFS.open("mqtt.json", "r");
+        if (file) {
+            DynamicJsonDocument existingDoc(1024);
+            DeserializationError error = deserializeJson(existingDoc, file);
+            file.close();
+            if (!error && existingDoc.containsKey(F("mqttPassword"))) {
+                mqttPassword = existingDoc[F("mqttPassword")].as<String>();
+            }
+        }
+    }
+    
     mqttClientId = doc[F("mqttClientId")].as<String>();
     mqttBaseTopic = doc[F("mqttBaseTopic")].as<String>();
     mqttTelemetryInterval = doc[F("mqttTelemetryInterval")];

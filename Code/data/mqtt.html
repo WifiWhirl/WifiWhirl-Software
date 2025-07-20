@@ -72,7 +72,7 @@
           </tr>
           <tr>
             <td>Passwort:</td>
-            <td><input type="password" id="mqttPassword" /></td>
+            <td><input type="password" id="mqttPassword" placeholder="Leer lassen, um aktuelles Passwort zu behalten" /></td>
           </tr>
           <tr>
             <td>Client-ID:</td>
@@ -116,7 +116,7 @@
             document.getElementById("mqttServer").value = json.mqttServer;
             document.getElementById("mqttPort").value = json.mqttPort;
             document.getElementById("mqttUsername").value = json.mqttUsername;
-            document.getElementById("mqttPassword").value = json.mqttPassword;
+            document.getElementById("mqttPassword").value = "";
             document.getElementById("mqttClientId").value = json.mqttClientId;
             document.getElementById("mqttBaseTopic").value = json.mqttBaseTopic;
             document.getElementById("mqttTelemetryInterval").value =
@@ -126,7 +126,10 @@
       }
 
       function saveMqttConfig() {
-        if (document.getElementById("enableMqtt").checked && !validatePassword("mqttPassword")) return;
+        if (document.getElementById("enableMqtt").checked) {
+          var passwordField = document.getElementById("mqttPassword");
+          if (passwordField.value.length > 0 && !validatePassword("mqttPassword")) return;
+        }
 
         buttonConfirm(document.getElementById("save"));
 
@@ -145,7 +148,7 @@
           ).value,
         };
         req.send(JSON.stringify(json));
-        document.getElementById("mqttPassword").value = "<Passwort eingeben>";
+        document.getElementById("mqttPassword").value = "";
         console.log(json);
       }
     </script>
