@@ -126,7 +126,7 @@
       }
 
       function saveMqttConfig() {
-        if (!validatePassword("mqttPassword")) return;
+        if (document.getElementById("enableMqtt").checked && !validatePassword("mqttPassword")) return;
 
         buttonConfirm(document.getElementById("save"));
 
