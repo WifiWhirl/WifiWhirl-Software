@@ -1865,8 +1865,8 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
         Commands command = doc[F("CMD")];
         int64_t value = doc[F("VALUE")];
-        int64_t xtime = doc[F("XTIME")];
-        int64_t interval = doc[F("INTERVAL")];
+        int64_t xtime = doc[F("XTIME")] | 0;
+        int64_t interval = doc[F("INTERVAL")] | 0;
         String txt = doc[F("TXT")] | "";
         command_que_item item;
         item.cmd = command;
@@ -1894,9 +1894,9 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
         {
             Commands command = commandItem[F("CMD")];
             int64_t value = commandItem[F("VALUE")];
-            int64_t xtime = commandItem[F("XTIME")];
-            int64_t interval = commandItem[F("INTERVAL")];
-            String txt = doc[F("TXT")] | "";
+            int64_t xtime = commandItem[F("XTIME")] | 0;
+            int64_t interval = commandItem[F("INTERVAL")] | 0;
+            String txt = commandItem[F("TXT")] | "";
             command_que_item item;
             item.cmd = command;
             item.val = value;

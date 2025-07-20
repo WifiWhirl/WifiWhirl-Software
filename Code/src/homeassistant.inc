@@ -37,6 +37,37 @@ const char _mode_key[] PROGMEM = "mode";
 const char _assumed_state[] PROGMEM = "assumed_state";
 const char _object_id[] PROGMEM = "object_id";
 
+// Climate entity specific keys
+const char _max_temp[] PROGMEM = "max_temp";
+const char _min_temp[] PROGMEM = "min_temp";
+const char _precision[] PROGMEM = "precision";
+const char _temp_unit[] PROGMEM = "temp_unit";
+const char _modes[] PROGMEM = "modes";
+const char _mode_cmd_t[] PROGMEM = "mode_cmd_t";
+const char _mode_cmd_tpl[] PROGMEM = "mode_cmd_tpl";
+const char _mode_stat_t[] PROGMEM = "mode_stat_t";
+const char _mode_stat_tpl[] PROGMEM = "mode_stat_tpl";
+const char _act_t[] PROGMEM = "act_t";
+const char _act_tpl[] PROGMEM = "act_tpl";
+const char _temp_stat_t[] PROGMEM = "temp_stat_t";
+const char _temp_stat_tpl[] PROGMEM = "temp_stat_tpl";
+const char _curr_temp_t[] PROGMEM = "curr_temp_t";
+const char _curr_temp_tpl[] PROGMEM = "curr_temp_tpl";
+const char _temp_cmd_t[] PROGMEM = "temp_cmd_t";
+const char _temp_cmd_tpl[] PROGMEM = "temp_cmd_tpl";
+
+// Climate templates stored in PROGMEM
+const char _climate_mode_cmd_tpl[] PROGMEM = "[{CMD:3,VALUE:{% if value == \"heat\" %}1{% else %}0{% endif %}},{CMD:4,VALUE:{% if value == \"fan_only\" %}1{% elif value == \"heat\" %}1{% else %}0{% endif %}}]";
+const char _climate_mode_stat_tpl[] PROGMEM = "{% if value_json.RED == 1 %}heat{% elif value_json.GRN == 1 %}heat{% else %}off{% endif %}";
+const char _climate_act_tpl[] PROGMEM = "{% if value_json.RED == 1 %}heating{% elif value_json.GRN == 1 %}idle{% elif value_json.FLT == 1 %}fan{% else %}off{% endif %}";
+const char _climate_temp_stat_tpl[] PROGMEM = "{{ value_json.TGTC }}";
+const char _climate_curr_temp_tpl[] PROGMEM = "{{ value_json.TMPC }}";
+const char _climate_temp_cmd_tpl[] PROGMEM = "{CMD:0,VALUE:{{ value|int }}}";
+const char _climate_mode_off[] PROGMEM = "off";
+const char _climate_mode_heat[] PROGMEM = "heat";
+const char _climate_mode_fan[] PROGMEM = "fan_only";
+const char _climate_temp_unit[] PROGMEM = "C";
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Descriptor for one Home-Assistant entity.
@@ -174,17 +205,30 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
     snprintf(topic, sizeof(topic), "%s/%s/%s%s/config", HA_PREFIX, component, mqttBaseTopic.c_str(), entity_id_suffix);
 
     size_t payloadSize = measureJson(doc);
+    Serial.print(" (");
+    Serial.print(payloadSize);
+    Serial.print(" bytes)");
+    
     if (payloadSize == 0)
+    {
+        Serial.print(" - Empty payload");
         return false;
+    }
 
     if (!mqttClient->beginPublish(topic, payloadSize, true))
     {
+        Serial.print(" - MQTT beginPublish failed");
         return false;
     }
 
     serializeJson(doc, *mqttClient);
 
     bool published = mqttClient->endPublish();
+    if (!published)
+    {
+        Serial.print(" - MQTT endPublish failed");
+    }
+    
     mqttClient->loop(); // Allow network stack to process
     return published;
 }
@@ -204,6 +248,10 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
 //--------------------------------------------------------------------------------------------------
 void setupHA()
 {
+    Serial.print("HA: Starting Home Assistant entity setup... Free heap: ");
+    Serial.print(ESP.getFreeHeap());
+    Serial.println(" bytes");
+    
     // Generate unique chip ID for device identification
     char mychipid_str[16];
 #if defined(ESP8266)
@@ -214,9 +262,9 @@ void setupHA()
     snprintf(mychipid_str, sizeof(mychipid_str), "%04X%08X", (uint16_t)(chipid_mac >> 32), (uint32_t)chipid_mac);
 #endif
 
-    // Device metadata - sized for HA discovery requirements (512 bytes)
-    static StaticJsonDocument<512> devicedoc;
-    char config_url[128];
+    // Device metadata
+    static StaticJsonDocument<500> devicedoc;
+    char config_url[64]; // Optimized for IP-based URLs
     snprintf(config_url, sizeof(config_url), "http://%s", WiFi.localIP().toString().c_str());
     devicedoc[FPSTR(_dev)]["configuration_url"] = config_url;
 
@@ -235,16 +283,45 @@ void setupHA()
 
     devicedoc[FPSTR(_dev)]["sw_version"] = F(FW_VERSION);
 
-    // Scratch buffer for reading PROGMEM strings (64 bytes)
-    char ram_buffer[64];
+    // Scratch buffer for reading PROGMEM strings (48 bytes)
+    char ram_buffer[48];
     // Compile-time sanity: ensure ram_buffer is sufficient for longest field
     static_assert(sizeof(ram_buffer) > 32, "ram_buffer too small for field copies");
 
-    // Entity payload - sized for largest expected entity config (1024 bytes)
-    static StaticJsonDocument<1024> doc;
+    // Topic construction buffer (220 bytes)
+    char topic_buf[220];
 
-    for (size_t i = 0; i < (sizeof(entities) / sizeof(entities[0])); i++)
+    // Entity payload
+    static StaticJsonDocument<1000> doc;
+
+    const size_t totalEntities = sizeof(entities) / sizeof(entities[0]);
+    size_t successCount = 0;
+    size_t failureCount = 0;
+    const size_t BATCH_SIZE = 5; // Process entities in smaller batches to prevent watchdog timeout
+    
+    Serial.print("HA: Processing ");
+    Serial.print(totalEntities);
+    Serial.print(" entities in batches of ");
+    Serial.print(BATCH_SIZE);
+    Serial.println("...");
+    
+    delay(100); // Safe watchdog feeding before starting entity processing
+
+    for (size_t i = 0; i < totalEntities; i++)
     {
+        // Memory cleanup every batch to prevent fragmentation
+        if (i % BATCH_SIZE == 0 && i > 0) {
+            Serial.print("HA: Batch ");
+            Serial.print(i / BATCH_SIZE);
+            Serial.print(" completed. Free heap: ");
+            Serial.print(ESP.getFreeHeap());
+            Serial.println(" bytes");
+            
+            // Safe cleanup between batches - minimal yield
+            delay(300); // Reduced since we have more frequent delays now
+            // Skip yield - use only delay for early boot stability
+        }
+        
         // Iterate over every entity definition and publish its Home-Assistant
         // auto-discovery payload
         doc.clear();
@@ -284,7 +361,7 @@ void setupHA()
 
         doc[FPSTR(_dev)] = devicedoc[FPSTR(_dev)];
 
-        char uniq_id_buf[256];
+        char uniq_id_buf[160];
         //--------------------------------------------------------------------------------------------------
         /**
          * Compose the globally-unique entity ID that Home Assistant will use
@@ -326,11 +403,10 @@ void setupHA()
         strcpy_P(suffix_ram, suffix_p);
         // Strip leading underscore from entity suffix for object_id generation
         const char *suffix_ptr = (suffix_ram[0] == '_') ? suffix_ram + 1 : suffix_ram;
-        char object_id_buf[256];
+        char object_id_buf[160];
         snprintf(object_id_buf, sizeof(object_id_buf), "%s_%s", mqttBaseTopic.c_str(), suffix_ptr);
         doc[FPSTR(_object_id)] = object_id_buf;
 
-        char topic_buf[256];
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].stat_t_suffix);
         if (pgm_p)
         {
@@ -436,19 +512,171 @@ void setupHA()
         char component_ram[32];
         strcpy_P(component_ram, component_p);
 
+        // Publish the entity with timing info for debugging
+        unsigned long startTime = millis();
+        bool publishResult = false;
+        
         if (strcmp(ram_buffer, "_amb_temp_c_manual") == 0)
         {
-            if (!publishHaEntity(component_ram, "_amb_temp_c", doc))
-            {
-                return;
-            }
+            Serial.print("HA: Publishing entity ");
+            Serial.print(component_ram);
+            Serial.print(" -> _amb_temp_c");
+            publishResult = publishHaEntity(component_ram, "_amb_temp_c", doc);
         }
         else
         {
-            if (!publishHaEntity(component_ram, ram_buffer, doc))
-            {
-                return;
-            }
+            Serial.print("HA: Publishing entity ");
+            Serial.print(component_ram);
+            Serial.print(" -> ");
+            Serial.print(ram_buffer);
+            publishResult = publishHaEntity(component_ram, ram_buffer, doc);
+        }
+        
+        unsigned long publishTime = millis() - startTime;
+        // If publishing took longer than 500ms, add extra delay for network recovery
+        if (publishTime > 500) {
+            delay(100); // Give network stack time to recover
+        }
+        
+        // Log the result
+        if (publishResult)
+        {
+            Serial.println(" ✓ SUCCESS");
+            successCount++;
+        }
+        else
+        {
+            Serial.println(" ✗ FAILED");
+            failureCount++;
+            continue;
+        }
+        
+        // Adaptive delay based on network activity to prevent watchdog timeout
+        // ESP8266 WiFi stack can block the main loop unpredictably
+        delay(150); // Base delay for network processing
+        
+        // Additional delay every 10 entities to account for WiFi interrupts
+        if ((i + 1) % 10 == 0) {
+            delay(200); // Extra time for WiFi stack processing
         }
     }
+
+    Serial.print("HA: Entity summary - Success: ");
+    Serial.print(successCount);
+    Serial.print(", Failed: ");
+    Serial.print(failureCount);
+    Serial.print(", Total: ");
+    Serial.print(totalEntities);
+    Serial.print(". Free heap: ");
+    Serial.print(ESP.getFreeHeap());
+    Serial.println(" bytes");
+
+    //--------------------------------------------------------------------------------------------------
+    /**
+     * Climate entity
+     */
+    //--------------------------------------------------------------------------------------------------
+    {
+        // Use safe delay instead of yield during early boot
+        delay(50); // Safe watchdog feeding without WiFi stack interference
+        
+        // Climate entity - increased to account for JSON internal representation overhead (1700 bytes)
+        static StaticJsonDocument<1700> climate_doc;
+        climate_doc.clear();
+        
+        // Basic entity setup
+        climate_doc[FPSTR(_dev)] = devicedoc[FPSTR(_dev)];
+
+        // Build climate entity name
+        snprintf(ram_buffer, sizeof(ram_buffer), "Temperatursteuerung");
+        climate_doc[FPSTR(_name)] = ram_buffer;
+
+        // Build unique ID - consistent with other entities
+        snprintf(topic_buf, sizeof(topic_buf), "climate.%s_climate", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_uniq_id)] = topic_buf;
+
+        // Build object_id
+        snprintf(ram_buffer, sizeof(ram_buffer), "%s_climate", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_object_id)] = ram_buffer;
+
+        // Temperature settings
+        climate_doc[FPSTR(_max_temp)] = 40;
+        climate_doc[FPSTR(_min_temp)] = 20;
+        climate_doc[FPSTR(_precision)] = 1.0;
+        climate_doc[FPSTR(_temp_unit)] = F("C");
+
+        // Climate modes
+        climate_doc[FPSTR(_modes)].add(F("off"));
+        climate_doc[FPSTR(_modes)].add(F("heat"));
+        climate_doc[FPSTR(_modes)].add(F("fan_only"));
+
+        // Climate entity buffers
+        char mode_cmd_topic[100];
+        char message_topic[100];
+        char temp_cmd_topic[100];
+        char status_topic[100];
+        
+        // Mode command topic
+        snprintf(mode_cmd_topic, sizeof(mode_cmd_topic), "%s/command_batch", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_mode_cmd_t)] = mode_cmd_topic;
+        
+        // Mode command template - simplified to avoid Flash string issues
+        climate_doc[FPSTR(_mode_cmd_tpl)] = F("[{\"CMD\":3,\"VALUE\":{% if value == \"heat\" %}1{% else %}0{% endif %}},{\"CMD\":4,\"VALUE\":{% if value == \"fan_only\" %}1{% elif value == \"heat\" %}1{% else %}0{% endif %}}]");
+
+        // Status topics - use dedicated buffer for message topic
+        snprintf(message_topic, sizeof(message_topic), "%s/message", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_mode_stat_t)] = message_topic;
+        climate_doc[FPSTR(_act_t)] = message_topic;
+        climate_doc[FPSTR(_temp_stat_t)] = message_topic;
+        climate_doc[FPSTR(_curr_temp_t)] = message_topic;
+
+        // Templates - add all at once without interruption
+        climate_doc[FPSTR(_mode_stat_tpl)] = F("{% if value_json.RED == 1 %}heat{% elif value_json.GRN == 1 %}heat{% else %}off{% endif %}");
+        climate_doc[FPSTR(_act_tpl)] = F("{% if value_json.RED == 1 %}heating{% elif value_json.GRN == 1 %}idle{% elif value_json.FLT == 1 %}fan{% else %}off{% endif %}");
+        climate_doc[FPSTR(_temp_stat_tpl)] = F("{{ value_json.TGTC }}");
+        climate_doc[FPSTR(_curr_temp_tpl)] = F("{{ value_json.TMPC }}");
+
+        // Temperature command - use dedicated buffer
+        snprintf(temp_cmd_topic, sizeof(temp_cmd_topic), "%s/command", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_temp_cmd_t)] = temp_cmd_topic;
+        climate_doc[FPSTR(_temp_cmd_tpl)] = F("{CMD:0,VALUE:{{ value|int }}}");
+
+        // Availability setup - use dedicated buffer
+        snprintf(status_topic, sizeof(status_topic), "%s/Status", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_avty_t)] = status_topic;
+        climate_doc[FPSTR(_pl_avail)] = F("Alive");
+        climate_doc[FPSTR(_pl_not_avail)] = F("Dead");
+
+        // Publish climate entity
+        Serial.print("HA: Publishing climate entity -> _climate");
+        
+        // Add small delay before climate entity to ensure network is ready
+        delay(200);
+        
+        bool climateResult = publishHaEntity("climate", "_climate", climate_doc);
+        if (climateResult)
+        {
+            Serial.println(" ✓ SUCCESS");
+        }
+        else
+        {
+            Serial.println(" ✗ FAILED");
+            // Don't fail completely, just continue with cleanup
+        }
+        
+        // Extra delay after climate entity
+        delay(100);
+    }
+    
+    Serial.print("HA: Home Assistant entity setup completed! Final free heap: ");
+    Serial.print(ESP.getFreeHeap());
+    Serial.println(" bytes");
+    
+    // Final stabilization delay before re-enabling WiFi sleep mode
+    delay(500); // Allow all MQTT operations to complete
+    
+    // Re-enable WiFi sleep mode for normal operation
+    #ifdef ESP8266
+    WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
+    #endif
 }
