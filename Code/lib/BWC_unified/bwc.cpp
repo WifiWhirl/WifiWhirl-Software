@@ -830,9 +830,9 @@ void BWC::getJSONTimes(String &rtn)
     doc[F("WATT")] = _energy_power_W;
     float t2r = _estHeatingTime();
     String t2r_string = F("Not ready");
-    if (t2r == -2)
+    if (t2r == -2.0f)
         t2r_string = F("Ready");
-    if (t2r == -1)
+    if (t2r == -1.0f)
         t2r_string = F("Never");
     doc[F("T2R")] = t2r;
     doc[F("RS")] = t2r_string;
