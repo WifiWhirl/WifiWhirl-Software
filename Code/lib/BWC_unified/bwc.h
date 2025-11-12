@@ -15,6 +15,7 @@
 #include <Ticker.h>
 #include <vector>
 #include "enums.h"
+#include "util.h"
 
 // CIO Includes
 #include "CIO_2021.h"
@@ -79,6 +80,7 @@ public:
     void saveRebootInfo();
     bool getBtnSeqMatch();
     void setAmbientTemperature(int64_t amb, bool unit);
+    int getAmbientTemperature();
     String getModel();
     void print(const String &txt);
     void loadCommandQueue();

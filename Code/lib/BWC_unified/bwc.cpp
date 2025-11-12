@@ -675,6 +675,11 @@ void BWC::setAmbientTemperature(int64_t amb, bool unit)
         _ambient_temp = F2C(_ambient_temp);
 }
 
+int BWC::getAmbientTemperature()
+{
+    return _ambient_temp;
+}
+
 String BWC::getModel()
 {
     return cio->getModel();

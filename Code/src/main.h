@@ -138,6 +138,7 @@ void handleFileRemove();
 void handleRestart();
 void handleWebhook();
 void handleGetStates();
+void handleGetTemps();
 void handleUpdate();
 void startMqtt();
 void mqttCallback(char *topic, byte *payload, unsigned int length);

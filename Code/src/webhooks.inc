@@ -67,3 +67,42 @@ void handleGetStates()
 
     server->send(200, F("application/json"), json);
 }
+
+/**
+ * response for /gettemps/
+ * Returns a JSON document with all temperature values in both Celsius and Fahrenheit
+ * Example response:
+ * {"currentC":38,"currentF":100,"targetC":40,"targetF":104,"ambientC":20,"ambientF":68,"unit":"C"}
+ */
+
+void handleGetTemps()
+{
+    // Validate that this is a GET request for security
+    if (!checkHttpGet(server->method()))
+        return;
+
+    // Allocate JSON document with sufficient space for temperature data
+    StaticJsonDocument<384> doc;
+
+    // Get current water temperature in both units
+    doc[F("currentC")] = bwc->cio->cio_states.unit ? bwc->cio->cio_states.temperature : round(F2C((float)bwc->cio->cio_states.temperature));
+    doc[F("currentF")] = bwc->cio->cio_states.unit ? round(C2F((float)bwc->cio->cio_states.temperature)) : bwc->cio->cio_states.temperature;
+
+    // Get target temperature in both units
+    doc[F("targetC")] = bwc->cio->cio_states.unit ? bwc->cio->cio_states.target : round(F2C((float)bwc->cio->cio_states.target));
+    doc[F("targetF")] = bwc->cio->cio_states.unit ? round(C2F((float)bwc->cio->cio_states.target)) : bwc->cio->cio_states.target;
+
+    // Get ambient temperature in both units (stored internally in Celsius)
+    doc[F("ambientC")] = bwc->getAmbientTemperature();
+    doc[F("ambientF")] = round(C2F(bwc->getAmbientTemperature()));
+
+    // Include the unit setting for context (0=Fahrenheit, 1=Celsius)
+    doc[F("unit")] = bwc->cio->cio_states.unit ? F("C") : F("F");
+
+    // Serialize JSON document to string
+    String json;
+    serializeJson(doc, json);
+
+    // Send HTTP 200 response with JSON content type
+    server->send(200, F("application/json"), json);
+}

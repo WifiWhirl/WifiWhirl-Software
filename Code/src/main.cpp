@@ -669,6 +669,7 @@ void startHttpServer()
     server->on(F("/setmqtt/"), handleSetMqtt);
     server->on(F("/getweather/"), handleGetWeather);
     server->on(F("/getstates/"), handleGetStates);
+    server->on(F("/gettemps/"), handleGetTemps);
     server->on(F("/dir/"), []()
                {
             if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); }
