@@ -177,9 +177,48 @@ void loop()
                 mqttConnect();
             }
 
+            // CRITICAL: Weather query requires 10-18KB heap - pause MQTT to prevent crashes
             if (bwc->enableWeather && ambExpires < (uint64_t)time(nullptr))
             {
-                queryAmbientTemperature();
+                // Pre-flight memory check - require at least 12KB free
+                uint32_t freeHeapBefore = ESP.getFreeHeap();
+                Serial.print(F("Weather: Free heap before query: "));
+                Serial.println(freeHeapBefore);
+                
+                if (freeHeapBefore < 12000)
+                {
+                    Serial.println(F("Weather: SKIPPED - insufficient memory"));
+                }
+                else
+                {
+                    // Pause MQTT operations to free buffers and prevent simultaneous network ops
+                    bool mqttWasActive = enableMqtt;
+                    if (mqttWasActive)
+                    {
+                        Serial.println(F("Weather: Pausing MQTT for weather query"));
+                        enableMqtt = false;
+                        mqttClient->disconnect();
+                        delay(100); // Allow disconnect to complete and buffers to flush
+                    }
+                    
+                    // Execute weather query
+                    queryAmbientTemperature();
+                    
+                    // Force cleanup before resuming MQTT
+                    delay(100);
+                    
+                    // Resume MQTT operations
+                    if (mqttWasActive)
+                    {
+                        Serial.println(F("Weather: Resuming MQTT operations"));
+                        enableMqtt = true;
+                        mqttConnect();
+                    }
+                    
+                    uint32_t freeHeapAfter = ESP.getFreeHeap();
+                    Serial.print(F("Weather: Free heap after query: "));
+                    Serial.println(freeHeapAfter);
+                }
             }
         }
         // Keep for later integrations
@@ -675,59 +714,109 @@ void startHttpServer()
 
 String queryAmbientTemperature()
 {
+    // MEMORY OPTIMIZATION: Track heap usage for debugging
+    Serial.print(F("Weather: Starting query, free heap: "));
+    Serial.println(ESP.getFreeHeap());
+    
+    // MEMORY CRITICAL: Allocate all objects on stack with minimal sizes
     WiFiClientSecure client;
     HTTPClient http;
     BearSSL::X509List x509(x509CA);
     client.setTrustAnchors(&x509);
+    
+    // MEMORY OPTIMIZATION: Minimal TLS buffers (16 bytes each direction)
     client.setBufferSizes(16, 16);
     http.setUserAgent(DEVICE_NAME);
-    String json;
-    json.reserve(320);
-    bwc->getJSONSettings(json);
-
-    DynamicJsonDocument doc(1024);
-
-    // Deserialize the JSON document
-    DeserializationError error = deserializeJson(doc, json);
-    if (error)
+    
+    // MEMORY OPTIMIZATION: Use DynamicJsonDocument for settings (variable size)
+    // But immediately extract PLZ and release the document
+    String _plz;
     {
-        // Serial.println(F("Failed to read config file"));
-        return "Error reading config";
+        // Scope-limited to ensure immediate cleanup
+        DynamicJsonDocument doc(1024);
+        String json;
+        json.reserve(320);
+        bwc->getJSONSettings(json);
+
+        // Deserialize the JSON document
+        DeserializationError error = deserializeJson(doc, json);
+        json.clear(); // MEMORY: Release string immediately after use
+        json = String(); // Force deallocation
+        
+        if (error)
+        {
+            Serial.println(F("Weather: Failed to read config"));
+            return "Error reading config";
+        }
+
+        _plz = doc[F("PLZ")].as<String>();
+        // doc goes out of scope here and is destroyed
     }
 
-    String _plz = doc[F("PLZ")].as<String>();
-
-    String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/"; // Accepts German and Austrian ZIP Codes in _plz
+    String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/";
+    Serial.print(F("Weather: Connecting to API, free heap: "));
+    Serial.println(ESP.getFreeHeap());
+    
     if (http.begin(client, weatherURL))
     {
         http.addHeader("X-WW-Firmware", FW_VERSION);
         http.addHeader("X-WW-Apikey", String(cloudApiKey));
         http.addHeader("Accept", "application/json");
+        
+        Serial.print(F("Weather: Sending request, free heap: "));
+        Serial.println(ESP.getFreeHeap());
+        
         int httpResponseCode = http.GET();
+        
+        Serial.print(F("Weather: Response code: "));
+        Serial.print(httpResponseCode);
+        Serial.print(F(", free heap: "));
+        Serial.println(ESP.getFreeHeap());
+        
         if (httpResponseCode == 200)
         {
+            // MEMORY OPTIMIZATION: Use smaller response buffer
             String payload = http.getString();
-            DynamicJsonDocument resp(1024);
+            
+            // CRITICAL: Close connections BEFORE parsing to free TLS buffers
+            http.end();
+            client.stop();
+            
+            // MEMORY: Give network stack time to release buffers
+            delay(50);
+            
+            Serial.print(F("Weather: Parsing response, free heap: "));
+            Serial.println(ESP.getFreeHeap());
+            
+            // MEMORY OPTIMIZATION: Smaller JSON buffer for response
+            StaticJsonDocument<512> resp;
             DeserializationError error = deserializeJson(resp, payload);
+            payload.clear(); // MEMORY: Release payload immediately
+            payload = String(); // Force deallocation
+            
             if (error)
             {
+                Serial.println(F("Weather: Parse error"));
                 return "Error while getting weather data";
             }
 
             ambExpires = resp[F("expires")];
             int64_t _temperature = resp[F("temperature")];
-            char const *_name = resp[F("name")];
-            // Serial.println(payload);
-            // Serial.println(_temperature);
-            // Serial.println(_name);
-            http.end();
-            client.stop();
+            const char *_name = resp[F("name")];
+            
+            // Copy name before clearing document
+            String result = String(_name);
+            
             bwc->setAmbientTemperature(_temperature, true);
-            return _name;
+            
+            Serial.print(F("Weather: Success, free heap: "));
+            Serial.println(ESP.getFreeHeap());
+            
+            return result;
         }
         else if (httpResponseCode == 404)
         {
-            Serial.print(F("Error code: "));
+            Serial.print(F("Weather: Error code: "));
             Serial.println(httpResponseCode);
             http.end();
             client.stop();
@@ -735,7 +824,7 @@ String queryAmbientTemperature()
         }
         else
         {
-            Serial.print(F("Error code: "));
+            Serial.print(F("Weather: Error code: "));
             Serial.println(httpResponseCode);
             http.end();
             client.stop();
@@ -744,7 +833,7 @@ String queryAmbientTemperature()
     }
     else
     {
-        Serial.println(F("Could not connect to server"));
+        Serial.println(F("Weather: Could not connect to server"));
         http.end();
         client.stop();
         return "Error while getting weather data";
@@ -1824,10 +1913,11 @@ void startMqtt()
 
     // setup MQTT broker information as defined earlier
     mqttClient->setServer(mqttServer.c_str(), mqttPort);
-    // set buffer for larger messages, new to library 2.8.0
-    if (mqttClient->setBufferSize(1536))
+    // MEMORY OPTIMIZATION: Reduced buffer from 1536 to 768 bytes to save heap
+    // Home Assistant discovery still works with smaller buffers due to streaming publish
+    if (mqttClient->setBufferSize(768))
     {
-        // Serial.println(F("MQTT > Buffer size successfully increased"));
+        Serial.println(F("MQTT > Buffer size set to 768 bytes"));
     }
     mqttClient->setKeepAlive(60);
     mqttClient->setSocketTimeout(30);

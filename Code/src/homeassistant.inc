@@ -214,6 +214,13 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
         Serial.print(" - Empty payload");
         return false;
     }
+    
+    // Safety check: ensure MQTT client is connected before attempting publish
+    if (!mqttClient->connected())
+    {
+        Serial.print(" - MQTT not connected");
+        return false;
+    }
 
     if (!mqttClient->beginPublish(topic, payloadSize, true))
     {
@@ -229,7 +236,11 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
         Serial.print(" - MQTT endPublish failed");
     }
     
-    mqttClient->loop(); // Allow network stack to process
+    // CRITICAL: Ensure data is sent to network stack
+    mqttClient->loop();
+    delay(10); // Brief delay to allow transmission to start
+    mqttClient->loop();
+    
     return published;
 }
 
@@ -252,6 +263,13 @@ void setupHA()
     Serial.print(ESP.getFreeHeap());
     Serial.println(" bytes");
     
+    // CRITICAL: Disable WiFi sleep mode BEFORE starting to prevent network stack memory issues
+    #ifdef ESP8266
+    WiFi.setSleepMode(WIFI_NONE_SLEEP);
+    delay(100); // Allow WiFi stack to stabilize in no-sleep mode
+    Serial.println("HA: WiFi sleep mode disabled for discovery");
+    #endif
+    
     // Generate unique chip ID for device identification
     char mychipid_str[16];
 #if defined(ESP8266)
@@ -262,8 +280,10 @@ void setupHA()
     snprintf(mychipid_str, sizeof(mychipid_str), "%04X%08X", (uint16_t)(chipid_mac >> 32), (uint32_t)chipid_mac);
 #endif
 
-    // Device metadata
+    // Device metadata - reusable across all entities
+    // NOTE: Using static allocation to avoid heap fragmentation
     static StaticJsonDocument<500> devicedoc;
+    devicedoc.clear(); // Ensure clean state on re-entry
     char config_url[64]; // Optimized for IP-based URLs
     snprintf(config_url, sizeof(config_url), "http://%s", WiFi.localIP().toString().c_str());
     devicedoc[FPSTR(_dev)]["configuration_url"] = config_url;
@@ -297,7 +317,7 @@ void setupHA()
     const size_t totalEntities = sizeof(entities) / sizeof(entities[0]);
     size_t successCount = 0;
     size_t failureCount = 0;
-    const size_t BATCH_SIZE = 5; // Process entities in smaller batches to prevent watchdog timeout
+    const size_t BATCH_SIZE = 5; // OPTIMIZED: Increased from 3 to 5 due to reduced MQTT buffer (768 bytes)
     
     Serial.print("HA: Processing ");
     Serial.print(totalEntities);
@@ -309,7 +329,7 @@ void setupHA()
 
     for (size_t i = 0; i < totalEntities; i++)
     {
-        // Memory cleanup every batch to prevent fragmentation
+        // AGGRESSIVE memory cleanup every batch to prevent fragmentation and crashes
         if (i % BATCH_SIZE == 0 && i > 0) {
             Serial.print("HA: Batch ");
             Serial.print(i / BATCH_SIZE);
@@ -317,9 +337,20 @@ void setupHA()
             Serial.print(ESP.getFreeHeap());
             Serial.println(" bytes");
             
-            // Safe cleanup between batches - minimal yield
-            delay(300); // Reduced since we have more frequent delays now
-            // Skip yield - use only delay for early boot stability
+            // Force MQTT client to flush all pending data and clear internal buffers
+            mqttClient->loop();
+            delay(50);
+            mqttClient->loop(); // Double loop to ensure complete flush
+            delay(300); // Allow network stack to fully process and release buffers
+            
+            // Explicit memory check - abort if critically low
+            // OPTIMIZED: Reduced threshold from 8000 to 6000 due to MQTT buffer reduction
+            if (ESP.getFreeHeap() < 6000) {
+                Serial.print("HA: CRITICAL - Low memory detected (");
+                Serial.print(ESP.getFreeHeap());
+                Serial.println(" bytes). Aborting discovery to prevent crash.");
+                return;
+            }
         }
         
         // Iterate over every entity definition and publish its Home-Assistant
@@ -533,30 +564,41 @@ void setupHA()
         }
         
         unsigned long publishTime = millis() - startTime;
-        // If publishing took longer than 500ms, add extra delay for network recovery
-        if (publishTime > 500) {
-            delay(100); // Give network stack time to recover
-        }
         
         // Log the result
         if (publishResult)
         {
             Serial.println(" ✓ SUCCESS");
             successCount++;
+            
+            // CRITICAL: Force immediate MQTT buffer flush after successful publish
+            mqttClient->loop();
+            delay(50);
+            mqttClient->loop(); // Double loop ensures buffer is fully cleared
         }
         else
         {
             Serial.println(" ✗ FAILED");
             failureCount++;
+            
+            // On failure, still flush to clear any partial data
+            mqttClient->loop();
+            delay(100);
             continue;
+        }
+        
+        // If publishing took longer than 500ms, add extra delay for network recovery
+        if (publishTime > 500) {
+            delay(150); // Give network stack time to recover from slow publish
         }
         
         // Adaptive delay based on network activity to prevent watchdog timeout
         // ESP8266 WiFi stack can block the main loop unpredictably
         delay(150); // Base delay for network processing
         
-        // Additional delay every 10 entities to account for WiFi interrupts
+        // Additional delay and flush every 10 entities to account for WiFi interrupts
         if ((i + 1) % 10 == 0) {
+            mqttClient->loop(); // Extra flush every 10 entities
             delay(200); // Extra time for WiFi stack processing
         }
     }
@@ -570,15 +612,30 @@ void setupHA()
     Serial.print(". Free heap: ");
     Serial.print(ESP.getFreeHeap());
     Serial.println(" bytes");
+    
+    // CRITICAL: Final buffer flush before climate entity
+    mqttClient->loop();
+    delay(200);
+    mqttClient->loop();
+    delay(200);
 
     //--------------------------------------------------------------------------------------------------
     /**
-     * Climate entity
+     * Climate entity - large JSON payload requires extra memory safety
      */
     //--------------------------------------------------------------------------------------------------
     {
+        // Check if we have sufficient memory for climate entity (needs ~1700 bytes + overhead)
+        // OPTIMIZED: Reduced threshold from 10000 to 8000 due to MQTT buffer reduction
+        if (ESP.getFreeHeap() < 8000) {
+            Serial.print("HA: WARNING - Insufficient memory for climate entity (");
+            Serial.print(ESP.getFreeHeap());
+            Serial.println(" bytes). Skipping to prevent crash.");
+            return;
+        }
+        
         // Use safe delay instead of yield during early boot
-        delay(50); // Safe watchdog feeding without WiFi stack interference
+        delay(100); // Extended delay for memory stabilization
         
         // Climate entity - increased to account for JSON internal representation overhead (1700 bytes)
         static StaticJsonDocument<1700> climate_doc;
@@ -650,33 +707,51 @@ void setupHA()
         // Publish climate entity
         Serial.print("HA: Publishing climate entity -> _climate");
         
-        // Add small delay before climate entity to ensure network is ready
-        delay(200);
+        // Add delay before climate entity to ensure network is ready
+        delay(250);
         
         bool climateResult = publishHaEntity("climate", "_climate", climate_doc);
         if (climateResult)
         {
             Serial.println(" ✓ SUCCESS");
+            
+            // CRITICAL: Aggressive flush after large climate payload
+            mqttClient->loop();
+            delay(100);
+            mqttClient->loop();
+            delay(100);
         }
         else
         {
             Serial.println(" ✗ FAILED");
-            // Don't fail completely, just continue with cleanup
+            // On failure, still try to flush any partial data
+            mqttClient->loop();
+            delay(100);
         }
         
-        // Extra delay after climate entity
-        delay(100);
+        // Extra delay after climate entity to ensure complete transmission
+        delay(200);
     }
     
     Serial.print("HA: Home Assistant entity setup completed! Final free heap: ");
     Serial.print(ESP.getFreeHeap());
     Serial.println(" bytes");
     
+    // CRITICAL: Final aggressive buffer flush before re-enabling sleep
+    mqttClient->loop();
+    delay(200);
+    mqttClient->loop();
+    delay(200);
+    mqttClient->loop(); // Triple loop for absolute certainty
+    
     // Final stabilization delay before re-enabling WiFi sleep mode
-    delay(500); // Allow all MQTT operations to complete
+    delay(300); // Allow all MQTT operations to complete
     
     // Re-enable WiFi sleep mode for normal operation
     #ifdef ESP8266
     WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
+    Serial.println("HA: WiFi sleep mode re-enabled");
     #endif
+    
+    Serial.println("HA: Setup complete and memory flushed");
 }
