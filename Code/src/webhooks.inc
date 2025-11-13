@@ -70,34 +70,82 @@ void handleGetStates()
 
 /**
  * response for /gettemps/
- * Returns a JSON document with all temperature values in both Celsius and Fahrenheit
- * Example response:
- * {"currentC":38,"currentF":100,"targetC":40,"targetF":104,"ambientC":20,"ambientF":68,"unit":"C"}
+ * Returns a JSON document with temperature values in both Celsius and Fahrenheit
+ * 
+ * Query Parameters (optional field filtering):
+ *   No params: Returns all fields
+ *   With params: Returns only requested fields
+ * 
+ * Examples:
+ *   /gettemps/                     → Full response with all fields
+ *   /gettemps/?currentC            → {"currentC":38}
+ *   /gettemps/?currentC&targetC    → {"currentC":38,"targetC":40}
+ *   /gettemps/?currentC&currentF   → {"currentC":38,"currentF":100}
+ * 
+ * Available fields: currentC, currentF, targetC, targetF, ambientC, ambientF, unit
  */
 
 void handleGetTemps()
 {
-    // Validate that this is a GET request for security
+    // Validate that this is a GET request
     if (!checkHttpGet(server->method()))
         return;
 
     // Allocate JSON document with sufficient space for temperature data
     StaticJsonDocument<384> doc;
 
-    // Get current water temperature in both units
-    doc[F("currentC")] = bwc->cio->cio_states.unit ? bwc->cio->cio_states.temperature : round(F2C((float)bwc->cio->cio_states.temperature));
-    doc[F("currentF")] = bwc->cio->cio_states.unit ? round(C2F((float)bwc->cio->cio_states.temperature)) : bwc->cio->cio_states.temperature;
+    // Determine if field filtering is requested (any query parameters present)
+    bool filteringActive = server->args() > 0;
 
-    // Get target temperature in both units
-    doc[F("targetC")] = bwc->cio->cio_states.unit ? bwc->cio->cio_states.target : round(F2C((float)bwc->cio->cio_states.target));
-    doc[F("targetF")] = bwc->cio->cio_states.unit ? round(C2F((float)bwc->cio->cio_states.target)) : bwc->cio->cio_states.target;
+    // Helper lambda to check if a field was requested via query parameter
+    // Returns true if no filtering active, or if the field name exists as a parameter
+    auto isFieldRequested = [filteringActive](const String &fieldName) -> bool {
+        if (!filteringActive)
+            return true; // No filtering, include all fields
+        return server->hasArg(fieldName); // Check if this specific field was requested
+    };
 
-    // Get ambient temperature in both units (stored internally in Celsius)
-    doc[F("ambientC")] = bwc->getAmbientTemperature();
-    doc[F("ambientF")] = round(C2F(bwc->getAmbientTemperature()));
+    // Add current water temperature in Celsius if requested
+    if (isFieldRequested(F("currentC")))
+    {
+        doc[F("currentC")] = bwc->cio->cio_states.unit ? bwc->cio->cio_states.temperature : round(F2C((float)bwc->cio->cio_states.temperature));
+    }
 
-    // Include the unit setting for context (0=Fahrenheit, 1=Celsius)
-    doc[F("unit")] = bwc->cio->cio_states.unit ? F("C") : F("F");
+    // Add current water temperature in Fahrenheit if requested
+    if (isFieldRequested(F("currentF")))
+    {
+        doc[F("currentF")] = bwc->cio->cio_states.unit ? round(C2F((float)bwc->cio->cio_states.temperature)) : bwc->cio->cio_states.temperature;
+    }
+
+    // Add target temperature in Celsius if requested
+    if (isFieldRequested(F("targetC")))
+    {
+        doc[F("targetC")] = bwc->cio->cio_states.unit ? bwc->cio->cio_states.target : round(F2C((float)bwc->cio->cio_states.target));
+    }
+
+    // Add target temperature in Fahrenheit if requested
+    if (isFieldRequested(F("targetF")))
+    {
+        doc[F("targetF")] = bwc->cio->cio_states.unit ? round(C2F((float)bwc->cio->cio_states.target)) : bwc->cio->cio_states.target;
+    }
+
+    // Add ambient temperature in Celsius if requested (stored internally in Celsius)
+    if (isFieldRequested(F("ambientC")))
+    {
+        doc[F("ambientC")] = bwc->getAmbientTemperature();
+    }
+
+    // Add ambient temperature in Fahrenheit if requested
+    if (isFieldRequested(F("ambientF")))
+    {
+        doc[F("ambientF")] = round(C2F(bwc->getAmbientTemperature()));
+    }
+
+    // Add unit setting if requested (0=Fahrenheit, 1=Celsius)
+    if (isFieldRequested(F("unit")))
+    {
+        doc[F("unit")] = bwc->cio->cio_states.unit ? F("C") : F("F");
+    }
 
     // Serialize JSON document to string
     String json;
