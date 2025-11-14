@@ -84,6 +84,12 @@ Ticker updateMqttTimer;
 bool sendMQTTFlag = false;
 bool enableMqtt = false;
 bool enableWeather = false;
+/** Flag to block MQTT publishing during Home Assistant discovery to prevent memory corruption */
+bool haDiscoveryInProgress = false;
+/** Timestamp of last HA discovery completion - prevents immediate re-discovery after disconnect */
+unsigned long haDiscoveryLastCompleted = 0;
+/** Flag to track if this is first discovery after boot - don't restart after first one */
+bool haDiscoveryHasRunOnce = false;
 
 /** used for handleAUX() */
 bool runonce = true;

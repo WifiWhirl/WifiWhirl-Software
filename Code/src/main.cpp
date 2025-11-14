@@ -80,10 +80,46 @@ void loop()
     uint32_t freeheap = ESP.getFreeHeap();
     if (freeheap < heap_water_mark)
         heap_water_mark = freeheap;
-    // We need this self-destructing info several times, so save it locally
-    bool newData = bwc->newData();
-    // Fiddle with the pump computer
-    bwc->loop();
+    
+    // Pause pump communication during HA discovery
+    // Pump communication allocates memory (Strings, parsing) that conflicts with discovery
+    extern bool haDiscoveryInProgress;
+    bool newData = false; // Default to false
+    
+    static bool lastDiscoveryState = false;
+    if (haDiscoveryInProgress != lastDiscoveryState)
+    {
+        // Discovery state changed - log it
+        if (haDiscoveryInProgress)
+        {
+            Serial.println(">>> MAIN LOOP: Discovery started - bwc->loop() PAUSED");
+            Serial.print(">>> MAIN LOOP: Heap at discovery start: ");
+            Serial.println(ESP.getFreeHeap());
+        }
+        else
+        {
+            Serial.println(">>> MAIN LOOP: Discovery ended - bwc->loop() RESUMED");
+            Serial.print(">>> MAIN LOOP: Heap after discovery: ");
+            Serial.println(ESP.getFreeHeap());
+        }
+        lastDiscoveryState = haDiscoveryInProgress;
+    }
+    
+    if (!haDiscoveryInProgress)
+    {
+        // Normal operation: process pump data
+        newData = bwc->newData();
+        if (newData)
+        {
+            Serial.println(">>> MAIN LOOP: newData=true from pump");
+        }
+        bwc->loop();
+    }
+    else
+    {
+        // During discovery: PAUSE pump communication
+        // newData stays false, bwc->loop() is NOT called
+    }
 
     // run only when a wifi connection is established
     if (WiFi.status() == WL_CONNECTED)
@@ -96,30 +132,57 @@ void loop()
         ArduinoOTA.handle();
 
         // MQTT
-        if (enableMqtt && mqttClient->loop())
+        // Check if client exists (may be deleted after HA discovery for clean reset)
+        if (enableMqtt && mqttClient && mqttClient->loop())
         {
-            String msg;
-            msg.reserve(32);
-            bwc->getButtonName(msg);
-            // publish pretty button name if display button is pressed (or NOBTN if released)
-            if (!msg.equals(prevButtonName))
+            // Block MQTT publishing during HA discovery to prevent memory corruption
+            if (!haDiscoveryInProgress)
             {
-                mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), String(msg).c_str(), true);
-                prevButtonName = msg;
-            }
+                String msg;
+                msg.reserve(32);
+                bwc->getButtonName(msg);
+                // publish pretty button name if display button is pressed (or NOBTN if released)
+                if (!msg.equals(prevButtonName))
+                {
+                    Serial.println(">>> MQTT: Publishing button name change");
+                    mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), String(msg).c_str(), true);
+                    prevButtonName = msg;
+                }
 
-            if (newData || sendMQTTFlag)
+                if (newData || sendMQTTFlag)
+                {
+                    Serial.print(">>> MQTT: sendMQTT() called (newData=");
+                    Serial.print(newData);
+                    Serial.print(", flag=");
+                    Serial.print(sendMQTTFlag);
+                    Serial.println(")");
+                    sendMQTT();
+                    sendMQTTFlag = false;
+                }
+            }
+            else
             {
-                sendMQTT();
-                sendMQTTFlag = false;
+                // During discovery - log if we're blocking
+                if (newData || sendMQTTFlag)
+                {
+                    Serial.println(">>> MQTT: sendMQTT() BLOCKED by discovery");
+                }
             }
         }
 
         // web socket
         if (newData || sendWSFlag)
         {
-            sendWSFlag = false;
-            sendWS();
+            if (!haDiscoveryInProgress)
+            {
+                Serial.println(">>> WS: sendWS() called");
+                sendWSFlag = false;
+                sendWS();
+            }
+            else
+            {
+                Serial.println(">>> WS: sendWS() BLOCKED by discovery");
+            }
         }
 
         // run once after connection was established
@@ -171,13 +234,14 @@ void loop()
                 startNTP();
             }
 
-            if (enableMqtt && !mqttClient->loop())
+            // Check if MQTT client exists (may be deleted after HA discovery for clean reset)
+            if (enableMqtt && (!mqttClient || !mqttClient->loop()))
             {
                 // Serial.println(F("MQTT > Not connected"));
                 mqttConnect();
             }
 
-            // CRITICAL: Weather query requires 10-18KB heap - pause MQTT to prevent crashes
+            // Weather query requires 10-18KB heap - pause MQTT to prevent crashes
             if (bwc->enableWeather && ambExpires < (uint64_t)time(nullptr))
             {
                 // Pre-flight memory check - require at least 12KB free
@@ -779,7 +843,7 @@ String queryAmbientTemperature()
             // MEMORY OPTIMIZATION: Use smaller response buffer
             String payload = http.getString();
             
-            // CRITICAL: Close connections BEFORE parsing to free TLS buffers
+            // Close connections BEFORE parsing to free TLS buffers
             http.end();
             client.stop();
             
@@ -914,18 +978,70 @@ void handleSetHardware()
 {
     if (!checkHttpPost(server->method()))
         return;
+    
     String message = server->arg(0);
-    // Serial.printf("Set hw message; %s\n", message.c_str());
+    
+    // Check if MODEL changed - requires restart for proper reinitialization
+    String oldModel = bwc->getModel();
+    
+    // Parse new config to get new model
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, message);
+    String newModel = "";
+    if (!error && doc.containsKey(F("MODEL"))) {
+        newModel = String(doc[F("MODEL")].as<int>());
+    }
+    
+    // Save hardware config
     File file = LittleFS.open("hwcfg.json", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save hwcfg.json"));
+        Serial.println(F("HW: Failed to save hwcfg.json"));
+        server->send(500, F("text/plain"), F("Fehler beim Speichern"));
         return;
     }
     file.print(message);
     file.close();
-    server->send(200, F("text/plain"), "ok");
-    // Serial.println("sethardware done");
+    
+    // Check if model changed
+    bool modelChanged = (newModel.length() > 0 && newModel != oldModel);
+    
+    if (modelChanged) {
+        Serial.println("========================================");
+        Serial.print("HW: Model changed: ");
+        Serial.print(oldModel);
+        Serial.print(" -> ");
+        Serial.println(newModel);
+        Serial.println("HW: WifiWhirl restarting for hardware initialization...");
+        Serial.println("========================================");
+        
+        // Send response with restart notification
+        String response = "{\"restart\": true, \"reason\": \"Hardware-Modell geändert. WifiWhirl startet neu um das neue Modell zu initialisieren.\"}";
+        server->send(200, F("application/json"), response);
+        
+        // Give server time to send response
+        delay(500);
+        
+        // Save all settings
+        bwc->saveSettings();
+        
+        // Stop all services gracefully
+        periodicTimer.detach();
+        updateMqttTimer.detach();
+        updateWSTimer.detach();
+        if (mqttClient) {
+            mqttClient->disconnect();
+        }
+        
+        delay(1000);
+        
+        // Restart ESP - after restart, new model will be loaded
+        ESP.restart();
+    } else {
+        // No model change, just normal save
+        Serial.println("HW: Hardware config saved (no restart needed)");
+        server->send(200, F("text/plain"), "ok");
+    }
 }
 
 void handleNotFound()
@@ -991,8 +1107,7 @@ bool handleFileRead(String path)
 
         // send cache header for static files
         if (path.endsWith(".css.gz") || path.endsWith(".css") || path.endsWith(".png.gz") || path.endsWith(".ico.gz") || path.endsWith(".js.gz") || path.endsWith(".eot.gz") || path.endsWith(".woff.gz") || path.endsWith(".html.gz"))
-            if (!path.endsWith("restart.html.gz")) // do not cache restart page, otherwise restart fuction will not work!
-                server->sendHeader(F("Cache-Control"), F("max-age=3600"));
+            server->sendHeader(F("Cache-Control"), F("max-age=3600"));
 
         size_t sent = server->streamFile(file, contentType); // Send it to the client
 
@@ -1688,6 +1803,15 @@ void handleSetMqtt()
         return;
     }
 
+    // Store old values to detect changes that require HA discovery re-run
+    bool oldUseMqtt = useMqtt;  // Store old MQTT enabled state
+    String oldMqttServer = mqttServer;
+    int oldMqttPort = mqttPort;
+    String oldMqttUsername = mqttUsername;
+    String oldMqttPassword = mqttPassword;
+    String oldMqttClientId = mqttClientId;
+    String oldMqttBaseTopic = mqttBaseTopic;
+
     useMqtt = doc[F("enableMqtt")];
     enableMqtt = useMqtt;
     
@@ -1719,10 +1843,141 @@ void handleSetMqtt()
     mqttBaseTopic = doc[F("mqttBaseTopic")].as<String>();
     mqttTelemetryInterval = doc[F("mqttTelemetryInterval")];
 
-    server->send(200, F("text/plain"), "");
+    // These settings affect how entities are registered in Home Assistant
+    bool haRelevantChanged = false;
+    String changeReason = "";
+    
+    if (oldMqttServer != mqttServer) {
+        haRelevantChanged = true;
+        changeReason = "MQTT Server geändert";
+        Serial.print("MQTT: Server changed: ");
+        Serial.print(oldMqttServer);
+        Serial.print(" -> ");
+        Serial.println(mqttServer);
+    }
+    
+    if (oldMqttPort != mqttPort) {
+        haRelevantChanged = true;
+        changeReason = "MQTT Port geändert";
+        Serial.print("MQTT: Port changed: ");
+        Serial.print(oldMqttPort);
+        Serial.print(" -> ");
+        Serial.println(mqttPort);
+    }
+    
+    if (oldMqttUsername != mqttUsername) {
+        haRelevantChanged = true;
+        changeReason = "MQTT Benutzername geändert";
+        Serial.println("MQTT: Username changed");
+    }
+    
+    if (oldMqttPassword != mqttPassword) {
+        haRelevantChanged = true;
+        changeReason = "MQTT Passwort geändert";
+        Serial.println("MQTT: Password changed");
+    }
+    
+    if (oldMqttClientId != mqttClientId) {
+        haRelevantChanged = true;
+        changeReason = "MQTT Client ID geändert";
+        Serial.print("MQTT: Client ID changed: ");
+        Serial.print(oldMqttClientId);
+        Serial.print(" -> ");
+        Serial.println(mqttClientId);
+    }
+    
+    if (oldMqttBaseTopic != mqttBaseTopic) {
+        haRelevantChanged = true;
+        changeReason = "MQTT Base Topic geändert";
+        Serial.print("MQTT: Base topic changed: ");
+        Serial.print(oldMqttBaseTopic);
+        Serial.print(" -> ");
+        Serial.println(mqttBaseTopic);
+    }
 
+    // Save settings before responding
     saveMqtt();
-    startMqtt();
+    
+    // Restart ESP if:
+    // 1. MQTT is being enabled (disabled -> enabled): Clean boot ensures proper discovery
+    // 2. MQTT was enabled, still enabled, and HA-relevant settings changed: Re-run discovery
+    //
+    // DO NOT restart if:
+    // - MQTT is being disabled (enabled -> disabled): Stop MQTT
+    // - MQTT stays disabled and settings changed: Save for future use
+    // - Only non-HA-relevant settings changed (telemetry interval): Reconnect
+    
+    bool mqttBeingEnabled = (!oldUseMqtt && useMqtt);
+    bool mqttBeingDisabled = (oldUseMqtt && !useMqtt);
+    
+    if (mqttBeingEnabled) {
+        // MQTT disabled -> enabled: Restart for clean discovery
+        Serial.println("========================================");
+        Serial.println("MQTT: Enabling MQTT");
+        Serial.println("MQTT: WifiWhirl restarting for clean initialization...");
+        Serial.println("========================================");
+        
+        // Send response with restart notification
+        String response = "{\"restart\": true, \"reason\": \"MQTT wird aktiviert. WifiWhirl startet neu um Home Assistant Discovery durchzuführen.\"}";
+        server->send(200, F("application/json"), response);
+        
+        // Give server time to send response
+        delay(500);
+        
+        // Stop all services gracefully
+        periodicTimer.detach();
+        updateMqttTimer.detach();
+        updateWSTimer.detach();
+        
+        // Restart ESP - after restart, discovery will run once with new settings
+        ESP.restart();
+    } else if (haRelevantChanged && oldUseMqtt && useMqtt) {
+        // MQTT was enabled and still is, settings changed -> restart for re-discovery
+        Serial.println("========================================");
+        Serial.println("MQTT: HA-relevant settings changed!");
+        Serial.print("MQTT: Reason: ");
+        Serial.println(changeReason);
+        Serial.println("MQTT: Restarting to re-run discovery...");
+        Serial.println("========================================");
+        
+        // Send response with restart notification
+        String response = "{\"restart\": true, \"reason\": \"" + changeReason + ". WifiWhirl startet neu um MQTT Konfiguration zu aktualisieren.\"}";
+        server->send(200, F("application/json"), response);
+        
+        // Give server time to send response
+        delay(500);
+        
+        // Stop all services gracefully
+        periodicTimer.detach();
+        updateMqttTimer.detach();
+        updateWSTimer.detach();
+        if (mqttClient) {
+            mqttClient->disconnect();
+        }
+        
+        // Restart ESP - after restart, discovery will run once with new settings
+        ESP.restart();
+    } else if (mqttBeingDisabled) {
+        // MQTT enabled -> disabled: No restart needed, stop MQTT
+        Serial.println("MQTT: Disabling MQTT");
+        Serial.println("MQTT: Settings saved");
+        server->send(200, F("text/plain"), "");
+        if (mqttClient) {
+            mqttClient->disconnect();
+        }
+    } else if (haRelevantChanged && !useMqtt) {
+        // MQTT disabled, settings changed: Save for future use
+        Serial.println("MQTT: HA-relevant settings changed but MQTT is disabled");
+        Serial.println("MQTT: Settings saved for future use");
+        server->send(200, F("text/plain"), "");
+    } else {
+        // No HA-relevant changes, restart MQTT connection if enabled
+        Serial.println("MQTT: Settings updated (no discovery required)");
+        server->send(200, F("text/plain"), "");
+        if (useMqtt) {
+            startMqtt();
+        }
+    }
 }
 
 /**
@@ -1865,8 +2120,35 @@ void handleFileRemove()
  */
 void handleRestart()
 {
-    // send restart page
-    handleFileRead(F("/restart.html"));
+    // Send styled restart page
+    String html = 
+        F("<!DOCTYPE html>"
+        "<html>"
+        "<head>"
+        "<title>WifiWhirl | Neustart</title>"
+        "<meta charset='utf-8' />"
+        "<meta name='viewport' content='width=device-width, initial-scale=1' />"
+        "<style>"
+        "body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }"
+        "h1 { color: #4051b5; margin-bottom: 20px; }"
+        "p { font-size: 18px; margin: 20px; color: #333; }"
+        ".info { color: #666; font-size: 16px; }"
+        ".btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #4051b5; color: white; text-decoration: none; border-radius: 5px; }"
+        ".btn:hover { background: #2c3a8f; }"
+        "</style>"
+        "</head>"
+        "<body>"
+        "<h1>WifiWhirl startet neu...</h1>"
+        "<p>Das Modul wird neu gestartet.</p>"
+        "<p class='info'>Bitte warte ca. 30 Sekunden...</p>"
+        "<a href='/' class='btn'>Zurück zur Übersicht</a>"
+        "<script>"
+        "setTimeout(function() { window.location.href = '/'; }, 30000);"
+        "</script>"
+        "</body>"
+        "</html>");
+    
+    server->send(200, F("text/html"), html);
 
     // save all settings
     bwc->saveSettings();
@@ -2051,9 +2333,21 @@ void mqttConnect()
         mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), buttonname.c_str(), true);
         mqttClient->loop();
         sendMQTT();
-        Serial.println("HA");
-        setupHA();
-        Serial.println("done");
+        
+        // Only run HA discovery on FIRST connection after boot
+        // NOT on every reconnect (would waste memory and cause instability)
+        extern bool haDiscoveryHasRunOnce;
+        if (!haDiscoveryHasRunOnce)
+        {
+            Serial.println("HA");
+            setupHA();
+            Serial.println("done");
+            haDiscoveryHasRunOnce = true;
+        }
+        else
+        {
+            Serial.println("HA: Skipping discovery (already ran after boot)");
+        }
 #endif
     }
     else
