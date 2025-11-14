@@ -83,6 +83,8 @@ public:
     int getAmbientTemperature();
     String getModel();
     void print(const String &txt);
+    void printStatic(const String &txt);
+    void clearStatic();
     void loadCommandQueue();
 
     // String getDebugData();
@@ -169,6 +171,10 @@ private:
     bool _new_data_available = false;
     bool _dsp_tgt_used = true;
     uint8_t _web_target = 20;
+    bool _static_text_active = false;
+    char _static_char1 = ' ';
+    char _static_char2 = ' ';
+    char _static_char3 = ' ';
     sStates _prev_cio_states, _prev_dsp_states;
     Buttons _prevbutton = NOBTN;
     unsigned long _temp_change_timestamp_ms, _heatred_change_timestamp_ms;

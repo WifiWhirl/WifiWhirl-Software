@@ -142,6 +142,15 @@ void BWC::loop()
     dsp->dsp_states = cio->cio_states;
 
     /*Modify and use dsp->dsp_states here if we want to show text or something*/
+    // Apply static text override if active
+    if (_static_text_active)
+    {
+        dsp->dsp_states.char1 = _static_char1;
+        dsp->dsp_states.char2 = _static_char2;
+        dsp->dsp_states.char3 = _static_char3;
+        dsp->dsp_states.power = 1; // Force display on for static text
+    }
+    
     dsp->setRawPayload(cio->getRawPayload());
     /*Increase screen brightness when pressing buttons*/
     adjust_brightness();
@@ -651,6 +660,23 @@ float BWC::_estHeatingTime()
 void BWC::print(const String &txt)
 {
     dsp->text += txt;
+}
+
+void BWC::printStatic(const String &txt)
+{
+    // Clear any scrolling text to show static characters
+    dsp->text = "";
+    
+    // Store static text characters - these will be applied in loop()
+    _static_char1 = txt.length() > 0 ? txt[0] : ' ';
+    _static_char2 = txt.length() > 1 ? txt[1] : ' ';
+    _static_char3 = txt.length() > 2 ? txt[2] : ' ';
+    _static_text_active = true;
+}
+
+void BWC::clearStatic()
+{
+    _static_text_active = false;
 }
 
 // String BWC::getDebugData()

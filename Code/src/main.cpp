@@ -472,6 +472,11 @@ void startWiFi()
                     wifi_info.enableStaticIp4 = false;
                     // fallback to WiFi config portal
                     startWiFiConfigPortal();
+                    // Safe wifi settings after initial config and restart module
+                    wifi_info.apSsid = WiFi.SSID();
+                    wifi_info.apPwd = WiFi.psk();
+                    saveWifi(wifi_info);
+                    ESP.restart();
                 }
                 break;
             }
@@ -512,18 +517,27 @@ void startWiFiConfigPortal()
 
     WiFiManagerParameter custom_text("<p><strong>Willkommen zur Einrichtung deines WifiWhirl WLAN-Moduls!</strong></p><p>Verbinde dich hier mit deinem WLAN, um mit der Einrichtung zu beginnen.</p>");
 
-    wm.setClass("invert");         // WM Dark Mode
-    wm.setShowInfoErase(false);    // WM Disable Erase Button
-    wm.addParameter(&custom_text); // WM Show WifiWhirl Text
-    // wm.setConfigPortalBlocking(false);      // WM Disable Config Portal Blocking (trys to reconnect to known network automatically)
-    wm.autoConnect(wmApName, wmApPassword); // WM start Config Portal AP
-
-    // Serial.print(F("WiFi > Trying to connect ..."));
+    wm.setClass("invert");                  // WM Dark Mode
+    wm.setShowInfoErase(false);             // WM Disable Erase Button
+    wm.addParameter(&custom_text);          // WM Show WifiWhirl Text
+    wm.setConfigPortalBlocking(false);      // WM non-blocking mode so we can update display
+    
+    // Display "net" on pump while in AP mode
+    bwc->printStatic("net");
+    
+    // Start AP - non-blocking
+    wm.autoConnect(wmApName, wmApPassword);
+    
+    // Keep looping until WiFi connects
     while (WiFi.status() != WL_CONNECTED)
     {
-        delay(500);
-        // Serial.print(".");
+        wm.process(); // Process WiFiManager
+        bwc->loop();  // Update pump display
+        delay(100);
     }
+    
+    // Reset display when WiFi connects
+    bwc->clearStatic();    
     // Serial.println("");
 }
 
