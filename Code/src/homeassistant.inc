@@ -139,6 +139,12 @@ static const HaEntityConfig entities[] PROGMEM = {
     {"sensor", "_filter_clean_age", "Letzte Filterreinigung", "sensor.", "/times", "{{ as_datetime(value_json.FCTIME | int) }}", nullptr, nullptr, "mdi:filter-check-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_water_change_age", "Letzter Wasserwechsel", "sensor.", "/times", "{{ as_datetime(value_json.WCTIME | int) }}", nullptr, nullptr, "mdi:water-sync", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
 
+    // Maintenance interval configuration sensors (read-only)
+    {"sensor", "_chlorine_interval", "Chlorintervall", "sensor.", "/times", "{{ value_json.CLINT }}", nullptr, nullptr, "hass:hand-coin-outline", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_filter_interval", "Filterwechselintervall", "sensor.", "/times", "{{ value_json.FINT }}", nullptr, nullptr, "hass:air-filter", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_filter_clean_interval", "Filterreinigungsintervall", "sensor.", "/times", "{{ value_json.FCINT }}", nullptr, nullptr, "mdi:filter-check-outline", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_water_change_interval", "Wasserwechselintervall", "sensor.", "/times", "{{ value_json.WCINT }}", nullptr, nullptr, "mdi:water-sync", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+
     // Runtime tracking sensors
     {"sensor", "_uptime", "Betriebszeit", "sensor.", "/times", "{{ ( (value_json.UPTIME|int)/3600) }}", nullptr, nullptr, "mdi:clock-outline", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_pumptime", "Pumpenlaufzeit", "sensor.", "/times", "{{ ( (value_json.PUMPTIME|int)/3600) }}", nullptr, nullptr, "mdi:clock-outline", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
