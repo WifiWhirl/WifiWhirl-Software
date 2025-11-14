@@ -376,6 +376,17 @@ function handlemsg(e) {
         " (" +
         (msgobj.T2R <= 0 ? "Zeit für ein Bad!" : "Nicht bereit") +
         ")";
+
+      // energy monitoring
+      document.getElementById("energy_power").innerHTML = msgobj.WATT || 0;
+      document.getElementById("energy_today").innerHTML = (msgobj.KWHD || 0)
+        .toFixed(2)
+        .toString()
+        .replace(".", ",");
+      document.getElementById("energy_total").innerHTML = (msgobj.KWH || 0)
+        .toFixed(2)
+        .toString()
+        .replace(".", ",");
     }
   } catch (error) {
     console.error(error);

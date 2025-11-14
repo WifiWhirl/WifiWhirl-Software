@@ -110,6 +110,16 @@
             </td>
           </tr>
           <tr>
+            <td>Zeige Abschnitt "Energie & Kosten"</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="showSectionEnergy" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+          <tr>
             <td>Verwende Auswahl (anstatt Schieberegler)</td>
             <td>
               <label class="switch"
@@ -157,6 +167,8 @@
           localStorage.getItem("showSectionTimer") === "true";
         document.getElementById("showSectionTotals").checked =
           localStorage.getItem("showSectionTotals") === "true";
+        document.getElementById("showSectionEnergy").checked =
+          localStorage.getItem("showSectionEnergy") === "true";
         document.getElementById("useControlSelector").checked =
           localStorage.getItem("useControlSelector") === "true";
       }
@@ -187,6 +199,10 @@
           document.getElementById("showSectionTotals").checked
         );
         localStorage.setItem(
+          "showSectionEnergy",
+          document.getElementById("showSectionEnergy").checked
+        );
+        localStorage.setItem(
           "useControlSelector",
           document.getElementById("useControlSelector").checked
         );
@@ -208,6 +224,7 @@
             document.getElementById("showSectionButtons").checked = json.SSB;
             document.getElementById("showSectionTimer").checked = json.SSTIM;
             document.getElementById("showSectionTotals").checked = json.SSTOT;
+            document.getElementById("showSectionEnergy").checked = json.SSEN;
             document.getElementById("useControlSelector").checked = json.UCS;
           }
         };
@@ -223,6 +240,7 @@
           SSB: document.getElementById("showSectionButtons").checked,
           SSTIM: document.getElementById("showSectionTimer").checked,
           SSTOT: document.getElementById("showSectionTotals").checked,
+          SSEN: document.getElementById("showSectionEnergy").checked,
           UCS: document.getElementById("useControlSelector").checked,
         };
         req.send(JSON.stringify(json));

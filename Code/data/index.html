@@ -451,15 +451,33 @@
             <td><span id="jettime">unbek.</span></td>
           </tr>
           <tr>
-            <td>Geschätzte Kosten:</td>
-            <td><span id="cost">unbek.</span> €</td>
-          </tr>
-          <tr>
             <td colspan="2" class="center">
               <button id="reset" class="button" onclick="resetTotals()">
                 zurücksetzen
               </button>
             </td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="sectionEnergy">
+        <h2>Energie & Kosten</h2>
+        <table class="fixed">
+          <tr>
+            <td>Aktuelle Leistung:</td>
+            <td><span id="energy_power">unbek.</span> W</td>
+          </tr>
+          <tr>
+            <td>Energieverbrauch heute:</td>
+            <td><span id="energy_today">unbek.</span> kWh</td>
+          </tr>
+          <tr>
+            <td>Gesamtenergieverbrauch:</td>
+            <td><span id="energy_total">unbek.</span> kWh</td>
+          </tr>
+          <tr>
+            <td>Geschätzte Energiekosten:</td>
+            <td><span id="cost">unbek.</span> €</td>
           </tr>
         </table>
       </section>
@@ -526,6 +544,10 @@
             : "none";
         document.getElementById("sectionTotals").style.display =
           localStorage.getItem("showSectionTotals") !== "false"
+            ? "block"
+            : "none";
+        document.getElementById("sectionEnergy").style.display =
+          localStorage.getItem("showSectionEnergy") !== "false"
             ? "block"
             : "none";
         document.getElementById("tableSlider").style.display =

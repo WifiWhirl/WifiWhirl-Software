@@ -1393,6 +1393,7 @@ void loadWebConfig()
     showSectionButtons = (doc.containsKey("SSB") ? doc[F("SSB")] : true);
     showSectionTimer = (doc.containsKey("SSTIM") ? doc[F("SSTIM")] : true);
     showSectionTotals = (doc.containsKey("SSTOT") ? doc[F("SSTOT")] : true);
+    showSectionEnergy = (doc.containsKey("SSEN") ? doc[F("SSEN")] : true);
     useControlSelector = (doc.containsKey("UCS") ? doc[F("UCS")] : false);
 }
 
@@ -1417,6 +1418,7 @@ void saveWebConfig()
     doc[F("SSB")] = showSectionButtons;
     doc[F("SSTIM")] = showSectionTimer;
     doc[F("SSTOT")] = showSectionTotals;
+    doc[F("SSEN")] = showSectionEnergy;
     doc[F("UCS")] = useControlSelector;
 
     if (serializeJson(doc, file) == 0)
@@ -1444,6 +1446,7 @@ void handleGetWebConfig()
     doc[F("SSB")] = showSectionButtons;
     doc[F("SSTIM")] = showSectionTimer;
     doc[F("SSTOT")] = showSectionTotals;
+    doc[F("SSEN")] = showSectionEnergy;
     doc[F("UCS")] = useControlSelector;
 
     String json;
@@ -1480,6 +1483,7 @@ void handleSetWebConfig()
     showSectionButtons = doc[F("SSB")];
     showSectionTimer = doc[F("SSTIM")];
     showSectionTotals = doc[F("SSTOT")];
+    showSectionEnergy = doc[F("SSEN")];
     useControlSelector = doc[F("UCS")];
 
     saveWebConfig();
