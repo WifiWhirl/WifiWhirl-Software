@@ -546,6 +546,20 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         }
     }
     break;
+    case SETENABLEBUTTONS:
+    {
+        // Enable or disable all physical buttons at once
+        // val > 0 = enable all, val == 0 = disable all
+        uint8_t enable_state = (val > 0) ? 1 : 0;
+        // Iterate through all button indices from LOCK to HYDROJETS
+        for (int btn = LOCK; btn <= HYDROJETS; btn++)
+        {
+            dsp->EnabledButtons[btn] = enable_state;
+        }
+        _save_settings_needed = true;
+        _new_data_available = true;
+        break;
+    }
     default:
         break;
     }

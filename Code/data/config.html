@@ -294,6 +294,7 @@
                 <option value="11">Hydrojet ein/aus</option>
                 <option value="22">Pumpe ein/aus</option>
                 <option value="23">Tastensperre ein/aus</option>
+                <option value="26">Bedientasten ein/aus</option>
                 <option value="12">Displayhelligkeit festlegen</option>
                 <option value="19">Text ausgeben</option>
               </select>
@@ -452,6 +453,7 @@
       const printtext = 19;
       const setready = 20;
       const setlck = 23;
+      const setenablebuttons = 26;
 
       const commandlist = [
         "Zieltemperatur festlegen",
@@ -478,6 +480,9 @@
         "",
         "Pumpe festlegen",
         "Tastensperre",
+        "",
+        "",
+        "Bedientasten aktivieren/deaktivieren",
       ];
 
       function totimestamp() {
@@ -623,7 +628,7 @@
             "showpreviewval('val', 'sliderDsp')"
           );
           showpreviewval("val", "sliderDsp");
-        } else if (select.value < 12 || select.value == 23) {
+        } else if (select.value < 12 || select.value == 23 || select.value == 26) {
           // on off checkbox
           textinput.style.display = "none";
           valinput.style.display = "table-row";

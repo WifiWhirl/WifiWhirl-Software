@@ -82,7 +82,8 @@ enum Commands : byte
     TOGGLEPWR,
     TOGGLELCK,
     RESETFCTIMER,
-    RESETWCTIMER
+    RESETWCTIMER,
+    SETENABLEBUTTONS
 };
 
 enum ToggleButtons : byte
