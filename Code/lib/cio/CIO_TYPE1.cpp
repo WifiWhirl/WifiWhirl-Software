@@ -85,6 +85,8 @@ void CIO_6_TYPE1::updateStates()
         readtarget
     };
     static Readmode capturePhase = readtemperature;
+    // Store last valid temperature to enable rate-of-change validation
+    static uint8_t last_valid_temperature = 25;
 
 // require two consecutive messages to be equal before registering
 #if FILTER_6W_SPIKES == 1
@@ -160,20 +162,75 @@ void CIO_6_TYPE1::updateStates()
         capturePhase = uncertain;
     if ((millis() - buttonReleaseTime) > 6000)
         capturePhase = readtemperature;
+    
     // convert text on display to a value if the chars are recognized
     String tempstring = String((char)cio_states.char1) + String((char)cio_states.char2) + String((char)cio_states.char3);
     uint8_t parsedValue = tempstring.toInt();
+    
+    // Handle TARGET TEMPERATURE setting (when user presses UP/DOWN buttons)
     // capture target temperature only if showing plausible values (not blank screen while blinking)
     if ((capturePhase == readtarget) && (parsedValue > 19))
     {
         cio_states.target = parsedValue;
     }
+    
+    // Handle ACTUAL TEMPERATURE reading with full validation
     // wait 6 seconds after UP/DOWN is released to be sure that actual temp is shown
     if (capturePhase == readtemperature)
     {
+        // VALIDATION LAYER 1: Ensure all characters are numeric digits
+        // This prevents parsing corrupted serial data that contains non-numeric characters
+        bool all_digits = true;
+        if (cio_states.char1 < '0' || cio_states.char1 > '9')
+            all_digits = false;
+        if (cio_states.char2 < '0' || cio_states.char2 > '9')
+            all_digits = false;
+        if (cio_states.char3 < '0' || cio_states.char3 > '9')
+            all_digits = false;
+        
+        if (!all_digits)
+        {
+            return; // Exit early if non-numeric characters detected
+        }
+        
+        // VALIDATION LAYER 2: Range validation based on temperature unit
+        // Ensures temperature is within physically reasonable bounds
+        bool in_range = false;
+        if (cio_states.unit)
+        {
+            // Celsius mode: reasonable range 0-50°C for hot tub operation
+            in_range = (parsedValue >= 0 && parsedValue <= 50);
+        }
+        else
+        {
+            // Fahrenheit mode: reasonable range 32-120°F for hot tub operation
+            in_range = (parsedValue >= 32 && parsedValue <= 120);
+        }
+        
+        if (!in_range)
+        {
+            return; // Exit if temperature is outside reasonable operating range
+        }
+        
+        // VALIDATION LAYER 3: Rate-of-change validation
+        // Prevents sudden temperature spikes from corrupted data
+        // Water temperature cannot physically change by more than 10 degrees in one update cycle
+        uint8_t temp_delta = (parsedValue > last_valid_temperature)
+                                 ? (parsedValue - last_valid_temperature)
+                                 : (last_valid_temperature - parsedValue);
+        
+        // Allow maximum 10 degree change per update cycle (typically ~100ms intervals)
+        // This is generous - real temperature changes are much slower
+        if (temp_delta > 10)
+        {
+            return; // Reject extreme temperature jumps that indicate data corruption
+        }
+        
+        // ALL VALIDATIONS PASSED - Safe to update actual temperature
         if (cio_states.temperature != parsedValue)
         {
             cio_states.temperature = parsedValue;
+            last_valid_temperature = parsedValue; // Update last known good temperature
         }
     }
 
