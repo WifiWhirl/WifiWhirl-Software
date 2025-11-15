@@ -394,6 +394,14 @@ function handlemsg(e) {
 }
 
 function s2dhms(val) {
+  // Handle special states from backend (sent as seconds: -2*3600, -1*3600)
+  if (val == -7200) {
+    // Ready state (-2 * 3600)
+    return "00:00:00";
+  } else if (val == -3600) {
+    // Never ready / calculation not possible (-1 * 3600)
+    return "Berechnung nicht möglich";
+  }
   var day = 3600 * 24;
   var hour = 3600;
   var minute = 60;
