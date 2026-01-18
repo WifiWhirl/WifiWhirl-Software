@@ -111,7 +111,7 @@ void loop()
         newData = bwc->newData();
         if (newData)
         {
-            Serial.println(">>> MAIN LOOP: newData=true from pump");
+            // Serial.println(">>> MAIN LOOP: newData=true from pump");
         }
         bwc->loop();
     }
@@ -175,7 +175,7 @@ void loop()
         {
             if (!haDiscoveryInProgress)
             {
-                Serial.println(">>> WS: sendWS() called");
+                // Serial.println(">>> WS: sendWS() called");
                 sendWSFlag = false;
                 sendWS();
             }
@@ -255,29 +255,8 @@ void loop()
                 }
                 else
                 {
-                    // Pause MQTT operations to free buffers and prevent simultaneous network ops
-                    bool mqttWasActive = enableMqtt;
-                    if (mqttWasActive)
-                    {
-                        Serial.println(F("Weather: Pausing MQTT for weather query"));
-                        enableMqtt = false;
-                        mqttClient->disconnect();
-                        delay(100); // Allow disconnect to complete and buffers to flush
-                    }
-                    
-                    // Execute weather query
+                    // Execute weather query (function handles MQTT pause/resume internally)
                     queryAmbientTemperature();
-                    
-                    // Force cleanup before resuming MQTT
-                    delay(100);
-                    
-                    // Resume MQTT operations
-                    if (mqttWasActive)
-                    {
-                        Serial.println(F("Weather: Resuming MQTT operations"));
-                        enableMqtt = true;
-                        mqttConnect();
-                    }
                     
                     uint32_t freeHeapAfter = ESP.getFreeHeap();
                     Serial.print(F("Weather: Free heap after query: "));
@@ -324,6 +303,10 @@ void sendWS()
     // send other info
     json.clear();
     getOtherInfo(json);
+    webSocket->broadcastTXT(json);
+    // send smart schedule
+    json.clear();
+    bwc->getJSONSmartSchedule(json);
     webSocket->broadcastTXT(json);
     // json = bwc->getDebugData();
     // webSocket->broadcastTXT(json);
@@ -773,7 +756,9 @@ void startHttpServer()
                {if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/cmdq_file/"), handle_cmdq_file);
     server->on(F("/hook/"), handleWebhook);
-    server->on(F("/getlatestversion/"), handleGetLatestVersion);
+    server->on(F("/getsmartschedule/"), handleGetSmartSchedule);
+    server->on(F("/setsmartschedule/"), handleSetSmartSchedule);
+    server->on(F("/cancelsmartschedule/"), handleCancelSmartSchedule);
     // server->on(F("/getfiles/"), updateFiles);
 
     server->on(F("/update"), HTTP_GET, []()
@@ -793,22 +778,16 @@ void startHttpServer()
 
 String queryAmbientTemperature()
 {
-    // MEMORY OPTIMIZATION: Track heap usage for debugging
+    // Track heap usage for debugging
     Serial.print(F("Weather: Starting query, free heap: "));
     Serial.println(ESP.getFreeHeap());
     
-    // MEMORY CRITICAL: Allocate all objects on stack with minimal sizes
-    WiFiClientSecure client;
+    // Use standard WiFiClient for HTTP connection
+    WiFiClient client;
     HTTPClient http;
-    BearSSL::X509List x509(x509CA);
-    client.setTrustAnchors(&x509);
-    
-    // MEMORY OPTIMIZATION: Minimal TLS buffers (16 bytes each direction)
-    client.setBufferSizes(16, 16);
     http.setUserAgent(DEVICE_NAME);
     
-    // MEMORY OPTIMIZATION: Use DynamicJsonDocument for settings (variable size)
-    // But immediately extract PLZ and release the document
+    // Extract PLZ from settings
     String _plz;
     {
         // Scope-limited to ensure immediate cleanup
@@ -819,8 +798,8 @@ String queryAmbientTemperature()
 
         // Deserialize the JSON document
         DeserializationError error = deserializeJson(doc, json);
-        json.clear(); // MEMORY: Release string immediately after use
-        json = String(); // Force deallocation
+        json.clear();
+        json = String();
         
         if (error)
         {
@@ -833,8 +812,8 @@ String queryAmbientTemperature()
     }
 
     String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/";
-    Serial.print(F("Weather: Connecting to API, free heap: "));
-    Serial.println(ESP.getFreeHeap());
+    Serial.print(F("Weather: Connecting to API: "));
+    Serial.println(weatherURL);
     
     if (http.begin(client, weatherURL))
     {
@@ -842,36 +821,24 @@ String queryAmbientTemperature()
         http.addHeader("X-WW-Apikey", String(cloudApiKey));
         http.addHeader("Accept", "application/json");
         
-        Serial.print(F("Weather: Sending request, free heap: "));
-        Serial.println(ESP.getFreeHeap());
-        
         int httpResponseCode = http.GET();
         
         Serial.print(F("Weather: Response code: "));
-        Serial.print(httpResponseCode);
-        Serial.print(F(", free heap: "));
-        Serial.println(ESP.getFreeHeap());
+        Serial.println(httpResponseCode);
         
         if (httpResponseCode == 200)
         {
-            // MEMORY OPTIMIZATION: Use smaller response buffer
             String payload = http.getString();
-            
-            // Close connections BEFORE parsing to free TLS buffers
             http.end();
             client.stop();
-            
-            // MEMORY: Give network stack time to release buffers
-            delay(50);
             
             Serial.print(F("Weather: Parsing response, free heap: "));
             Serial.println(ESP.getFreeHeap());
             
-            // MEMORY OPTIMIZATION: Smaller JSON buffer for response
             StaticJsonDocument<512> resp;
             DeserializationError error = deserializeJson(resp, payload);
-            payload.clear(); // MEMORY: Release payload immediately
-            payload = String(); // Force deallocation
+            payload.clear();
+            payload = String();
             
             if (error)
             {
@@ -899,6 +866,7 @@ String queryAmbientTemperature()
             Serial.println(httpResponseCode);
             http.end();
             client.stop();
+            
             return "Error: ZIP code not found";
         }
         else
@@ -907,6 +875,7 @@ String queryAmbientTemperature()
             Serial.println(httpResponseCode);
             http.end();
             client.stop();
+            
             return "Error while getting weather data";
         }
     }
@@ -915,50 +884,11 @@ String queryAmbientTemperature()
         Serial.println(F("Weather: Could not connect to server"));
         http.end();
         client.stop();
+        
         return "Error while getting weather data";
     }
 }
 
-void handleGetLatestVersion()
-{
-    WiFiClientSecure client;
-    HTTPClient http;
-    BearSSL::X509List x509(x509CA);
-    client.setTrustAnchors(&x509);
-    client.setBufferSizes(16, 16);
-    http.setUserAgent(DEVICE_NAME);
-    String const versionURL = String(cloudApi) + "/v1/software/version/current/";
-
-    if (http.begin(client, versionURL))
-    {
-        http.addHeader("X-WW-Firmware", FW_VERSION);
-        http.addHeader("X-WW-Apikey", String(cloudApiKey));
-        http.addHeader("Accept", "application/json");
-        int httpResponseCode = http.GET();
-        if (httpResponseCode == 200)
-        {
-            String payload = http.getString();
-            http.end();
-            client.stop();
-            server->send(200, F("text/plain"), payload);
-        }
-        else
-        {
-            Serial.print(F("Error code: "));
-            Serial.println(httpResponseCode);
-            http.end();
-            client.stop();
-            server->send(500, F("text/plain"), F("Error"));
-        }
-    }
-    else
-    {
-        Serial.println(F("Could not connect to server"));
-        http.end();
-        client.stop();
-        server->send(500, F("text/plain"), F("Error"));
-    }
-}
 
 void handleGetWeather()
 {
@@ -1335,6 +1265,68 @@ void handle_cmdq_file()
     }
 
     server->send(200, F("text/plain"), "");
+}
+
+/**
+ * response for /getsmartschedule/
+ * web server prints smart schedule status as JSON
+ */
+void handleGetSmartSchedule()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+
+    String json;
+    json.reserve(512);
+    bwc->getJSONSmartSchedule(json);
+    server->send(200, F("application/json"), json);
+}
+
+/**
+ * response for /setsmartschedule/
+ * set a new smart schedule
+ */
+void handleSetSmartSchedule()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+
+    StaticJsonDocument<256> doc;
+    String message = server->arg(0);
+    DeserializationError error = deserializeJson(doc, message);
+    if (error)
+    {
+        server->send(400, F("text/plain"), F("Error deserializing message"));
+        return;
+    }
+
+    // Extract parameters
+    uint64_t target_time = doc[F("TARGETTIME")];
+    uint8_t target_temp = doc[F("TARGETTEMP")];
+    bool keep_heater_on = doc[F("KEEPON")];
+
+    // Validate and set schedule
+    if (bwc->setSmartSchedule(target_time, target_temp, keep_heater_on))
+    {
+        server->send(200, F("text/plain"), F("Schedule set successfully"));
+    }
+    else
+    {
+        server->send(400, F("text/plain"), F("Invalid schedule parameters or NTP not synced"));
+    }
+}
+
+/**
+ * response for /cancelsmartschedule/
+ * cancel active smart schedule
+ */
+void handleCancelSmartSchedule()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+
+    bwc->cancelSmartSchedule();
+    server->send(200, F("text/plain"), F("Schedule cancelled"));
 }
 
 void copyFile(String source, String dest)

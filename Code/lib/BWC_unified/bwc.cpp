@@ -173,6 +173,8 @@ void BWC::loop()
 
     /*following method will change target temp and set _dsp_tgt_used to false if target temp is changed*/
     _handleCommandQ();
+    /*Handle smart schedule before processing toggles so pump/heater changes are applied*/
+    _handleSmartSchedule();
     /*If new target was not set above, use whatever the cio says*/
     cio->setRawPayload(dsp->getRawPayload());
     cio->handleToggles();
@@ -183,6 +185,8 @@ void BWC::loop()
         _saveCommandQueue();
     if (_save_states_needed)
         _saveStates();
+    if (_save_smartschedule_needed)
+        _saveSmartSchedule();
     _handleNotification();
     _handleStateChanges();
     // logstates();
@@ -636,11 +640,11 @@ void BWC::_handleStateChanges()
 // return how many hours until pool is ready. (provided the heater is on)
 float BWC::_estHeatingTime()
 {
-    int tgtTemp = cio->cio_states.target; // Target temperature (set by user)
+    int tgtTemp = cio->cio_states.target;        // Target temperature (set by user)
     if (!cio->cio_states.unit)
-        tgtTemp = F2C(tgtTemp); // Check if unit is set to fahrenheit and convert to c for calculation
+        tgtTemp = F2C(tgtTemp);                  // Check if unit is set to fahrenheit and convert to C for calculation
     if (cio->cio_states.temperature > tgtTemp)
-        return -2; // Pool is ready, target is reached
+        return -2;                               // Pool is ready, target is reached
 
     const int heaterPwr = 2000;                  // Heater power in watts
     const float heatLoss = 4.85f;                // Heat loss per Kelvin per hour
@@ -1323,6 +1327,7 @@ void BWC::loadCommandQueue()
     std::sort(_command_que.begin(), _command_que.end(), _compare_command);
     _loadSettings();
     _restoreStates();
+    _loadSmartSchedule();
 }
 
 /*          */
@@ -1672,4 +1677,395 @@ void BWC::_accord()
         n.frequency_hz = NOTE_E6;
         _notes.push_back(n);
     }
+}
+
+/*                  */
+/* SMART SCHEDULE   */
+/*                  */
+
+/**
+ * Set a smart schedule for pool heating
+ * @param target_time Unix timestamp when pool should be ready
+ * @param target_temp Desired temperature in Celsius
+ * @param keep_heater_on Keep heater on after target is reached
+ * @return true if schedule was set successfully
+ */
+bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on)
+{
+    // Validate time is in future and NTP is synced
+    if (time(nullptr) < 57600)
+    {
+        // NTP not synced yet
+        return false;
+    }
+    
+    if (target_time <= _timestamp_secs)
+    {
+        // Target time is in the past
+        return false;
+    }
+    
+    // Validate temperature range (20-40°C)
+    if (target_temp < 20 || target_temp > 40)
+    {
+        return false;
+    }
+    
+    // Initialize smart schedule
+    _smart_schedule.active = true;
+    _smart_schedule.target_time = target_time;
+    _smart_schedule.target_temp = target_temp;
+    _smart_schedule.keep_heater_on = keep_heater_on;
+    _smart_schedule.next_check_time = 0; // Check immediately on next loop
+    _smart_schedule.calculated_start_time = 0;
+    _smart_schedule.last_heating_estimate = 0.0f;
+    _smart_schedule.temp_reading_state = 0;
+    _smart_schedule.temp_reading_timer = 0;
+    _smart_schedule.accurate_temperature = 0; // Will be read during first temp check cycle
+    
+    _save_smartschedule_needed = true;
+    _new_data_available = true;
+    
+    Serial.println(F("SmartSchedule: Schedule activated, will check immediately"));
+    
+    return true;
+}
+
+/**
+ * Cancel active smart schedule
+ */
+void BWC::cancelSmartSchedule()
+{
+    _smart_schedule.active = false;
+    _smart_schedule.temp_reading_state = 0;
+    
+    // Restore pump state if we were in the middle of temp reading
+    if (_smart_schedule.temp_reading_state == 1 || _smart_schedule.temp_reading_state == 2)
+    {
+        if (!_smart_schedule.original_pump_state && cio->cio_states.pump)
+        {
+            // We turned pump on, turn it back off
+            cio->cio_toggles.pump_change = 1;
+        }
+    }
+    
+    _save_smartschedule_needed = true;
+    _new_data_available = true;
+}
+
+/**
+ * Get smart schedule status as JSON
+ */
+void BWC::getJSONSmartSchedule(String &rtn)
+{
+#ifdef ESP8266
+    ESP.wdtFeed();
+#endif
+    StaticJsonDocument<512> doc;
+    
+    doc[F("CONTENT")] = F("SMARTSCHEDULE");
+    doc[F("ACTIVE")] = _smart_schedule.active;
+    doc[F("TARGETTIME")] = _smart_schedule.target_time;
+    doc[F("TARGETTEMP")] = _smart_schedule.target_temp;
+    doc[F("KEEPON")] = _smart_schedule.keep_heater_on;
+    doc[F("STARTTIME")] = _smart_schedule.calculated_start_time;
+    doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
+    doc[F("ESTIMATE")] = _smart_schedule.last_heating_estimate;
+    doc[F("CURRENTTIME")] = _timestamp_secs;
+    doc[F("CURRENTTEMP")] = cio->cio_states.temperature;
+    // Use current temperature if accurate temp hasn't been read yet (0 or invalid)
+    uint8_t display_temp = (_smart_schedule.accurate_temperature > 0) ? 
+                           _smart_schedule.accurate_temperature : 
+                           cio->cio_states.temperature;
+    doc[F("ACCURATETEMP")] = display_temp;
+    doc[F("HEATER")] = cio->cio_states.heat;
+    doc[F("PUMP")] = cio->cio_states.pump;
+    doc[F("READING_STATE")] = _smart_schedule.temp_reading_state; // 0=idle, 1=pump_on, 2=wait, 3=reading
+    
+    // Calculate time remaining
+    int64_t time_remaining = (int64_t)_smart_schedule.target_time - (int64_t)_timestamp_secs;
+    doc[F("TIMEREMAINING")] = time_remaining;
+    
+    // Calculate time until start
+    int64_t time_until_start = (int64_t)_smart_schedule.calculated_start_time - (int64_t)_timestamp_secs;
+    doc[F("TIMEUNTILSTART")] = time_until_start;
+    
+    if (serializeJson(doc, rtn) == 0)
+    {
+        rtn = F("{\"error\": \"Failed to serialize smartschedule\"}");
+    }
+}
+
+/**
+ * Handle smart schedule logic - called from main loop
+ */
+void BWC::_handleSmartSchedule()
+{
+    if (!_smart_schedule.active)
+        return;
+    
+    // Process temperature reading sequence if active
+    if (_smart_schedule.temp_reading_state > 0)
+    {
+        _processAccurateTempReading();
+        return;
+    }
+    
+    // Check if target time has passed
+    if (_timestamp_secs >= _smart_schedule.target_time)
+    {
+        // Target time reached - check if we need to turn off heater
+        if (!_smart_schedule.keep_heater_on && cio->cio_states.heat)
+        {
+            cio->cio_toggles.heat_change = 1; // Turn off heater
+            Serial.println(F("SmartSchedule: Target reached - turning off heater"));
+        }
+        
+        // Deactivate schedule
+        cancelSmartSchedule();
+        return;
+    }
+    
+    // If we have a calculated start time and it has arrived, start heating
+    if (_smart_schedule.calculated_start_time > 0 && 
+        _timestamp_secs >= _smart_schedule.calculated_start_time)
+    {
+        if (!cio->cio_states.heat)
+        {
+            cio->cio_toggles.heat_change = 1; // Turn on heater
+            Serial.println(F("SmartSchedule: Start time reached - turning on heater"));
+        }
+    }
+    
+    // Check if it's time for next temperature check and recalculation
+    if (_timestamp_secs < _smart_schedule.next_check_time)
+        return;
+    
+    // Start accurate temperature reading sequence for recalculation
+    _startAccurateTempReading();
+}
+
+/**
+ * Start accurate temperature reading by turning on pump
+ */
+void BWC::_startAccurateTempReading()
+{
+    // Store original pump state
+    _smart_schedule.original_pump_state = cio->cio_states.pump;
+    
+    // Turn on pump if not already on
+    if (!cio->cio_states.pump)
+    {
+        cio->cio_toggles.pump_change = 1;
+    }
+    
+    // Set state to pump_on and start timer
+    _smart_schedule.temp_reading_state = 1;
+    _smart_schedule.temp_reading_timer = _timestamp_secs + 20; // Run pump for 20 seconds
+    
+    Serial.println(F("SmartSchedule: Starting temp reading - pump on"));
+}
+
+/**
+ * Process temperature reading state machine
+ */
+void BWC::_processAccurateTempReading()
+{
+    switch (_smart_schedule.temp_reading_state)
+    {
+    case 1: // Pump running
+        if (_timestamp_secs >= _smart_schedule.temp_reading_timer)
+        {
+            // 20 seconds passed, move to waiting state
+            _smart_schedule.temp_reading_state = 2;
+            _smart_schedule.temp_reading_timer = _timestamp_secs + 20; // Wait another 20 seconds
+            Serial.println(F("SmartSchedule: Pump run complete - waiting for settling"));
+        }
+        break;
+        
+    case 2: // Waiting for water to settle
+        if (_timestamp_secs >= _smart_schedule.temp_reading_timer)
+        {
+            // 20 seconds wait passed, read temperature
+            _smart_schedule.accurate_temperature = cio->cio_states.temperature;
+            _smart_schedule.temp_reading_state = 3; // Move to reading complete
+            Serial.print(F("SmartSchedule: Accurate temp reading: "));
+            Serial.println(_smart_schedule.accurate_temperature);
+        }
+        break;
+        
+    case 3: // Reading complete
+        // Restore pump state if we changed it
+        if (!_smart_schedule.original_pump_state && cio->cio_states.pump)
+        {
+            cio->cio_toggles.pump_change = 1; // Turn pump back off
+            Serial.println(F("SmartSchedule: Restoring pump state"));
+        }
+        
+        // Calculate heating time with accurate temperature
+        float heating_time_hours = _calculateHeatingTime(
+            _smart_schedule.accurate_temperature,
+            _smart_schedule.target_temp
+        );
+        
+        _smart_schedule.last_heating_estimate = heating_time_hours;
+        
+        Serial.print(F("SmartSchedule: Heating estimate: "));
+        Serial.print(heating_time_hours);
+        Serial.println(F(" hours"));
+        
+        // Calculate when to start heating (with 20% buffer)
+        float buffer_hours = heating_time_hours * 0.20f; // 20% buffer
+        if (buffer_hours < 1.0f) buffer_hours = 1.0f;    // Minimum 1 hour buffer
+        
+        uint64_t total_time_needed = (uint64_t)((heating_time_hours + buffer_hours) * 3600.0f);
+        
+        if (total_time_needed >= (_smart_schedule.target_time - _timestamp_secs))
+        {
+            // Time to start heating NOW!
+            _smart_schedule.calculated_start_time = _timestamp_secs;
+            
+            if (!cio->cio_states.heat)
+            {
+                cio->cio_toggles.heat_change = 1; // Turn on heater
+                Serial.println(F("SmartSchedule: Starting heater NOW!"));
+            }
+        }
+        else
+        {
+            // Calculate exact start time
+            _smart_schedule.calculated_start_time = _smart_schedule.target_time - total_time_needed;
+            Serial.print(F("SmartSchedule: Will start heating at: "));
+            Serial.println(_smart_schedule.calculated_start_time);
+        }
+        
+        // Schedule next check in 20 minutes
+        _smart_schedule.next_check_time = _timestamp_secs + (20 * 60);
+        
+        // Reset temp reading state
+        _smart_schedule.temp_reading_state = 0;
+        
+        _save_smartschedule_needed = true;
+        _new_data_available = true;
+        break;
+    }
+}
+
+/**
+ * Calculate heating time with current and target temperatures
+ * @param current_temp Current temperature in Celsius
+ * @param target_temp Target temperature in Celsius
+ * @return Estimated heating time in hours
+ */
+float BWC::_calculateHeatingTime(uint8_t current_temp, uint8_t target_temp)
+{
+    if (current_temp >= target_temp)
+        return 0.0f; // Already at or above target
+    
+    const int heaterPwr = 2000;                  // Heater power in watts
+    const float heatLoss = 4.85f;                // Heat loss per Kelvin per hour
+    const float tcpH2O = 1.163f;                 // Specific heat capacity of water in Wh/(kg*K)
+    int ambTemp = _ambient_temp;                 // Ambient temperature
+    float curTemp = (float)current_temp;         // Current temperature
+    int poolCapacity = _pool_capacity;           // Water capacity in liters
+    
+    // Calculate efficiency
+    float avgTemp = ((float)target_temp + curTemp) / 2.0f;
+    float heaterEfficiency = 0.99f - ((avgTemp - (float)ambTemp) * 0.005f);
+    heaterEfficiency = std::max(heaterEfficiency, 0.1f);
+    
+    // Net heating power calculation
+    float netHeatingPower = ((float)heaterPwr * heaterEfficiency) - (heatLoss * (avgTemp - (float)ambTemp));
+    
+    if (netHeatingPower <= 0)
+    {
+        return 999.0f; // Impossible to heat (return large number)
+    }
+    
+    // Calculate remaining hours
+    float totalEnergy = (float)poolCapacity * tcpH2O * ((float)target_temp - curTemp);
+    float hoursRemaining = totalEnergy / netHeatingPower;
+    
+    return hoursRemaining;
+}
+
+/**
+ * Load smart schedule from persistent storage
+ */
+void BWC::_loadSmartSchedule()
+{
+    File file = LittleFS.open("/smartschedule.json", "r");
+    if (!file)
+    {
+        // File doesn't exist, use defaults
+        return;
+    }
+    
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    
+    if (error)
+    {
+        Serial.println(F("SmartSchedule: Failed to deserialize"));
+        return;
+    }
+    
+    _smart_schedule.active = doc[F("ACTIVE")] | false;
+    _smart_schedule.target_time = doc[F("TARGETTIME")] | 0;
+    _smart_schedule.target_temp = doc[F("TARGETTEMP")] | 37;
+    _smart_schedule.keep_heater_on = doc[F("KEEPON")] | false;
+    _smart_schedule.calculated_start_time = doc[F("STARTTIME")] | 0;
+    _smart_schedule.next_check_time = doc[F("NEXTCHECK")] | 0;
+    _smart_schedule.last_heating_estimate = doc[F("ESTIMATE")] | 0.0f;
+    _smart_schedule.accurate_temperature = doc[F("ACCURATETEMP")] | 20;
+    
+    // Reset temp reading state (don't persist this)
+    _smart_schedule.temp_reading_state = 0;
+    
+    // If target time has passed, deactivate
+    if (_smart_schedule.active && _smart_schedule.target_time <= _timestamp_secs)
+    {
+        _smart_schedule.active = false;
+    }
+    
+    Serial.println(F("SmartSchedule: Loaded from file"));
+}
+
+/**
+ * Save smart schedule to persistent storage
+ */
+void BWC::_saveSmartSchedule()
+{
+#ifdef ESP8266
+    ESP.wdtFeed();
+#endif
+    
+    _save_smartschedule_needed = false;
+    
+    File file = LittleFS.open("/smartschedule.json", "w");
+    if (!file)
+    {
+        Serial.println(F("SmartSchedule: Failed to save"));
+        return;
+    }
+    
+    StaticJsonDocument<512> doc;
+    
+    doc[F("ACTIVE")] = _smart_schedule.active;
+    doc[F("TARGETTIME")] = _smart_schedule.target_time;
+    doc[F("TARGETTEMP")] = _smart_schedule.target_temp;
+    doc[F("KEEPON")] = _smart_schedule.keep_heater_on;
+    doc[F("STARTTIME")] = _smart_schedule.calculated_start_time;
+    doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
+    doc[F("ESTIMATE")] = _smart_schedule.last_heating_estimate;
+    doc[F("ACCURATETEMP")] = _smart_schedule.accurate_temperature;
+    
+    if (serializeJson(doc, file) == 0)
+    {
+        Serial.println(F("SmartSchedule: Failed to serialize"));
+    }
+    
+    file.close();
+    Serial.println(F("SmartSchedule: Saved to file"));
 }

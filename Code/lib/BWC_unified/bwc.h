@@ -39,6 +39,22 @@ struct command_que_item
     bool overwrite = false;
 };
 
+// Smart Schedule structure for predictive heating
+struct smart_schedule_t
+{
+    bool active = false;                // Is schedule currently active
+    uint64_t target_time = 0;           // When pool should be ready (Unix timestamp)
+    uint8_t target_temp = 37;           // Desired temperature in Celsius
+    bool keep_heater_on = false;        // Keep heating after target reached
+    uint64_t calculated_start_time = 0; // Calculated heating start time
+    uint64_t next_check_time = 0;       // Next check timestamp
+    float last_heating_estimate = 0.0f; // Last calculated heating time in hours
+    uint8_t temp_reading_state = 0;     // 0=idle, 1=pump_on, 2=waiting, 3=reading
+    uint64_t temp_reading_timer = 0;    // Timer for temperature reading sequence
+    bool original_pump_state = false;   // Store original pump state before reading
+    uint8_t accurate_temperature = 0;   // Temperature read after pump circulation
+};
+
 class BWC
 {
 
@@ -86,6 +102,11 @@ public:
     void printStatic(const String &txt);
     void clearStatic();
     void loadCommandQueue();
+    
+    // Smart Schedule methods
+    bool setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on);
+    void cancelSmartSchedule();
+    void getJSONSmartSchedule(String &rtn);
 
     // String getDebugData();
 
@@ -123,6 +144,15 @@ private:
     void _beep();
     void _accord();
     void _log();
+    
+    // Smart Schedule private methods
+    void _handleSmartSchedule();
+    void _startAccurateTempReading();
+    void _processAccurateTempReading();
+    float _calculateHeatingTime(uint8_t current_temp, uint8_t target_temp);
+    void _loadSmartSchedule();
+    void _saveSmartSchedule();
+    bool _save_smartschedule_needed = false;
 
 private:
     bool _notify;
@@ -180,6 +210,9 @@ private:
     unsigned long _temp_change_timestamp_ms, _heatred_change_timestamp_ms;
     unsigned long _pump_change_timestamp_ms, _bubbles_change_timestamp_ms;
     int _deltatemp;
+    
+    // Smart Schedule state
+    smart_schedule_t _smart_schedule;
 };
 
 void save_settings_cb(BWC *bwcInstance);
