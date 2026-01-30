@@ -53,6 +53,7 @@ struct smart_schedule_t
     uint64_t temp_reading_timer = 0;    // Timer for temperature reading sequence
     bool original_pump_state = false;   // Store original pump state before reading
     uint8_t accurate_temperature = 0;   // Temperature read after pump circulation
+    bool check_completed = false;       // True when all periodic checks are done (heating will start soon)
 };
 
 class BWC

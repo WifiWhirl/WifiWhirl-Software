@@ -1776,6 +1776,7 @@ bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_
     _smart_schedule.temp_reading_state = 0;
     _smart_schedule.temp_reading_timer = 0;
     _smart_schedule.accurate_temperature = 0; // Will be read during first temp check cycle
+    _smart_schedule.check_completed = false;  // Reset completion status
     
     _save_smartschedule_needed = true;
     _new_data_available = true;
@@ -1787,11 +1788,18 @@ bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_
 
 /**
  * Cancel active smart schedule
+ * SAFETY: If heater is currently on due to this schedule, turn it off immediately
  */
 void BWC::cancelSmartSchedule()
 {
-    _smart_schedule.active = false;
-    _smart_schedule.temp_reading_state = 0;
+    // Safety: Turn off heater if it was started by this schedule
+    // Check if heater is on AND we had a calculated start time (meaning schedule started it)
+    if (cio->cio_states.heat && _smart_schedule.calculated_start_time > 0 && 
+        _timestamp_secs >= _smart_schedule.calculated_start_time)
+    {
+        cio->cio_toggles.heat_change = 1; // Turn off heater
+        Serial.println(F("SmartSchedule: Cancel - Turning off heater"));
+    }
     
     // Restore pump state if we were in the middle of temp reading
     if (_smart_schedule.temp_reading_state == 1 || _smart_schedule.temp_reading_state == 2)
@@ -1802,6 +1810,10 @@ void BWC::cancelSmartSchedule()
             cio->cio_toggles.pump_change = 1;
         }
     }
+    
+    _smart_schedule.active = false;
+    _smart_schedule.temp_reading_state = 0;
+    _smart_schedule.check_completed = false;
     
     _save_smartschedule_needed = true;
     _new_data_available = true;
@@ -1815,7 +1827,7 @@ void BWC::getJSONSmartSchedule(String &rtn)
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<640> doc;
     
     doc[F("CONTENT")] = F("SMARTSCHEDULE");
     doc[F("ACTIVE")] = _smart_schedule.active;
@@ -1825,6 +1837,7 @@ void BWC::getJSONSmartSchedule(String &rtn)
     doc[F("STARTTIME")] = _smart_schedule.calculated_start_time;
     doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
     doc[F("ESTIMATE")] = _smart_schedule.last_heating_estimate;
+    doc[F("CHECKCOMPLETED")] = _smart_schedule.check_completed;
     doc[F("CURRENTTIME")] = _timestamp_secs;
     doc[F("CURRENTTEMP")] = cio->cio_states.temperature;
     // Use current temperature if accurate temp hasn't been read yet (0 or invalid)
@@ -1843,6 +1856,25 @@ void BWC::getJSONSmartSchedule(String &rtn)
     // Calculate time until start
     int64_t time_until_start = (int64_t)_smart_schedule.calculated_start_time - (int64_t)_timestamp_secs;
     doc[F("TIMEUNTILSTART")] = time_until_start;
+    
+    // Format estimate as HH:mm string for display
+    if (_smart_schedule.last_heating_estimate > 0 && _smart_schedule.last_heating_estimate < 999)
+    {
+        int total_minutes = (int)(_smart_schedule.last_heating_estimate * 60.0f);
+        int hours = total_minutes / 60;
+        int minutes = total_minutes % 60;
+        // Bounds check to prevent buffer overflow (max 999:59)
+        if (hours > 999) hours = 999;
+        if (minutes < 0) minutes = 0;
+        if (minutes > 59) minutes = 59;
+        char estimate_str[16];
+        snprintf(estimate_str, sizeof(estimate_str), "%02d:%02d", hours, minutes);
+        doc[F("ESTIMATE_FMT")] = estimate_str;
+    }
+    else
+    {
+        doc[F("ESTIMATE_FMT")] = "";
+    }
     
     if (serializeJson(doc, rtn) == 0)
     {
@@ -1886,6 +1918,8 @@ void BWC::_handleSmartSchedule()
     {
         if (!cio->cio_states.heat)
         {
+            // Apply target temperature from schedule to global target
+            cio->cio_toggles.target = _smart_schedule.target_temp;
             cio->cio_toggles.heat_change = 1; // Turn on heater
             Serial.println(F("SmartSchedule: Start time reached - turning on heater"));
         }
@@ -1949,58 +1983,106 @@ void BWC::_processAccurateTempReading()
         break;
         
     case 3: // Reading complete
-        // Restore pump state if we changed it
-        if (!_smart_schedule.original_pump_state && cio->cio_states.pump)
         {
-            cio->cio_toggles.pump_change = 1; // Turn pump back off
-            Serial.println(F("SmartSchedule: Restoring pump state"));
-        }
-        
-        // Calculate heating time with accurate temperature
-        float heating_time_hours = _calculateHeatingTime(
-            _smart_schedule.accurate_temperature,
-            _smart_schedule.target_temp
-        );
-        
-        _smart_schedule.last_heating_estimate = heating_time_hours;
-        
-        Serial.print(F("SmartSchedule: Heating estimate: "));
-        Serial.print(heating_time_hours);
-        Serial.println(F(" hours"));
-        
-        // Calculate when to start heating (with 20% buffer)
-        float buffer_hours = heating_time_hours * 0.20f; // 20% buffer
-        if (buffer_hours < 1.0f) buffer_hours = 1.0f;    // Minimum 1 hour buffer
-        
-        uint64_t total_time_needed = (uint64_t)((heating_time_hours + buffer_hours) * 3600.0f);
-        
-        if (total_time_needed >= (_smart_schedule.target_time - _timestamp_secs))
-        {
-            // Time to start heating NOW!
-            _smart_schedule.calculated_start_time = _timestamp_secs;
-            
-            if (!cio->cio_states.heat)
+            // Restore pump state if we changed it
+            if (!_smart_schedule.original_pump_state && cio->cio_states.pump)
             {
-                cio->cio_toggles.heat_change = 1; // Turn on heater
-                Serial.println(F("SmartSchedule: Starting heater NOW!"));
+                cio->cio_toggles.pump_change = 1; // Turn pump back off
+                Serial.println(F("SmartSchedule: Restoring pump state"));
             }
+            
+            // Calculate heating time with accurate temperature
+            float heating_time_hours = _calculateHeatingTime(
+                _smart_schedule.accurate_temperature,
+                _smart_schedule.target_temp
+            );
+            
+            _smart_schedule.last_heating_estimate = heating_time_hours;
+            
+            Serial.print(F("SmartSchedule: Heating estimate: "));
+            Serial.print(heating_time_hours);
+            Serial.println(F(" hours"));
+            
+            // Calculate when to start heating (with 10% buffer, minimum 1 hour)
+            float buffer_hours = heating_time_hours * 0.10f; // 10% buffer
+            if (buffer_hours < 1.0f) buffer_hours = 1.0f;    // Minimum 1 hour buffer
+            
+            uint64_t total_time_needed = (uint64_t)((heating_time_hours + buffer_hours) * 3600.0f);
+            
+            if (total_time_needed >= (_smart_schedule.target_time - _timestamp_secs))
+            {
+                // Time to start heating NOW!
+                _smart_schedule.calculated_start_time = _timestamp_secs;
+                _smart_schedule.check_completed = true; // No more checks needed
+                
+                if (!cio->cio_states.heat)
+                {
+                    // Apply target temperature from schedule to global target
+                    cio->cio_toggles.target = _smart_schedule.target_temp;
+                    cio->cio_toggles.heat_change = 1; // Turn on heater
+                    Serial.println(F("SmartSchedule: Starting heater NOW!"));
+                }
+            }
+            else
+            {
+                // Calculate exact start time
+                _smart_schedule.calculated_start_time = _smart_schedule.target_time - total_time_needed;
+                Serial.print(F("SmartSchedule: Heater starts at: "));
+                Serial.println(_smart_schedule.calculated_start_time);
+                
+                // Calculate time until heating should start (in seconds)
+                int64_t time_until_start = (int64_t)_smart_schedule.calculated_start_time - (int64_t)_timestamp_secs;
+                
+                // Adaptive check interval logic:
+                // - If more than 24 hours until start: check again in 12 hours
+                // - Otherwise: check again in half the remaining time
+                uint64_t next_check_interval;
+                const uint64_t SECS_24H = 24 * 60 * 60;
+                const uint64_t SECS_12H = 12 * 60 * 60;
+                const uint64_t MIN_CHECK_INTERVAL = 5 * 60; // Minimum 5 minutes between checks
+                
+                if (time_until_start > (int64_t)SECS_24H)
+                {
+                    // More than 24 hours away: next check in 12 hours
+                    next_check_interval = SECS_12H;
+                    Serial.println(F("SmartSchedule: >24h until start, next check in 12h"));
+                }
+                else
+                {
+                    // Less than 24 hours: check in half the remaining time
+                    next_check_interval = (uint64_t)(time_until_start / 2);
+                    if (next_check_interval < MIN_CHECK_INTERVAL)
+                    {
+                        next_check_interval = MIN_CHECK_INTERVAL;
+                    }
+                    Serial.print(F("SmartSchedule: next check in "));
+                    Serial.print(next_check_interval / 60);
+                    Serial.println(F(" minutes"));
+                }
+                
+                uint64_t proposed_next_check = _timestamp_secs + next_check_interval;
+                
+                // Completion logic: If next check would be after heating start time,
+                // mark as completed and don't schedule further checks
+                if (proposed_next_check >= _smart_schedule.calculated_start_time)
+                {
+                    _smart_schedule.check_completed = true;
+                    _smart_schedule.next_check_time = _smart_schedule.calculated_start_time;
+                    Serial.println(F("SmartSchedule: Check completed - waiting"));
+                }
+                else
+                {
+                    _smart_schedule.check_completed = false;
+                    _smart_schedule.next_check_time = proposed_next_check;
+                }
+            }
+            
+            // Reset temp reading state
+            _smart_schedule.temp_reading_state = 0;
+            
+            _save_smartschedule_needed = true;
+            _new_data_available = true;
         }
-        else
-        {
-            // Calculate exact start time
-            _smart_schedule.calculated_start_time = _smart_schedule.target_time - total_time_needed;
-            Serial.print(F("SmartSchedule: Will start heating at: "));
-            Serial.println(_smart_schedule.calculated_start_time);
-        }
-        
-        // Schedule next check in 20 minutes
-        _smart_schedule.next_check_time = _timestamp_secs + (20 * 60);
-        
-        // Reset temp reading state
-        _smart_schedule.temp_reading_state = 0;
-        
-        _save_smartschedule_needed = true;
-        _new_data_available = true;
         break;
     }
 }
@@ -2073,6 +2155,7 @@ void BWC::_loadSmartSchedule()
     _smart_schedule.next_check_time = doc[F("NEXTCHECK")] | 0;
     _smart_schedule.last_heating_estimate = doc[F("ESTIMATE")] | 0.0f;
     _smart_schedule.accurate_temperature = doc[F("ACCURATETEMP")] | 20;
+    _smart_schedule.check_completed = doc[F("CHECKCOMPLETED")] | false;
     
     // Reset temp reading state (don't persist this)
     _smart_schedule.temp_reading_state = 0;
@@ -2114,6 +2197,7 @@ void BWC::_saveSmartSchedule()
     doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
     doc[F("ESTIMATE")] = _smart_schedule.last_heating_estimate;
     doc[F("ACCURATETEMP")] = _smart_schedule.accurate_temperature;
+    doc[F("CHECKCOMPLETED")] = _smart_schedule.check_completed;
     
     if (serializeJson(doc, file) == 0)
     {

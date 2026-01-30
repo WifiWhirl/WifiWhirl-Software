@@ -56,13 +56,21 @@ function displayScheduleStatus(data) {
     document.getElementById('statusCurrentTemp').textContent = data.CURRENTTEMP || '--';
     document.getElementById('statusAccurateTemp').textContent = (data.ACCURATETEMP && data.ACCURATETEMP > 0) ? data.ACCURATETEMP + ' °C' : 'Wird gemessen...';
     
-    // Display heating estimate
+    // Display heating estimate in HH:mm format
     if (data.ESTIMATE && data.ESTIMATE > 0) {
       if (data.ESTIMATE >= 999) {
         document.getElementById('statusEstimate').innerHTML = 
           '<span style="color: #ff9800;">Unmöglich zu heizen (Umgebung zu kalt)</span>';
+      } else if (data.ESTIMATE_FMT && data.ESTIMATE_FMT.length > 0) {
+        // Use pre-formatted HH:mm string from backend
+        document.getElementById('statusEstimate').textContent = data.ESTIMATE_FMT + ' Stunden';
       } else {
-        document.getElementById('statusEstimate').textContent = data.ESTIMATE.toFixed(2) + ' Stunden';
+        // Fallback: format locally
+        const totalMinutes = Math.round(data.ESTIMATE * 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const formatted = String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0');
+        document.getElementById('statusEstimate').textContent = formatted + ' Stunden';
       }
     } else {
       document.getElementById('statusEstimate').textContent = 'Wird berechnet...';
@@ -98,8 +106,11 @@ function displayScheduleStatus(data) {
       document.getElementById('statusStartTime').textContent = 'Wird berechnet...';
     }
     
-    // Format next check time
-    if (data.NEXTCHECK) {
+    // Format next check time (or show "completed" status)
+    if (data.CHECKCOMPLETED) {
+      document.getElementById('statusNextCheck').innerHTML = 
+        '<span style="color: #4caf50; font-weight: bold;">Prüfung abgeschlossen</span>';
+    } else if (data.NEXTCHECK) {
       const nextCheckDate = new Date(data.NEXTCHECK * 1000);
       document.getElementById('statusNextCheck').textContent = formatDateTime(nextCheckDate);
     }
@@ -203,10 +214,10 @@ function setSchedule() {
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
       if (xhr.status === 200) {
-        alert('✅ Zeitplan erfolgreich aktiviert!\n\nDas System berechnet nun automatisch, wann die Heizung gestartet werden muss.');
+        alert('✅ Zeitplan aktiviert!\n\nDas System berechnet jetzt automatisch, wann deine Heizung starten muss.');
         updateScheduleStatus();
       } else {
-        alert('❌ Fehler beim Aktivieren des Zeitplans.\n\nMögliche Ursachen:\n- NTP-Zeit ist nicht synchronisiert\n- Ungültige Parameter\n- Verbindungsfehler');
+        alert('❌ Fehler beim Aktivieren.\n\nMögliche Ursachen:\n- Uhrzeit nicht synchronisiert\n- Ungültige Parameter\n- Verbindungsfehler');
       }
     }
   };
@@ -218,7 +229,7 @@ function setSchedule() {
  * Cancel active schedule
  */
 function cancelSchedule() {
-  if (!confirm('Möchtest du den aktiven Zeitplan wirklich abbrechen?')) {
+  if (!confirm('Möchtest du den Zeitplan wirklich abbrechen?')) {
     return;
   }
   
