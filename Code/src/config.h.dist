@@ -56,6 +56,10 @@ bool showSectionTotals = true;
 bool showSectionEnergy = true;
 /** get or set the state of displaying the "Water Quality" section */
 bool showSectionWaterQuality = true;
+/** get or set the state of displaying "Cyanuric Acid" in Water Quality section (default: hidden) */
+bool showWQCyanuric = false;
+/** get or set the state of displaying "Alkalinity" in Water Quality section (default: hidden) */
+bool showWQAlkalinity = false;
 /** get or set the state of displaying slider or selector */
 bool useControlSelector = false;
 /** get the state of password visibility */

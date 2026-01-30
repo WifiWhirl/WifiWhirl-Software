@@ -29,6 +29,10 @@ BWC::BWC()
     _ambient_temp = 20;
     _last_ph_value = 72;           // Default pH 7.2 (stored as 72)
     _last_cl_value = 10;           // Default 1.0 mg/L (stored as 10)
+    _last_cya_value = 300;         // Default 30.0 mg/L (stored as 300)
+    _last_alk_value = 100;         // Default 100 ppm
+    _cya_timestamp_s = 0;
+    _alk_timestamp_s = 0;
 }
 
 BWC::~BWC()
@@ -517,6 +521,26 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
             _new_data_available = true;
         }
         break;
+    case SETCYAVALUE:
+        // Cyanuric acid value * 10 (e.g. 300 = 30.0 mg/L), valid range 0-1000 (0.0-100.0 mg/L)
+        if (val >= 0 && val <= 1000)
+        {
+            _last_cya_value = (uint16_t)val;
+            _cya_timestamp_s = _timestamp_secs;
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
+        break;
+    case SETALKVALUE:
+        // Alkalinity value in ppm, valid range 0-300
+        if (val >= 0 && val <= 300)
+        {
+            _last_alk_value = (uint16_t)val;
+            _alk_timestamp_s = _timestamp_secs;
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
+        break;
     case SETJETS:
         if (val != cio->cio_states.jets)
             cio->cio_toggles.jets_change = 1;
@@ -909,6 +933,10 @@ void BWC::getJSONTimes(String &rtn)
     doc[F("PHVAL")] = _last_ph_value;
     doc[F("CLVTIME")] = _clv_timestamp_s;
     doc[F("CLVAL")] = _last_cl_value;
+    doc[F("CYATIME")] = _cya_timestamp_s;
+    doc[F("CYAVAL")] = _last_cya_value;
+    doc[F("ALKTIME")] = _alk_timestamp_s;
+    doc[F("ALKVAL")] = _last_alk_value;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws / 3600000.0; // Ws -> kWh
     doc[F("WATT")] = _energy_power_W;
@@ -1245,6 +1273,10 @@ void BWC::_loadSettings()
     _ph_interval = doc[F("PHINT")] | 3;
     _last_ph_value = doc[F("PHVAL")] | 72;
     _last_cl_value = doc[F("CLVAL")] | 10;
+    _last_cya_value = doc[F("CYAVAL")] | 300;
+    _last_alk_value = doc[F("ALKVAL")] | 100;
+    _cya_timestamp_s = doc[F("CYATIME")] | 0;
+    _alk_timestamp_s = doc[F("ALKTIME")] | 0;
     _audio_enabled = doc[F("AUDIO")];
     _notify = doc[F("NOTIFY")];
     _notification_time = doc[F("NOTIFTIME")];
@@ -1543,6 +1575,10 @@ void BWC::saveSettings()
     doc[F("PHINT")] = _ph_interval;
     doc[F("PHVAL")] = _last_ph_value;
     doc[F("CLVAL")] = _last_cl_value;
+    doc[F("CYAVAL")] = _last_cya_value;
+    doc[F("ALKVAL")] = _last_alk_value;
+    doc[F("CYATIME")] = _cya_timestamp_s;
+    doc[F("ALKTIME")] = _alk_timestamp_s;
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;

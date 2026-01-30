@@ -35,6 +35,8 @@ const cmdMap = {
   resetTimerPh: 27,
   setPhValue: 28,
   setClValue: 29,
+  setCyaValue: 30,
+  setAlkValue: 31,
 };
 
 // button element ID mapping
@@ -56,6 +58,20 @@ const dspBrtMultiplier = 16;
 // update states
 updateTempState = false;
 updateAmbState = false;
+
+// water quality editing states and debounce timers
+var wqEditingState = {
+  ph: false,
+  cl: false,
+  cya: false,
+  alk: false
+};
+var wqDebounceTimers = {
+  ph: null,
+  cl: null,
+  cya: null,
+  alk: null
+};
 updateBrtState = false;
 
 // initial connect to the web socket
@@ -391,44 +407,148 @@ function handlemsg(e) {
         .toString()
         .replace(".", ",");
 
-      // water quality - pH value
-      var phTime = (Date.now() / 1000 - msgobj.PHTIME) / (24 * 3600.0);
-      var phTimeRound = Math.round(phTime);
+      // water quality - pH value (only update if not editing)
+      var phTimeSec = Math.floor(Date.now() / 1000 - msgobj.PHTIME);
       var phVal = (msgobj.PHVAL || 72) / 10;
-      document.getElementById("phtimer").innerHTML = getTimeSinceText(phTimeRound);
-      document.getElementById("phinput").value = phVal.toFixed(1);
+      document.getElementById("phtimer").innerHTML = getTimeSinceText(phTimeSec);
+      if (!wqEditingState.ph) {
+        document.getElementById("phinput").value = phVal.toFixed(1).replace(".", ",");
+      }
 
-      // water quality - Chlorine value (separate timestamp)
-      var clvTime = (Date.now() / 1000 - msgobj.CLVTIME) / (24 * 3600.0);
-      var clvTimeRound = Math.round(clvTime);
+      // water quality - Chlorine value (only update if not editing)
+      var clvTimeSec = Math.floor(Date.now() / 1000 - msgobj.CLVTIME);
       var clVal = (msgobj.CLVAL || 10) / 10;
-      document.getElementById("cltimer2").innerHTML = getTimeSinceText(clvTimeRound);
-      document.getElementById("clinput").value = clVal.toFixed(1);
+      document.getElementById("cltimer2").innerHTML = getTimeSinceText(clvTimeSec);
+      if (!wqEditingState.cl) {
+        document.getElementById("clinput").value = clVal.toFixed(1).replace(".", ",");
+      }
+
+      // water quality - Cyanuric acid (only update if not editing)
+      var cyaTimeSec = Math.floor(Date.now() / 1000 - (msgobj.CYATIME || 0));
+      var cyaVal = (msgobj.CYAVAL || 0) / 10;
+      if (document.getElementById("cyatimer")) {
+        document.getElementById("cyatimer").innerHTML = getTimeSinceText(cyaTimeSec);
+      }
+      if (document.getElementById("cyainput") && !wqEditingState.cya) {
+        document.getElementById("cyainput").value = cyaVal.toFixed(1).replace(".", ",");
+      }
+
+      // water quality - Alkalinity (only update if not editing)
+      var alkTimeSec = Math.floor(Date.now() / 1000 - (msgobj.ALKTIME || 0));
+      var alkVal = msgobj.ALKVAL || 0;
+      if (document.getElementById("alktimer")) {
+        document.getElementById("alktimer").innerHTML = getTimeSinceText(alkTimeSec);
+      }
+      if (document.getElementById("alkinput") && !wqEditingState.alk) {
+        document.getElementById("alkinput").value = alkVal;
+      }
     }
   } catch (error) {
     console.error(error);
   }
 }
 
-function getTimeSinceText(days) {
-  if (days < 1) return "gerade eben";
+// getTimeSinceText expects seconds (not days) for precise time display
+function getTimeSinceText(seconds) {
+  // "gerade eben" only for the last 60 seconds
+  if (seconds < 60) return "gerade eben";
+  
+  // minutes (1-59 min)
+  var minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    if (minutes == 1) return "vor einer Minute";
+    return "vor " + minutes + " Minuten";
+  }
+  
+  // hours (1-23 h)
+  var hours = Math.floor(seconds / 3600);
+  if (hours < 24) {
+    if (hours == 1) return "vor einer Stunde";
+    return "vor " + hours + " Stunden";
+  }
+  
+  // days (1+)
+  var days = Math.floor(seconds / 86400);
   if (days == 1) return "vor einem Tag";
   return "vor " + days + " Tagen";
 }
 
+// Parse value with comma or dot as decimal separator
+function parseWqValue(inputValue) {
+  return parseFloat(inputValue.toString().replace(",", "."));
+}
+
+// Called on input change - starts editing state and debounce timer
+function onPhInput() {
+  wqEditingState.ph = true;
+  if (wqDebounceTimers.ph) clearTimeout(wqDebounceTimers.ph);
+  wqDebounceTimers.ph = setTimeout(function() {
+    savePhValue();
+    wqEditingState.ph = false;
+  }, 1000);
+}
+
 function savePhValue() {
-  var val = parseFloat(document.getElementById("phinput").value);
+  var val = parseWqValue(document.getElementById("phinput").value);
   if (val >= 0 && val <= 14) {
     sendCommandWithValue("setPhValue", Math.round(val * 10));
     document.getElementById("phtimer").innerHTML = "gerade eben";
   }
 }
 
+// Called on input change - starts editing state and debounce timer
+function onClInput() {
+  wqEditingState.cl = true;
+  if (wqDebounceTimers.cl) clearTimeout(wqDebounceTimers.cl);
+  wqDebounceTimers.cl = setTimeout(function() {
+    saveClValue();
+    wqEditingState.cl = false;
+  }, 1000);
+}
+
 function saveClValue() {
-  var val = parseFloat(document.getElementById("clinput").value);
+  var val = parseWqValue(document.getElementById("clinput").value);
   if (val >= 0 && val <= 10) {
     sendCommandWithValue("setClValue", Math.round(val * 10));
     document.getElementById("cltimer2").innerHTML = "gerade eben";
+  }
+}
+
+// Called on input change - starts editing state and debounce timer
+function onCyaInput() {
+  wqEditingState.cya = true;
+  if (wqDebounceTimers.cya) clearTimeout(wqDebounceTimers.cya);
+  wqDebounceTimers.cya = setTimeout(function() {
+    saveCyaValue();
+    wqEditingState.cya = false;
+  }, 1000);
+}
+
+// Save cyanuric acid value (Cyanursäure) - range 0-100 mg/L
+function saveCyaValue() {
+  var val = parseWqValue(document.getElementById("cyainput").value);
+  if (val >= 0 && val <= 100) {
+    sendCommandWithValue("setCyaValue", Math.round(val * 10));
+    document.getElementById("cyatimer").innerHTML = "gerade eben";
+  }
+}
+
+// Called on input change - starts editing state and debounce timer
+function onAlkInput() {
+  wqEditingState.alk = true;
+  if (wqDebounceTimers.alk) clearTimeout(wqDebounceTimers.alk);
+  wqDebounceTimers.alk = setTimeout(function() {
+    saveAlkValue();
+    wqEditingState.alk = false;
+  }, 1000);
+}
+
+// Save alkalinity value (Alkalinität) - range 0-300 ppm
+function saveAlkValue() {
+  var val = parseInt(document.getElementById("alkinput").value);
+  if (val >= 0 && val <= 300) {
+    sendCommandWithValue("setAlkValue", val);
+    document.getElementById("alktimer").innerHTML = "gerade eben";
   }
 }
 

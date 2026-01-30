@@ -413,40 +413,76 @@
             <td>pH-Wert</td>
             <td>
               <input
-                type="number"
+                type="text"
                 id="phinput"
                 class="wq-input"
-                min="0"
-                max="14"
-                step="0.1"
-                value="7.2"
-                onchange="savePhValue()"
+                inputmode="decimal"
+                pattern="[0-9]+([,\.][0-9]+)?"
+                value="7,2"
+                oninput="onPhInput()"
               />
             </td>
           </tr>
           <tr>
             <td colspan="2" class="wq-info-row">
-              Idealwert: 7.2 - 7.6 · Zuletzt: <span id="phtimer">unbek.</span>
+              Idealwert: 7,2 - 7,6 · Zuletzt: <span id="phtimer">unbek.</span>
             </td>
           </tr>
           <tr>
             <td>Chlor (mg/L)</td>
             <td>
               <input
-                type="number"
+                type="text"
                 id="clinput"
                 class="wq-input"
-                min="0"
-                max="10"
-                step="0.1"
-                value="1.0"
-                onchange="saveClValue()"
+                inputmode="decimal"
+                pattern="[0-9]+([,\.][0-9]+)?"
+                value="1,0"
+                oninput="onClInput()"
               />
             </td>
           </tr>
           <tr>
             <td colspan="2" class="wq-info-row">
-              Idealwert: 1.0 - 3.0 · Zuletzt: <span id="cltimer2">unbek.</span>
+              Idealwert: 1,0 - 3,0 · Zuletzt: <span id="cltimer2">unbek.</span>
+            </td>
+          </tr>
+          <tr id="rowCyaValue">
+            <td>Cyanursäure (mg/L)</td>
+            <td>
+              <input
+                type="text"
+                id="cyainput"
+                class="wq-input"
+                inputmode="decimal"
+                pattern="[0-9]+([,\.][0-9]+)?"
+                value="30,0"
+                oninput="onCyaInput()"
+              />
+            </td>
+          </tr>
+          <tr id="rowCyaInfo">
+            <td colspan="2" class="wq-info-row">
+              Idealwert: 30 - 50 · Zuletzt: <span id="cyatimer">unbek.</span>
+            </td>
+          </tr>
+          <tr id="rowAlkValue">
+            <td>Alkalinität (ppm)</td>
+            <td>
+              <input
+                type="text"
+                id="alkinput"
+                class="wq-input"
+                inputmode="numeric"
+                pattern="[0-9]+"
+                value="100"
+                oninput="onAlkInput()"
+              />
+            </td>
+          </tr>
+          <tr id="rowAlkInfo">
+            <td colspan="2" class="wq-info-row">
+              Idealwert: 80 - 120 · Zuletzt: <span id="alktimer">unbek.</span>
             </td>
           </tr>
         </table>
@@ -523,7 +559,7 @@
             <td><span id="energy_total">unbek.</span> kWh</td>
           </tr>
           <tr>
-            <td>Geschätzte Energiekosten:</td>
+            <td>Geschätzte Kosten:</td>
             <td><span id="cost">unbek.</span> €</td>
           </tr>
         </table>
@@ -601,6 +637,14 @@
           localStorage.getItem("showSectionWaterQuality") !== "false"
             ? "block"
             : "none";
+        // Cyanursäure visibility (default: hidden)
+        var showCya = localStorage.getItem("showWQCyanuric") === "true";
+        document.getElementById("rowCyaValue").style.display = showCya ? "" : "none";
+        document.getElementById("rowCyaInfo").style.display = showCya ? "" : "none";
+        // Alkalinität visibility (default: hidden)
+        var showAlk = localStorage.getItem("showWQAlkalinity") === "true";
+        document.getElementById("rowAlkValue").style.display = showAlk ? "" : "none";
+        document.getElementById("rowAlkInfo").style.display = showAlk ? "" : "none";
         document.getElementById("tableSlider").style.display =
           localStorage.getItem("useControlSelector") !== "false"
             ? "none"
@@ -626,6 +670,8 @@
             localStorage.setItem("showSectionTimer", json.SSTIM);
             localStorage.setItem("showSectionTotals", json.SSTOT);
             localStorage.setItem("showSectionWaterQuality", json.SSWQ !== false);
+            localStorage.setItem("showWQCyanuric", json.SWQCYA === true);
+            localStorage.setItem("showWQAlkalinity", json.SWQALK === true);
             localStorage.setItem("useControlSelector", json.UCS);
             setWebConfig();
           }

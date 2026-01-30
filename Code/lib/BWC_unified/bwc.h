@@ -173,8 +173,12 @@ private:
     uint32_t _wc_timestamp_s;
     uint32_t _ph_timestamp_s;      // pH check timestamp
     uint32_t _clv_timestamp_s;     // Chlorine value check timestamp (separate from chlorine addition)
+    uint32_t _cya_timestamp_s;     // Cyanuric acid check timestamp
+    uint32_t _alk_timestamp_s;     // Alkalinity check timestamp
     uint16_t _last_ph_value;       // Last pH value * 10 (e.g. 72 = 7.2 pH)
     uint16_t _last_cl_value;       // Last chlorine value * 10 (e.g. 15 = 1.5 mg/L)
+    uint16_t _last_cya_value;      // Last cyanuric acid value * 10 (e.g. 300 = 30.0 mg/L)
+    uint16_t _last_alk_value;      // Last alkalinity value in ppm (e.g. 100 = 100 ppm)
     uint32_t _uptime;
     uint32_t _pumptime;
     uint32_t _heatingtime;

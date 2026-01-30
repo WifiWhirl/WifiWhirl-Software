@@ -131,6 +131,26 @@
             </td>
           </tr>
           <tr>
+            <td>Zeige "Cyanursäure" (Wasserqualität)</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="showWQCyanuric" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+          <tr>
+            <td>Zeige "Alkalinität" (Wasserqualität)</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="showWQAlkalinity" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+          <tr>
             <td>Verwende Auswahl (anstatt Schieberegler)</td>
             <td>
               <label class="switch"
@@ -182,6 +202,10 @@
           localStorage.getItem("showSectionEnergy") === "true";
         document.getElementById("showSectionWaterQuality").checked =
           localStorage.getItem("showSectionWaterQuality") !== "false";
+        document.getElementById("showWQCyanuric").checked =
+          localStorage.getItem("showWQCyanuric") === "true";
+        document.getElementById("showWQAlkalinity").checked =
+          localStorage.getItem("showWQAlkalinity") === "true";
         document.getElementById("useControlSelector").checked =
           localStorage.getItem("useControlSelector") === "true";
       }
@@ -220,6 +244,14 @@
           document.getElementById("showSectionWaterQuality").checked
         );
         localStorage.setItem(
+          "showWQCyanuric",
+          document.getElementById("showWQCyanuric").checked
+        );
+        localStorage.setItem(
+          "showWQAlkalinity",
+          document.getElementById("showWQAlkalinity").checked
+        );
+        localStorage.setItem(
           "useControlSelector",
           document.getElementById("useControlSelector").checked
         );
@@ -244,6 +276,10 @@
             document.getElementById("showSectionEnergy").checked = json.SSEN;
             document.getElementById("showSectionWaterQuality").checked = 
               json.SSWQ !== false;
+            document.getElementById("showWQCyanuric").checked = 
+              json.SWQCYA === true;
+            document.getElementById("showWQAlkalinity").checked = 
+              json.SWQALK === true;
             document.getElementById("useControlSelector").checked = json.UCS;
           }
         };
@@ -261,6 +297,8 @@
           SSTOT: document.getElementById("showSectionTotals").checked,
           SSEN: document.getElementById("showSectionEnergy").checked,
           SSWQ: document.getElementById("showSectionWaterQuality").checked,
+          SWQCYA: document.getElementById("showWQCyanuric").checked,
+          SWQALK: document.getElementById("showWQAlkalinity").checked,
           UCS: document.getElementById("useControlSelector").checked,
         };
         req.send(JSON.stringify(json));
