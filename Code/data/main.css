@@ -887,3 +887,7 @@ input:checked + .slider:before {
   padding-top: 2px !important;
   padding-bottom: 12px !important;
 }
+
+.label-subtle {
+  opacity: 0.7;
+}

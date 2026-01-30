@@ -340,44 +340,40 @@ function handlemsg(e) {
       document.getElementById("time").innerHTML = date.toLocaleString();
 
       // chlorine add reset timer
-      var clDate = (Date.now() / 1000 - msgobj.CLTIME) / (24 * 3600.0);
-      var clDateRound = Math.round(clDate);
-      document.getElementById("cltimer").innerHTML =
-        (clDateRound == 1 ? "einem" : clDateRound) +
-        "  Tag" +
-        (clDateRound != 1 ? "en" : "");
+      var clTimeSec = Math.floor(Date.now() / 1000 - msgobj.CLTIME);
+      var clDays = clTimeSec / (24 * 3600);
+      var clTimerEl = document.getElementById("cltimer");
+      clTimerEl.innerHTML = getTimeSinceText(clTimeSec);
+      clTimerEl.title = formatTimestamp(msgobj.CLTIME);
       document.getElementById("cltimerbtn").className =
-        clDate > msgobj.CLINT ? "button_red" : "button";
+        (clDays > msgobj.CLINT && clTimeSec <= TWENTY_YEARS_SEC) ? "button_red" : "button";
 
       // filter change reset timer
-      var fDate = (Date.now() / 1000 - msgobj.FTIME) / (24 * 3600.0);
-      var fDateRound = Math.round(fDate);
-      document.getElementById("ftimer").innerHTML =
-        (fDateRound == 1 ? "einem " : fDateRound) +
-        " Tag" +
-        (fDateRound != 1 ? "en" : "");
+      var fTimeSec = Math.floor(Date.now() / 1000 - msgobj.FTIME);
+      var fDays = fTimeSec / (24 * 3600);
+      var fTimerEl = document.getElementById("ftimer");
+      fTimerEl.innerHTML = getTimeSinceText(fTimeSec);
+      fTimerEl.title = formatTimestamp(msgobj.FTIME);
       document.getElementById("ftimerbtn").className =
-        fDate > msgobj.FINT ? "button_red" : "button";
+        (fDays > msgobj.FINT && fTimeSec <= TWENTY_YEARS_SEC) ? "button_red" : "button";
 
       // filter clean reset timer
-      var fDate = (Date.now() / 1000 - msgobj.FCTIME) / (24 * 3600.0);
-      var fDateRound = Math.round(fDate);
-      document.getElementById("fctimer").innerHTML =
-        (fDateRound == 1 ? "einem " : fDateRound) +
-        " Tag" +
-        (fDateRound != 1 ? "en" : "");
+      var fcTimeSec = Math.floor(Date.now() / 1000 - msgobj.FCTIME);
+      var fcDays = fcTimeSec / (24 * 3600);
+      var fcTimerEl = document.getElementById("fctimer");
+      fcTimerEl.innerHTML = getTimeSinceText(fcTimeSec);
+      fcTimerEl.title = formatTimestamp(msgobj.FCTIME);
       document.getElementById("fctimerbtn").className =
-        fDate > msgobj.FCINT ? "button_red" : "button";
+        (fcDays > msgobj.FCINT && fcTimeSec <= TWENTY_YEARS_SEC) ? "button_red" : "button";
 
       // water change reset timer
-      var fDate = (Date.now() / 1000 - msgobj.WCTIME) / (24 * 3600.0);
-      var fDateRound = Math.round(fDate);
-      document.getElementById("wctimer").innerHTML =
-        (fDateRound == 1 ? "einem " : fDateRound) +
-        " Tag" +
-        (fDateRound != 1 ? "en" : "");
+      var wcTimeSec = Math.floor(Date.now() / 1000 - msgobj.WCTIME);
+      var wcDays = wcTimeSec / (24 * 3600);
+      var wcTimerEl = document.getElementById("wctimer");
+      wcTimerEl.innerHTML = getTimeSinceText(wcTimeSec);
+      wcTimerEl.title = formatTimestamp(msgobj.WCTIME);
       document.getElementById("wctimerbtn").className =
-        fDate > msgobj.WCINT ? "button_red" : "button";
+        (wcDays > msgobj.WCINT && wcTimeSec <= TWENTY_YEARS_SEC) ? "button_red" : "button";
 
       // statistics
       document.getElementById("heatingtime").innerHTML = s2dhms(
@@ -410,7 +406,9 @@ function handlemsg(e) {
       // water quality - pH value (only update if not editing)
       var phTimeSec = Math.floor(Date.now() / 1000 - msgobj.PHTIME);
       var phVal = (msgobj.PHVAL || 72) / 10;
-      document.getElementById("phtimer").innerHTML = getTimeSinceText(phTimeSec);
+      var phTimerEl = document.getElementById("phtimer");
+      phTimerEl.innerHTML = getTimeSinceText(phTimeSec);
+      phTimerEl.title = formatTimestamp(msgobj.PHTIME);
       if (!wqEditingState.ph) {
         document.getElementById("phinput").value = phVal.toFixed(1).replace(".", ",");
       }
@@ -418,7 +416,9 @@ function handlemsg(e) {
       // water quality - Chlorine value (only update if not editing)
       var clvTimeSec = Math.floor(Date.now() / 1000 - msgobj.CLVTIME);
       var clVal = (msgobj.CLVAL || 10) / 10;
-      document.getElementById("cltimer2").innerHTML = getTimeSinceText(clvTimeSec);
+      var clvTimerEl = document.getElementById("cltimer2");
+      clvTimerEl.innerHTML = getTimeSinceText(clvTimeSec);
+      clvTimerEl.title = formatTimestamp(msgobj.CLVTIME);
       if (!wqEditingState.cl) {
         document.getElementById("clinput").value = clVal.toFixed(1).replace(".", ",");
       }
@@ -426,8 +426,10 @@ function handlemsg(e) {
       // water quality - Cyanuric acid (only update if not editing)
       var cyaTimeSec = Math.floor(Date.now() / 1000 - (msgobj.CYATIME || 0));
       var cyaVal = (msgobj.CYAVAL || 0) / 10;
-      if (document.getElementById("cyatimer")) {
-        document.getElementById("cyatimer").innerHTML = getTimeSinceText(cyaTimeSec);
+      var cyaTimerEl = document.getElementById("cyatimer");
+      if (cyaTimerEl) {
+        cyaTimerEl.innerHTML = getTimeSinceText(cyaTimeSec);
+        cyaTimerEl.title = formatTimestamp(msgobj.CYATIME);
       }
       if (document.getElementById("cyainput") && !wqEditingState.cya) {
         document.getElementById("cyainput").value = cyaVal.toFixed(1).replace(".", ",");
@@ -436,8 +438,10 @@ function handlemsg(e) {
       // water quality - Alkalinity (only update if not editing)
       var alkTimeSec = Math.floor(Date.now() / 1000 - (msgobj.ALKTIME || 0));
       var alkVal = msgobj.ALKVAL || 0;
-      if (document.getElementById("alktimer")) {
-        document.getElementById("alktimer").innerHTML = getTimeSinceText(alkTimeSec);
+      var alkTimerEl = document.getElementById("alktimer");
+      if (alkTimerEl) {
+        alkTimerEl.innerHTML = getTimeSinceText(alkTimeSec);
+        alkTimerEl.title = formatTimestamp(msgobj.ALKTIME);
       }
       if (document.getElementById("alkinput") && !wqEditingState.alk) {
         document.getElementById("alkinput").value = alkVal;
@@ -448,8 +452,29 @@ function handlemsg(e) {
   }
 }
 
+// 20 years in seconds (threshold for "noch nie" / never)
+const TWENTY_YEARS_SEC = 20 * 365 * 24 * 3600;
+
+// Format Unix timestamp to German date format "DD.MM.YYYY HH:mm Uhr"
+// Returns empty string if timestamp is invalid (> 20 years ago)
+function formatTimestamp(unixTimestamp) {
+  if (!unixTimestamp || unixTimestamp <= 0) return "";
+  var timeSinceSec = Math.floor(Date.now() / 1000) - unixTimestamp;
+  if (timeSinceSec > TWENTY_YEARS_SEC) return "";
+  var date = new Date(unixTimestamp * 1000);
+  var day = String(date.getDate()).padStart(2, '0');
+  var month = String(date.getMonth() + 1).padStart(2, '0');
+  var year = date.getFullYear();
+  var hours = String(date.getHours()).padStart(2, '0');
+  var minutes = String(date.getMinutes()).padStart(2, '0');
+  return day + "." + month + "." + year + " " + hours + ":" + minutes + " Uhr";
+}
+
 // getTimeSinceText expects seconds (not days) for precise time display
 function getTimeSinceText(seconds) {
+  // If timestamp is more than 20 years in the past, show "noch nie"
+  if (seconds > TWENTY_YEARS_SEC) return "noch nie";
+  
   // "gerade eben" only for the last 60 seconds
   if (seconds < 60) return "gerade eben";
   
