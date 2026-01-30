@@ -1387,6 +1387,8 @@ void loadWebConfig()
     showSectionTotals = (doc.containsKey("SSTOT") ? doc[F("SSTOT")] : true);
     showSectionEnergy = (doc.containsKey("SSEN") ? doc[F("SSEN")] : true);
     showSectionWaterQuality = (doc.containsKey("SSWQ") ? doc[F("SSWQ")] : true);
+    showWQCyanuric = (doc.containsKey("SWQCYA") ? doc[F("SWQCYA")] : false);
+    showWQAlkalinity = (doc.containsKey("SWQALK") ? doc[F("SWQALK")] : false);
     useControlSelector = (doc.containsKey("UCS") ? doc[F("UCS")] : false);
 }
 
@@ -1413,6 +1415,8 @@ void saveWebConfig()
     doc[F("SSTOT")] = showSectionTotals;
     doc[F("SSEN")] = showSectionEnergy;
     doc[F("SSWQ")] = showSectionWaterQuality;
+    doc[F("SWQCYA")] = showWQCyanuric;
+    doc[F("SWQALK")] = showWQAlkalinity;
     doc[F("UCS")] = useControlSelector;
 
     if (serializeJson(doc, file) == 0)
@@ -1442,6 +1446,8 @@ void handleGetWebConfig()
     doc[F("SSTOT")] = showSectionTotals;
     doc[F("SSEN")] = showSectionEnergy;
     doc[F("SSWQ")] = showSectionWaterQuality;
+    doc[F("SWQCYA")] = showWQCyanuric;
+    doc[F("SWQALK")] = showWQAlkalinity;
     doc[F("UCS")] = useControlSelector;
 
     String json;
@@ -1480,6 +1486,8 @@ void handleSetWebConfig()
     showSectionTotals = doc[F("SSTOT")];
     showSectionEnergy = doc[F("SSEN")];
     showSectionWaterQuality = doc.containsKey("SSWQ") ? doc[F("SSWQ")] : true;
+    showWQCyanuric = doc.containsKey("SWQCYA") ? doc[F("SWQCYA")] : false;
+    showWQAlkalinity = doc.containsKey("SWQALK") ? doc[F("SWQALK")] : false;
     useControlSelector = doc[F("UCS")];
 
     saveWebConfig();

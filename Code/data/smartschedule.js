@@ -125,7 +125,7 @@ function displayScheduleStatus(data) {
       const timeUntilStart = data.TIMEUNTILSTART;
       if (timeUntilStart <= 0) {
         document.getElementById('statusTimeUntilStart').innerHTML = 
-          '<span style="color: #4caf50; font-weight: bold;">Jetzt! (Heizung sollte laufen)</span>';
+          '<span style="color: #4caf50; font-weight: bold;">Jetzt! (Heizung läuft)</span>';
       } else {
         document.getElementById('statusTimeUntilStart').textContent = formatDuration(timeUntilStart);
       }

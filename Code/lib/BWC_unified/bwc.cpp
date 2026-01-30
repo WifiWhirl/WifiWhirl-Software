@@ -1825,6 +1825,7 @@ bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_
 /**
  * Cancel active smart schedule
  * SAFETY: If heater is currently on due to this schedule, turn it off immediately
+ * SAFETY: If pump was turned on for temp reading, restore original state
  */
 void BWC::cancelSmartSchedule()
 {
@@ -1837,13 +1838,15 @@ void BWC::cancelSmartSchedule()
         Serial.println(F("SmartSchedule: Cancel - Turning off heater"));
     }
     
-    // Restore pump state if we were in the middle of temp reading
-    if (_smart_schedule.temp_reading_state == 1 || _smart_schedule.temp_reading_state == 2)
+    // Restore pump state if we were in the middle of temp reading (states 1, 2, or 3)
+    // Check if we turned on the pump (original was off) and pump is currently on
+    if (_smart_schedule.temp_reading_state > 0)
     {
         if (!_smart_schedule.original_pump_state && cio->cio_states.pump)
         {
-            // We turned pump on, turn it back off
+            // We turned pump on for temp reading, turn it back off
             cio->cio_toggles.pump_change = 1;
+            Serial.println(F("SmartSchedule: Cancel - Restoring pump state (off)"));
         }
     }
     
