@@ -12,6 +12,8 @@ BWC::BWC()
     _filter_timestamp_s = time(nullptr);
     _fc_timestamp_s = time(nullptr);
     _wc_timestamp_s = time(nullptr);
+    _ph_timestamp_s = time(nullptr);
+    _clv_timestamp_s = time(nullptr);
     _uptime = 0;
     _pumptime = 0;
     _heatingtime = 0;
@@ -22,8 +24,11 @@ BWC::BWC()
     _filter_interval = 30;
     _fc_interval = 60;
     _wc_interval = 90;
+    _ph_interval = 3;              // Check pH every 3 days by default
     _audio_enabled = true;
     _ambient_temp = 20;
+    _last_ph_value = 72;           // Default pH 7.2 (stored as 72)
+    _last_cl_value = 10;           // Default 1.0 mg/L (stored as 10)
 }
 
 BWC::~BWC()
@@ -206,7 +211,7 @@ void BWC::_log()
     prev_fromcio = fromcio;
     prev_fromdsp = fromdsp;
 
-    File file = LittleFS.open("log.txt", "a");
+    File file = LittleFS.open("/log.txt", "a");
     if (!file)
     {
         // Serial.println(F("Failed to save states.txt"));
@@ -486,6 +491,31 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         _wc_timestamp_s = _timestamp_secs;
         _save_settings_needed = true;
         _new_data_available = true;
+        break;
+    case RESETPHTIMER:
+        _ph_timestamp_s = _timestamp_secs;
+        _save_settings_needed = true;
+        _new_data_available = true;
+        break;
+    case SETPHVALUE:
+        // pH value * 10 (e.g. 72 = 7.2 pH), valid range 0-140 (0.0-14.0)
+        if (val >= 0 && val <= 140)
+        {
+            _last_ph_value = (uint16_t)val;
+            _ph_timestamp_s = _timestamp_secs; // Also update timestamp when value is set
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
+        break;
+    case SETCLVALUE:
+        // Chlorine value * 10 (e.g. 15 = 1.5 mg/L), valid range 0-100 (0.0-10.0 mg/L)
+        if (val >= 0 && val <= 100)
+        {
+            _last_cl_value = (uint16_t)val;
+            _clv_timestamp_s = _timestamp_secs; // Update chlorine value check timestamp
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
         break;
     case SETJETS:
         if (val != cio->cio_states.jets)
@@ -874,6 +904,11 @@ void BWC::getJSONTimes(String &rtn)
     doc[F("FINT")] = _filter_interval;
     doc[F("FCINT")] = _fc_interval;
     doc[F("WCINT")] = _wc_interval;
+    doc[F("PHTIME")] = _ph_timestamp_s;
+    doc[F("PHINT")] = _ph_interval;
+    doc[F("PHVAL")] = _last_ph_value;
+    doc[F("CLVTIME")] = _clv_timestamp_s;
+    doc[F("CLVAL")] = _last_cl_value;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws / 3600000.0; // Ws -> kWh
     doc[F("WATT")] = _energy_power_W;
@@ -898,14 +933,13 @@ void BWC::getJSONTimes(String &rtn)
 
 void BWC::getJSONSettings(String &rtn)
 {
-// Allocate a temporary JsonDocument
-// Don't forget to change the capacity to match your requirements.
-// Use arduinojson.org/assistant to compute the capacity.
 // feed the dog
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    DynamicJsonDocument doc(1024);
+    _loadSettings();
+
+    DynamicJsonDocument doc(2048);
 
     // Set the values in the document
     doc[F("CONTENT")] = F("SETTINGS");
@@ -914,6 +948,7 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("FINT")] = _filter_interval;
     doc[F("FCINT")] = _fc_interval;
     doc[F("WCINT")] = _wc_interval;
+    doc[F("PHINT")] = _ph_interval;
     doc[F("AUDIO")] = _audio_enabled;
 #ifdef ESP8266
     doc[F("REBOOTINFO")] = ESP.getResetReason();
@@ -992,7 +1027,7 @@ void BWC::setJSONSettings(const String &message)
 {
     // feed the dog
     //  ESP.wdtFeed();
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
 
     // Deserialize the JSON document
     DeserializationError error = deserializeJson(doc, message);
@@ -1008,6 +1043,8 @@ void BWC::setJSONSettings(const String &message)
     _filter_interval = doc[F("FINT")];
     _fc_interval = doc[F("FCINT")];
     _wc_interval = doc[F("WCINT")];
+    if (doc.containsKey(F("PHINT")))
+        _ph_interval = doc[F("PHINT")];
     _audio_enabled = doc[F("AUDIO")];
     _notify = doc[F("NOTIFY")];
     _notification_time = doc[F("NOTIFTIME")];
@@ -1025,6 +1062,7 @@ void BWC::setJSONSettings(const String &message)
     dsp->EnabledButtons[POWER] = doc[F("PWR")];
     dsp->EnabledButtons[HYDROJETS] = doc[F("HJT")];
     saveSettings();
+    _loadSettings();
 }
 
 bool BWC::newData()
@@ -1171,25 +1209,29 @@ void BWC::_loadSettings()
     File file = LittleFS.open("/settings.json", "r");
     if (!file)
     {
-        // Serial.println(F("Failed to load settings.json"));
+        Serial.println(F("Failed to open settings.json"));
         return;
     }
-    DynamicJsonDocument doc(1024);
+    Serial.printf("settings.json size: %d bytes\n", file.size());
+    DynamicJsonDocument doc(2048);
 
     // Deserialize the JSON document
     DeserializationError error = deserializeJson(doc, file);
     if (error)
     {
-        // Serial.println(F("Failed to deser. settings.json"));
+        Serial.printf("Failed to deserialize settings.json: %s\n", error.c_str());
         file.close();
         return;
     }
+    Serial.println(F("settings.json loaded successfully"));
 
     // Copy values from the JsonDocument to the variables
     _cl_timestamp_s = doc[F("CLTIME")];
     _filter_timestamp_s = doc[F("FTIME")];
     _fc_timestamp_s = doc[F("FCTIME")];
     _wc_timestamp_s = doc[F("WCIME")];
+    _ph_timestamp_s = doc[F("PHTIME")] | _ph_timestamp_s;
+    _clv_timestamp_s = doc[F("CLVTIME")] | _clv_timestamp_s;
     _uptime = doc[F("UPTIME")];
     _pumptime = doc[F("PUMPTIME")];
     _heatingtime = doc[F("HEATINGTIME")];
@@ -1200,6 +1242,9 @@ void BWC::_loadSettings()
     _filter_interval = doc[F("FINT")];
     _fc_interval = doc[F("FCINT")];
     _wc_interval = doc[F("WCINT")];
+    _ph_interval = doc[F("PHINT")] | 3;
+    _last_ph_value = doc[F("PHVAL")] | 72;
+    _last_cl_value = doc[F("CLVAL")] | 10;
     _audio_enabled = doc[F("AUDIO")];
     _notify = doc[F("NOTIFY")];
     _notification_time = doc[F("NOTIFTIME")];
@@ -1222,12 +1267,13 @@ void BWC::_loadSettings()
     dsp->EnabledButtons[POWER] = doc[F("PWR")];
     dsp->EnabledButtons[HYDROJETS] = doc[F("HJT")];
 
+    Serial.printf("Loaded: PRICE=%.2f, PLZ=%s, WEATHER=%d\n", _price, _plz.c_str(), _weather);
     file.close();
 }
 
 void BWC::_restoreStates()
 {
-    File file = LittleFS.open("states.txt", "r");
+    File file = LittleFS.open("/states.txt", "r");
     if (!file)
     {
         // Serial.println(F("Failed to read states.txt"));
@@ -1325,8 +1371,11 @@ void BWC::loadCommandQueue()
     }
     file.close();
     std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+    Serial.println(F("Calling _loadSettings()..."));
     _loadSettings();
+    Serial.println(F("Calling _restoreStates()..."));
     _restoreStates();
+    Serial.println(F("Calling _loadSmartSchedule()..."));
     _loadSmartSchedule();
 }
 
@@ -1336,7 +1385,7 @@ void BWC::loadCommandQueue()
 
 void BWC::saveRebootInfo()
 {
-    File file = LittleFS.open("bootlog.txt", "a");
+    File file = LittleFS.open("/bootlog.txt", "a");
     if (!file)
     {
         // Serial.println(F("Failed to save bootlog.txt"));
@@ -1368,7 +1417,7 @@ void BWC::_saveStates()
     ESP.wdtFeed();
 #endif
     _save_states_needed = false;
-    File file = LittleFS.open("states.txt", "w");
+    File file = LittleFS.open("/states.txt", "w");
     if (!file)
     {
         // Serial.println(F("Failed to save states.txt"));
@@ -1403,7 +1452,7 @@ void BWC::_saveCommandQueue()
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    File file = LittleFS.open("cmdq.json", "w");
+    File file = LittleFS.open("/cmdq.json", "w");
     if (!file)
     {
         // Serial.println(F("Failed to save cmdq.json"));
@@ -1454,14 +1503,14 @@ void BWC::saveSettings()
     ESP.wdtFeed();
 #endif
     _save_settings_needed = false;
-    File file = LittleFS.open("settings.json", "w");
+    File file = LittleFS.open("/settings.json", "w");
     if (!file)
     {
         // Serial.println(F("Failed to save settings.json"));
         return;
     }
 
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
     _heatingtime += _heatingtime_ms / 1000;
     _pumptime += _pumptime_ms / 1000;
     _airtime += _airtime_ms / 1000;
@@ -1479,6 +1528,8 @@ void BWC::saveSettings()
     doc[F("WCIME")] = _wc_timestamp_s;
     doc[F("FCTIME")] = _fc_timestamp_s;
     doc[F("WCTIME")] = _wc_timestamp_s;
+    doc[F("PHTIME")] = _ph_timestamp_s;
+    doc[F("CLVTIME")] = _clv_timestamp_s;
     doc[F("UPTIME")] = _uptime;
     doc[F("PUMPTIME")] = _pumptime;
     doc[F("HEATINGTIME")] = _heatingtime;
@@ -1489,6 +1540,9 @@ void BWC::saveSettings()
     doc[F("FINT")] = _filter_interval;
     doc[F("FCINT")] = _fc_interval;
     doc[F("WCINT")] = _wc_interval;
+    doc[F("PHINT")] = _ph_interval;
+    doc[F("PHVAL")] = _last_ph_value;
+    doc[F("CLVAL")] = _last_cl_value;
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;
@@ -1525,7 +1579,7 @@ void BWC::saveSettings()
 // save out debug text to file "debug.txt" on littleFS
 void BWC::saveDebugInfo(const String &s)
 {
-    File file = LittleFS.open("debug.txt", "a");
+    File file = LittleFS.open("/debug.txt", "a");
     if (!file)
     {
         // Serial.println(F("Failed to save debug.txt"));

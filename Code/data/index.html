@@ -406,6 +406,52 @@
         </table>
       </section>
 
+      <section id="sectionWaterQuality">
+        <h2>Wasserqualität</h2>
+        <table class="fixed">
+          <tr>
+            <td>pH-Wert</td>
+            <td>
+              <input
+                type="number"
+                id="phinput"
+                class="wq-input"
+                min="0"
+                max="14"
+                step="0.1"
+                value="7.2"
+                onchange="savePhValue()"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="wq-info-row">
+              Idealwert: 7.2 - 7.6 · Zuletzt: <span id="phtimer">unbek.</span>
+            </td>
+          </tr>
+          <tr>
+            <td>Chlor (mg/L)</td>
+            <td>
+              <input
+                type="number"
+                id="clinput"
+                class="wq-input"
+                min="0"
+                max="10"
+                step="0.1"
+                value="1.0"
+                onchange="saveClValue()"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="wq-info-row">
+              Idealwert: 1.0 - 3.0 · Zuletzt: <span id="cltimer2">unbek.</span>
+            </td>
+          </tr>
+        </table>
+      </section>
+
       <section id="sectionTotals">
         <h2>Zähler</h2>
         <table class="fixed">
@@ -551,6 +597,10 @@
           localStorage.getItem("showSectionEnergy") !== "false"
             ? "block"
             : "none";
+        document.getElementById("sectionWaterQuality").style.display =
+          localStorage.getItem("showSectionWaterQuality") !== "false"
+            ? "block"
+            : "none";
         document.getElementById("tableSlider").style.display =
           localStorage.getItem("useControlSelector") !== "false"
             ? "none"
@@ -575,6 +625,7 @@
             localStorage.setItem("showSectionButtons", json.SSB);
             localStorage.setItem("showSectionTimer", json.SSTIM);
             localStorage.setItem("showSectionTotals", json.SSTOT);
+            localStorage.setItem("showSectionWaterQuality", json.SSWQ !== false);
             localStorage.setItem("useControlSelector", json.UCS);
             setWebConfig();
           }

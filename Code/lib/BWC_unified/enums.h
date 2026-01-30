@@ -83,7 +83,10 @@ enum Commands : byte
     TOGGLELCK,
     RESETFCTIMER,
     RESETWCTIMER,
-    SETENABLEBUTTONS
+    SETENABLEBUTTONS,
+    RESETPHTIMER,      // Reset pH check timer
+    SETPHVALUE,        // Set last measured pH value (val = pH * 10, e.g. 72 = 7.2)
+    SETCLVALUE         // Set last measured chlorine value (val = Cl * 10, e.g. 15 = 1.5 mg/L)
 };
 
 enum ToggleButtons : byte

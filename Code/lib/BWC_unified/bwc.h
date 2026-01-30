@@ -170,6 +170,10 @@ private:
     uint32_t _filter_timestamp_s;
     uint32_t _fc_timestamp_s;
     uint32_t _wc_timestamp_s;
+    uint32_t _ph_timestamp_s;      // pH check timestamp
+    uint32_t _clv_timestamp_s;     // Chlorine value check timestamp (separate from chlorine addition)
+    uint16_t _last_ph_value;       // Last pH value * 10 (e.g. 72 = 7.2 pH)
+    uint16_t _last_cl_value;       // Last chlorine value * 10 (e.g. 15 = 1.5 mg/L)
     uint32_t _uptime;
     uint32_t _pumptime;
     uint32_t _heatingtime;
@@ -185,6 +189,7 @@ private:
     uint32_t _filter_interval;
     uint32_t _fc_interval;
     uint32_t _wc_interval;
+    uint32_t _ph_interval;         // pH check interval in days
     bool _audio_enabled;
     float _energy_total_kWh;
     double _energy_daily_Ws; // Wattseconds internally

@@ -32,6 +32,9 @@ const cmdMap = {
   toggleLCK: 23,
   resetTimerCleanFilter: 24,
   resetTimerWaterChange: 25,
+  resetTimerPh: 27,
+  setPhValue: 28,
+  setClValue: 29,
 };
 
 // button element ID mapping
@@ -387,10 +390,62 @@ function handlemsg(e) {
         .toFixed(2)
         .toString()
         .replace(".", ",");
+
+      // water quality - pH value
+      var phTime = (Date.now() / 1000 - msgobj.PHTIME) / (24 * 3600.0);
+      var phTimeRound = Math.round(phTime);
+      var phVal = (msgobj.PHVAL || 72) / 10;
+      document.getElementById("phtimer").innerHTML = getTimeSinceText(phTimeRound);
+      document.getElementById("phinput").value = phVal.toFixed(1);
+
+      // water quality - Chlorine value (separate timestamp)
+      var clvTime = (Date.now() / 1000 - msgobj.CLVTIME) / (24 * 3600.0);
+      var clvTimeRound = Math.round(clvTime);
+      var clVal = (msgobj.CLVAL || 10) / 10;
+      document.getElementById("cltimer2").innerHTML = getTimeSinceText(clvTimeRound);
+      document.getElementById("clinput").value = clVal.toFixed(1);
     }
   } catch (error) {
     console.error(error);
   }
+}
+
+function getTimeSinceText(days) {
+  if (days < 1) return "gerade eben";
+  if (days == 1) return "vor einem Tag";
+  return "vor " + days + " Tagen";
+}
+
+function savePhValue() {
+  var val = parseFloat(document.getElementById("phinput").value);
+  if (val >= 0 && val <= 14) {
+    sendCommandWithValue("setPhValue", Math.round(val * 10));
+    document.getElementById("phtimer").innerHTML = "gerade eben";
+  }
+}
+
+function saveClValue() {
+  var val = parseFloat(document.getElementById("clinput").value);
+  if (val >= 0 && val <= 10) {
+    sendCommandWithValue("setClValue", Math.round(val * 10));
+    document.getElementById("cltimer2").innerHTML = "gerade eben";
+  }
+}
+
+function sendCommandWithValue(cmd, value) {
+  if (typeof cmdMap[cmd] == "undefined") {
+    console.log("invalid command");
+    return;
+  }
+  var obj = {};
+  obj["CMD"] = cmdMap[cmd];
+  obj["VALUE"] = value;
+  obj["XTIME"] = Math.floor(Date.now() / 1000);
+  obj["INTERVAL"] = 0;
+  obj["TXT"] = "";
+  var json = JSON.stringify(obj);
+  connection.send(json);
+  console.log(json);
 }
 
 function s2dhms(val) {

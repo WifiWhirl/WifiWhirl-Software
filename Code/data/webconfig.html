@@ -121,6 +121,16 @@
             </td>
           </tr>
           <tr>
+            <td>Zeige Abschnitt "Wasserqualität"</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="showSectionWaterQuality" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+          <tr>
             <td>Verwende Auswahl (anstatt Schieberegler)</td>
             <td>
               <label class="switch"
@@ -170,6 +180,8 @@
           localStorage.getItem("showSectionTotals") === "true";
         document.getElementById("showSectionEnergy").checked =
           localStorage.getItem("showSectionEnergy") === "true";
+        document.getElementById("showSectionWaterQuality").checked =
+          localStorage.getItem("showSectionWaterQuality") !== "false";
         document.getElementById("useControlSelector").checked =
           localStorage.getItem("useControlSelector") === "true";
       }
@@ -204,6 +216,10 @@
           document.getElementById("showSectionEnergy").checked
         );
         localStorage.setItem(
+          "showSectionWaterQuality",
+          document.getElementById("showSectionWaterQuality").checked
+        );
+        localStorage.setItem(
           "useControlSelector",
           document.getElementById("useControlSelector").checked
         );
@@ -226,6 +242,8 @@
             document.getElementById("showSectionTimer").checked = json.SSTIM;
             document.getElementById("showSectionTotals").checked = json.SSTOT;
             document.getElementById("showSectionEnergy").checked = json.SSEN;
+            document.getElementById("showSectionWaterQuality").checked = 
+              json.SSWQ !== false;
             document.getElementById("useControlSelector").checked = json.UCS;
           }
         };
@@ -242,6 +260,7 @@
           SSTIM: document.getElementById("showSectionTimer").checked,
           SSTOT: document.getElementById("showSectionTotals").checked,
           SSEN: document.getElementById("showSectionEnergy").checked,
+          SSWQ: document.getElementById("showSectionWaterQuality").checked,
           UCS: document.getElementById("useControlSelector").checked,
         };
         req.send(JSON.stringify(json));
