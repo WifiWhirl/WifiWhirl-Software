@@ -1857,20 +1857,29 @@ bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_
  */
 void BWC::cancelSmartSchedule()
 {
+    command_que_item item;
+    item.xtime = 0;
+    item.interval = 0;
+    item.text = "";
+    
     // Safety: Turn off heater if it was started by this schedule
     // Check if heater is on AND we had a calculated start time (meaning schedule started it)
     if (cio->cio_states.heat && _smart_schedule.calculated_start_time > 0 && 
         _timestamp_secs >= _smart_schedule.calculated_start_time)
     {
-        cio->cio_toggles.heat_change = 1; // Turn off heater
-        Serial.println(F("SmartSchedule: Cancel - Turning off heater"));
+        item.cmd = SETHEATER;
+        item.val = 0;
+        add_command(item);
+        Serial.println(F("SmartSchedule: Cancel - Queued heater off"));
     }
     
     // Turn off pump if it's running (either from temp reading or heating phase)
     if (cio->cio_states.pump)
     {
-        cio->cio_toggles.pump_change = 1;
-        Serial.println(F("SmartSchedule: Cancel - Turning off pump"));
+        item.cmd = SETPUMP;
+        item.val = 0;
+        add_command(item);
+        Serial.println(F("SmartSchedule: Cancel - Queued pump off"));
     }
     
     _smart_schedule.active = false;
@@ -1963,14 +1972,13 @@ void BWC::_handleSmartSchedule()
     // Check if target time has passed
     if (_timestamp_secs >= _smart_schedule.target_time)
     {
-        // Target time reached - check if we need to turn off heater
-        if (!_smart_schedule.keep_heater_on && cio->cio_states.heat)
+        // Target time reached - cancelSmartSchedule will handle turning off heater/pump
+        if (!_smart_schedule.keep_heater_on)
         {
-            cio->cio_toggles.heat_change = 1; // Turn off heater
-            Serial.println(F("SmartSchedule: Target reached - turning off heater"));
+            Serial.println(F("SmartSchedule: Target reached - deactivating"));
         }
         
-        // Deactivate schedule
+        // Deactivate schedule (this queues heater/pump off commands if needed)
         cancelSmartSchedule();
         return;
     }
