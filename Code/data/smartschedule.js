@@ -13,9 +13,37 @@ function loadSmartSchedule() {
   const today = new Date();
   document.getElementById('targetDate').value = today.toISOString().split('T')[0];
   
+  // Fetch current global target temperature and set as default
+  fetchGlobalTargetTemp();
+  
   // Start updating schedule status
   updateScheduleStatus();
   scheduleUpdateInterval = setInterval(updateScheduleStatus, 5000); // Update every 5 seconds
+}
+
+/**
+ * Fetch global target temperature to pre-fill the form
+ */
+function fetchGlobalTargetTemp() {
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/getsmartschedule/', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        // Set global target temperature as default for new schedules
+        if (data.GLOBALTARGET && data.GLOBALTARGET > 0) {
+          document.getElementById('targetTemp').value = data.GLOBALTARGET;
+        }
+      } catch (e) {
+        console.error('Failed to fetch global target:', e);
+      }
+    }
+  };
+  
+  xhr.send('{}');
 }
 
 /**
@@ -56,21 +84,15 @@ function displayScheduleStatus(data) {
     document.getElementById('statusCurrentTemp').textContent = data.CURRENTTEMP || '--';
     document.getElementById('statusAccurateTemp').textContent = (data.ACCURATETEMP && data.ACCURATETEMP > 0) ? data.ACCURATETEMP + ' °C' : 'Wird gemessen...';
     
-    // Display heating estimate in HH:mm format
+    // Display heating estimate (same format as remaining time)
     if (data.ESTIMATE && data.ESTIMATE > 0) {
       if (data.ESTIMATE >= 999) {
         document.getElementById('statusEstimate').innerHTML = 
           '<span style="color: #ff9800;">Unmöglich zu heizen (Umgebung zu kalt)</span>';
-      } else if (data.ESTIMATE_FMT && data.ESTIMATE_FMT.length > 0) {
-        // Use pre-formatted HH:mm string from backend
-        document.getElementById('statusEstimate').textContent = data.ESTIMATE_FMT + ' Stunden';
       } else {
-        // Fallback: format locally
-        const totalMinutes = Math.round(data.ESTIMATE * 60);
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        const formatted = String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0');
-        document.getElementById('statusEstimate').textContent = formatted + ' Stunden';
+        // Convert hours to seconds and use formatDuration
+        const estimateSeconds = Math.round(data.ESTIMATE * 3600);
+        document.getElementById('statusEstimate').textContent = formatDuration(estimateSeconds);
       }
     } else {
       document.getElementById('statusEstimate').textContent = 'Wird berechnet...';
@@ -82,8 +104,14 @@ function displayScheduleStatus(data) {
       '<span style="color: #999;">AUS</span>';
     document.getElementById('statusHeater').innerHTML = heaterStatus;
     
-    // Display pump status (if in temp reading mode)
-    if (data.READING_STATE > 0) {
+    // Display status message (heating in progress or temp reading)
+    if (data.HEATER) {
+      // Heater is on - show heating message
+      document.getElementById('statusReadingStateText').innerHTML = 
+        '<span style="color: #4caf50; font-weight: bold;">🔥 Dein Whirlpool heizt auf.</span>';
+      document.getElementById('statusReadingState').style.display = 'table-row';
+    } else if (data.READING_STATE > 0) {
+      // Not heating, but in temp reading mode
       const readingStates = ['', 'Pumpe läuft (20s)', 'Wartet auf Messung (20s)', 'Temperatur wird gelesen'];
       document.getElementById('statusReadingStateText').innerHTML = 
         '<span style="color: #2196f3; font-weight: bold;">⚙️ ' + readingStates[data.READING_STATE] + '</span>';

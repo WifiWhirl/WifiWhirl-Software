@@ -423,6 +423,20 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         /*Send this value to cio instead of results from button presses on the display*/
         _dsp_tgt_used = false;
         _web_target = cio->cio_toggles.target;
+        
+        // Update smart schedule target temp if active (store in Celsius)
+        if (_smart_schedule.active)
+        {
+            uint8_t temp_celsius = implied_unit_is_celsius ? val : round(F2C(val));
+            if (temp_celsius != _smart_schedule.target_temp)
+            {
+                _smart_schedule.target_temp = temp_celsius;
+                _save_smartschedule_needed = true;
+                _new_data_available = true;
+                Serial.print(F("SmartSchedule: Target temp updated to "));
+                Serial.println(temp_celsius);
+            }
+        }
         break;
     }
     case SETUNIT:
@@ -443,7 +457,21 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         break;
     case SETHEATER:
         if (val != cio->cio_states.heat)
+        {
             cio->cio_toggles.heat_change = 1;
+            // If user manually turns off heater while smart schedule is active and heating,
+            // cancel the schedule to prevent it from overriding the user's decision
+            if (val == 0 && _smart_schedule.active && _smart_schedule.calculated_start_time > 0 &&
+                _timestamp_secs >= _smart_schedule.calculated_start_time)
+            {
+                Serial.println(F("SmartSchedule: Cancelled due to manual heater off"));
+                _smart_schedule.active = false;
+                _smart_schedule.temp_reading_state = 0;
+                _smart_schedule.check_completed = false;
+                _save_smartschedule_needed = true;
+                _new_data_available = true;
+            }
+        }
         break;
     case SETPUMP:
         if (val != cio->cio_states.pump)
@@ -1838,16 +1866,11 @@ void BWC::cancelSmartSchedule()
         Serial.println(F("SmartSchedule: Cancel - Turning off heater"));
     }
     
-    // Restore pump state if we were in the middle of temp reading (states 1, 2, or 3)
-    // Check if we turned on the pump (original was off) and pump is currently on
-    if (_smart_schedule.temp_reading_state > 0)
+    // Turn off pump if it's running (either from temp reading or heating phase)
+    if (cio->cio_states.pump)
     {
-        if (!_smart_schedule.original_pump_state && cio->cio_states.pump)
-        {
-            // We turned pump on for temp reading, turn it back off
-            cio->cio_toggles.pump_change = 1;
-            Serial.println(F("SmartSchedule: Cancel - Restoring pump state (off)"));
-        }
+        cio->cio_toggles.pump_change = 1;
+        Serial.println(F("SmartSchedule: Cancel - Turning off pump"));
     }
     
     _smart_schedule.active = false;
@@ -1879,6 +1902,7 @@ void BWC::getJSONSmartSchedule(String &rtn)
     doc[F("CHECKCOMPLETED")] = _smart_schedule.check_completed;
     doc[F("CURRENTTIME")] = _timestamp_secs;
     doc[F("CURRENTTEMP")] = cio->cio_states.temperature;
+    doc[F("GLOBALTARGET")] = cio->cio_states.target; // Current global target temperature
     // Use current temperature if accurate temp hasn't been read yet (0 or invalid)
     uint8_t display_temp = (_smart_schedule.accurate_temperature > 0) ? 
                            _smart_schedule.accurate_temperature : 

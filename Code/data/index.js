@@ -410,7 +410,7 @@ function handlemsg(e) {
       phTimerEl.innerHTML = getTimeSinceText(phTimeSec);
       phTimerEl.title = formatTimestamp(msgobj.PHTIME);
       if (!wqEditingState.ph) {
-        document.getElementById("phinput").value = phVal.toFixed(1).replace(".", ",");
+        document.getElementById("phinput").valueAsNumber = phVal;
       }
 
       // water quality - Chlorine value (only update if not editing)
@@ -420,7 +420,7 @@ function handlemsg(e) {
       clvTimerEl.innerHTML = getTimeSinceText(clvTimeSec);
       clvTimerEl.title = formatTimestamp(msgobj.CLVTIME);
       if (!wqEditingState.cl) {
-        document.getElementById("clinput").value = clVal.toFixed(1).replace(".", ",");
+        document.getElementById("clinput").valueAsNumber = clVal;
       }
 
       // water quality - Cyanuric acid (only update if not editing)
@@ -432,7 +432,7 @@ function handlemsg(e) {
         cyaTimerEl.title = formatTimestamp(msgobj.CYATIME);
       }
       if (document.getElementById("cyainput") && !wqEditingState.cya) {
-        document.getElementById("cyainput").value = cyaVal.toFixed(1).replace(".", ",");
+        document.getElementById("cyainput").value = Math.round(cyaVal);
       }
 
       // water quality - Alkalinity (only update if not editing)
@@ -549,11 +549,11 @@ function onCyaInput() {
   }, 1000);
 }
 
-// Save cyanuric acid value (Cyanursäure) - range 0-100 mg/L
+// Save cyanuric acid value (Cyanursäure) - range 0-200 mg/L
 function saveCyaValue() {
-  var val = parseWqValue(document.getElementById("cyainput").value);
-  if (val >= 0 && val <= 100) {
-    sendCommandWithValue("setCyaValue", Math.round(val * 10));
+  var val = parseInt(document.getElementById("cyainput").value);
+  if (val >= 0 && val <= 200) {
+    sendCommandWithValue("setCyaValue", val * 10);
     document.getElementById("cyatimer").innerHTML = "gerade eben";
   }
 }
@@ -568,7 +568,7 @@ function onAlkInput() {
   }, 1000);
 }
 
-// Save alkalinity value (Alkalinität) - range 0-300 ppm
+// Save alkalinity value (Alkalinität) - range 0-300 mg/L
 function saveAlkValue() {
   var val = parseInt(document.getElementById("alkinput").value);
   if (val >= 0 && val <= 300) {

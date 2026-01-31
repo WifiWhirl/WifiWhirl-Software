@@ -331,7 +331,10 @@ input[type="range"]::-ms-track {
   background: transparent;
 }
 
-input[type="datetime-local"] {
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"],
+input[type="number"] {
   font-family: ui-sans-serif, system-ui;
   font-family: var(--font-family);
 }
@@ -864,21 +867,16 @@ input:checked + .slider:before {
 .wq-input {
   width: 70px;
   padding: 6px 8px;
-  border: 1px solid #ccc;
+  border: none;
   border-radius: 6px;
   font-size: 1em;
   text-align: center;
-  background: #fff;
+  background: #ccc;
   font-family: var(--font-family);
 }
 .wq-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-.darkmode .wq-input {
-  background: #4d4d4d;
-  border-color: #666;
-  color: #e2e2e2;
+  outline: 2px solid var(--accent-color);
+  outline-offset: 1px;
 }
 
 .wq-info-row {
