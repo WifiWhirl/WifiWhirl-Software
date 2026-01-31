@@ -874,6 +874,11 @@ input:checked + .slider:before {
   background: #ccc;
   font-family: var(--font-family);
 }
+
+.darkmode .wq-input {
+  background: var(--action-btn-color-dark);
+}
+
 .wq-input:focus {
   outline: 2px solid var(--accent-color);
   outline-offset: 1px;
