@@ -1,4 +1,5 @@
 #include "main.h"
+#include "web_files.h"
 
 BWC *bwc;
 
@@ -1023,7 +1024,64 @@ String getContentType(const String &filename)
 }
 
 /**
+ * Serve an embedded file from PROGMEM
+ * Handles gzip content-encoding and chunked transfer to avoid watchdog resets
+ * @param file Pointer to EmbeddedFile structure
+ * @return true if file was served successfully
+ */
+bool serveEmbeddedFile(const EmbeddedFile* file)
+{
+    // Read file metadata from PROGMEM
+    char contentTypeBuf[48];
+    strncpy_P(contentTypeBuf, (PGM_P)pgm_read_ptr(&file->contentType), sizeof(contentTypeBuf) - 1);
+    contentTypeBuf[sizeof(contentTypeBuf) - 1] = '\0';
+    
+    size_t fileSize = pgm_read_dword(&file->size);
+    bool isGzipped = pgm_read_byte(&file->isGzipped);
+    const uint8_t* data = (const uint8_t*)pgm_read_ptr(&file->data);
+    
+    // Set cache header for static assets
+    server->sendHeader(F("Cache-Control"), F("max-age=3600"));
+    
+    // Set gzip content-encoding if file is compressed
+    if (isGzipped)
+    {
+        server->sendHeader(F("Content-Encoding"), F("gzip"));
+    }
+    
+    // Send response with chunked transfer to avoid memory issues
+    // For large files, we send in chunks to feed watchdog
+    const size_t CHUNK_SIZE = 1024;
+    
+    server->setContentLength(fileSize);
+    server->send(200, (const char*)contentTypeBuf, (const char*)"");
+    
+    size_t bytesSent = 0;
+    while (bytesSent < fileSize)
+    {
+        size_t chunkLen = min(CHUNK_SIZE, fileSize - bytesSent);
+        
+        // Copy chunk from PROGMEM to RAM buffer
+        uint8_t buffer[CHUNK_SIZE];
+        memcpy_P(buffer, data + bytesSent, chunkLen);
+        
+        server->sendContent_P((const char*)buffer, chunkLen);
+        bytesSent += chunkLen;
+        
+        // Feed watchdog during large transfers
+        yield();
+    }
+    
+    Serial.print(F("HTTP > embedded file sent: "));
+    Serial.print(fileSize);
+    Serial.println(F(" bytes"));
+    
+    return true;
+}
+
+/**
  * send the right file to the client (if it exists)
+ * First checks embedded files in PROGMEM, then falls back to LittleFS
  */
 bool handleFileRead(String path)
 {
@@ -1040,6 +1098,15 @@ bool handleFileRead(String path)
         // Serial.println(F("HTTP > file reading denied (credentials)."));
         return false;
     }
+    
+    // First, check if file is embedded in firmware (PROGMEM)
+    const EmbeddedFile* embeddedFile = findEmbeddedFile(path);
+    if (embeddedFile != nullptr)
+    {
+        return serveEmbeddedFile(embeddedFile);
+    }
+    
+    // Fall back to LittleFS for config files and user uploads
     String contentType = getContentType(path); // Get the MIME type
     String pathWithGz = path + ".gz";
     if (LittleFS.exists(pathWithGz) || LittleFS.exists(path))
@@ -1057,7 +1124,7 @@ bool handleFileRead(String path)
 
         file.close(); // Close the file again
         Serial.println(F("File size: ") + String(fsize));
-        Serial.println(F("HTTP > file sent: ") + path + F(" (") + sent + F(" bytes)"));
+        Serial.println(F("HTTP > LittleFS file sent: ") + path + F(" (") + sent + F(" bytes)"));
         return true;
     }
     // Serial.println("HTTP > file not found: " + path);   // If the file doesn't exist, return false

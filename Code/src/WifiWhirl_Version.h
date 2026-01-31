@@ -1,1 +1,1 @@
-#define FW_VERSION "1.1.7_beta"
+#define FW_VERSION "1.2.0_beta"

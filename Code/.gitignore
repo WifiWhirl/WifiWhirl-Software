@@ -4,6 +4,7 @@
 .vscode/launch.json
 .vscode/ipch
 src/config.h.template
+src/web_files.h
 fw/firmware.bin
 datazip
 data/wifi.json
