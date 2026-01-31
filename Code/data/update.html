@@ -59,19 +59,6 @@
           id="upload_form"
           method="post"
         >
-          <div id="switch-container">
-            <button
-              class="button-o left selected"
-              id="firmware-button"
-              type="button"
-            >
-              Software
-            </button>
-            <button class="button-o right" id="filesystem-button" type="button">
-              Dateisystem
-            </button>
-          </div>
-
           <input
             accept=".fw.bin"
             class="input-file"
@@ -168,17 +155,8 @@
 
       function uploadFile() {
         const file = document.getElementById("file1").files[0];
-        if (
-          document.getElementById("file1").name == "firmware" &&
-          !file.name.endsWith(".fw.bin")
-        ) {
+        if (!file.name.endsWith(".fw.bin")) {
           alert("Diese Datei ist nicht für das Softwareupdate vorgesehen!");
-          return;
-        } else if (
-          document.getElementById("file1").name == "filesystem" &&
-          !file.name.endsWith(".fs.bin")
-        ) {
-          alert("Diese Datei ist nicht für das Dateisystemupdate vorgesehen!");
           return;
         }
 
@@ -195,7 +173,6 @@
           document.getElementById("progressBar").value = 0;
           document.getElementById("progressBar").style.display = "none";
           document.getElementById("loaded_n_total").style.display = "none";
-          document.getElementById("switch-container").style.display = "none";
           document.getElementById("file1").style.display = "none";
           document.getElementById("button-send").style.display = "none";
         };
@@ -240,26 +217,6 @@
         uploadFile();
       });
 
-      document
-        .getElementById("firmware-button")
-        .addEventListener("click", function (e) {
-          e.target.classList.add("selected");
-          document
-            .getElementById("filesystem-button")
-            .classList.remove("selected");
-          document.getElementById("file1").name = "firmware";
-          document.getElementById("file1").accept = ".fw.bin";
-        });
-      document
-        .getElementById("filesystem-button")
-        .addEventListener("click", function (e) {
-          e.target.classList.add("selected");
-          document
-            .getElementById("firmware-button")
-            .classList.remove("selected");
-          document.getElementById("file1").name = "filesystem";
-          document.getElementById("file1").accept = ".fs.bin";
-        });
       document.getElementById("file1").addEventListener("change", function (e) {
         var file = document.getElementById("file1").files[0];
         if (file && file.name) {

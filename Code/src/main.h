@@ -56,8 +56,6 @@ ESP8266WebServer *server;
 #elif defined(ESP32)
 WebServer server(80);
 #endif
-/** a file variable to temporarily store the received file */
-File fsUploadFile;
 
 /** a websocket object that listens on port 81 */
 WebSocketsServer *webSocket;
@@ -137,9 +135,6 @@ void loadMqtt();
 void saveMqtt();
 void handleGetMqtt();
 void handleSetMqtt();
-void handleDir();
-void handleFileUpload();
-void handleFileRemove();
 void handleRestart();
 void handleWebhook();
 void handleGetStates();
