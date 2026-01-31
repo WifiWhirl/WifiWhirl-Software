@@ -861,6 +861,9 @@
       }
 
       function resetCommandQueue() {
+        if (!confirm("Möchtest du die Warteschlange wirklich leeren? Alle geplanten Befehle werden gelöscht.")) {
+          return;
+        }
         var req = new XMLHttpRequest();
         req.open("POST", "/addcommand/");
         var json = {
@@ -875,56 +878,73 @@
       }
 
       function savetofile() {
-        var filename = prompt(
-          "Bitte gib einen Dateinamen ein",
-          "wifiwhirl_backup_warteschlange.json"
-        );
-        if (filename == null) return;
-        if (!filename.endsWith(".json")) {
-          _filename = filename + ".json";
-          filename = _filename;
-        }
+        // Fetch cmdq.json from backend and download to user's device
         var req = new XMLHttpRequest();
         req.open("POST", "/cmdq_file/");
-        var json = {
-          ACT: "save",
-          NAME: filename,
-        };
-        req.send(JSON.stringify(json));
-        console.log(json);
-        var reqget = new XMLHttpRequest();
-        reqget.open("GET", "/" + filename);
+        req.setRequestHeader("Content-Type", "application/json");
         req.onreadystatechange = function () {
-          if (this.status == 200) {
-            console.log(this.status);
-            reqget.responseType = "blob";
-            reqget.onload = function (event) {
-              var blob = reqget.response;
-              var fileName = req.getResponseHeader("fileName");
+          if (req.readyState === 4) {
+            if (req.status === 200) {
+              // Generate filename with datetime
+              var now = new Date();
+              var datetime = now.getFullYear() +
+                String(now.getMonth() + 1).padStart(2, "0") +
+                String(now.getDate()).padStart(2, "0") + "_" +
+                String(now.getHours()).padStart(2, "0") +
+                String(now.getMinutes()).padStart(2, "0") +
+                String(now.getSeconds()).padStart(2, "0");
+              var filename = "wifiwhirl_queue_" + datetime + ".json";
+              
+              // Create blob and trigger download
+              var blob = new Blob([req.responseText], { type: "application/json" });
               var link = document.createElement("a");
               link.href = window.URL.createObjectURL(blob);
-              link.download = fileName;
+              link.download = filename;
               link.click();
-            };
+              window.URL.revokeObjectURL(link.href);
+            } else {
+              alert("Fehler beim Herunterladen der Warteschlange.");
+            }
           }
         };
-        reqget.send();
+        req.send(JSON.stringify({ ACT: "download" }));
       }
 
       function loadfromfile() {
-        var filename = prompt(
-          "Bitte gib einen Dateinamen ein",
-          "wifiwhirl_backup_warteschlange.json"
-        );
-        if (filename == null) return;
-        var req = new XMLHttpRequest();
-        req.open("POST", "/cmdq_file/");
-        var json = {
-          ACT: "load",
-          NAME: filename,
+        // Create hidden file input and trigger it
+        var fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = ".json";
+        fileInput.style.display = "none";
+        fileInput.onchange = function (e) {
+          var file = e.target.files[0];
+          if (!file) return;
+          
+          var reader = new FileReader();
+          reader.onload = function (event) {
+            var content = event.target.result;
+            
+            // Send raw file content to backend for validation and storage
+            var req = new XMLHttpRequest();
+            req.open("POST", "/cmdq_file/?action=upload");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.onreadystatechange = function () {
+              if (req.readyState === 4) {
+                if (req.status === 200) {
+                  alert("Warteschlange erfolgreich wiederhergestellt!");
+                  location.reload();
+                } else {
+                  alert("Fehler: " + req.responseText);
+                }
+              }
+            };
+            req.send(content);
+          };
+          reader.readAsText(file);
         };
-        req.send(JSON.stringify(json));
-        console.log(json);
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        document.body.removeChild(fileInput);
       }
 
       function editCommandQueue(index) {

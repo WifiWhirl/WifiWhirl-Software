@@ -1292,32 +1292,121 @@ void handle_cmdq_file()
     if (!checkHttpPost(server->method()))
         return;
 
-    // DynamicJsonDocument doc(256);
-    StaticJsonDocument<256> doc;
-    String message = server->arg(0);
-    DeserializationError error = deserializeJson(doc, message);
-    if (error)
+    // Check for upload action via query parameter
+    String action = server->arg(F("action"));
+    
+    if (action.equals("upload"))
     {
-        server->send(400, F("text/plain"), F("Error deserializing message"));
+        // Upload: body contains raw JSON file content
+        String data = server->arg("plain");
+        if (data.length() == 0)
+        {
+            data = server->arg(0);
+        }
+        if (data.length() == 0)
+        {
+            server->send(400, F("text/plain"), F("Keine Daten empfangen"));
+            return;
+        }
+
+        // Validate JSON format - cmdq.json structure:
+        // {"LEN":n,"CMD":[...],"VALUE":[...],"XTIME":[...],"INTERVAL":[...],"TXT":[...]}
+        DynamicJsonDocument validateDoc(data.length() + 256);
+        DeserializationError validateError = deserializeJson(validateDoc, data);
+        if (validateError)
+        {
+            server->send(400, F("text/plain"), F("Ungültiges JSON-Format"));
+            return;
+        }
+
+        // Check if root is an object
+        if (!validateDoc.is<JsonObject>())
+        {
+            server->send(400, F("text/plain"), F("Datei muss ein JSON-Objekt enthalten"));
+            return;
+        }
+
+        JsonObject root = validateDoc.as<JsonObject>();
+        
+        // Check for required fields
+        if (!root.containsKey(F("LEN")) || !root.containsKey(F("CMD")) ||
+            !root.containsKey(F("VALUE")) || !root.containsKey(F("XTIME")) ||
+            !root.containsKey(F("INTERVAL")))
+        {
+            server->send(400, F("text/plain"), F("Datei fehlt erforderliche Felder (LEN, CMD, VALUE, XTIME, INTERVAL)"));
+            return;
+        }
+
+        // Verify arrays have consistent length
+        size_t len = root[F("LEN")].as<size_t>();
+        if (!root[F("CMD")].is<JsonArray>() || !root[F("VALUE")].is<JsonArray>() ||
+            !root[F("XTIME")].is<JsonArray>() || !root[F("INTERVAL")].is<JsonArray>())
+        {
+            server->send(400, F("text/plain"), F("CMD, VALUE, XTIME, INTERVAL müssen Arrays sein"));
+            return;
+        }
+
+        JsonArray cmdArr = root[F("CMD")].as<JsonArray>();
+        JsonArray valArr = root[F("VALUE")].as<JsonArray>();
+        JsonArray timeArr = root[F("XTIME")].as<JsonArray>();
+        JsonArray intArr = root[F("INTERVAL")].as<JsonArray>();
+
+        if (cmdArr.size() != len || valArr.size() != len || 
+            timeArr.size() != len || intArr.size() != len)
+        {
+            server->send(400, F("text/plain"), F("Array-Längen stimmen nicht mit LEN überein"));
+            return;
+        }
+
+        // Validation passed - save the file
+        File file = LittleFS.open(F("/cmdq.json"), "w");
+        if (!file)
+        {
+            server->send(500, F("text/plain"), F("Fehler beim Speichern der Datei"));
+            return;
+        }
+        file.print(data);
+        file.close();
+
+        // Reload command queue in BWC
+        bwc->reloadCommandQueue();
+
+        server->send(200, F("text/plain"), F("OK"));
         return;
     }
 
-    String action = doc[F("ACT")].as<String>();
-    String filename = "/";
-    filename += doc[F("NAME")].as<String>();
-
-    if (action.equals("load"))
+    // Download: parse JSON body for action
+    String message = server->arg(0);
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, message);
+    if (error)
     {
-        copyFile("/cmdq.json", "/cmdq.backup");
-        copyFile(filename, "/cmdq.json");
-        bwc->reloadCommandQueue();
-    }
-    if (action.equals("save"))
-    {
-        copyFile("/cmdq.json", filename);
+        server->send(400, F("text/plain"), F("Fehler beim Verarbeiten der Anfrage"));
+        return;
     }
 
-    server->send(200, F("text/plain"), "");
+    action = doc[F("ACT")].as<String>();
+
+    if (action.equals("download"))
+    {
+        // Send cmdq.json content to client for download
+        if (LittleFS.exists(F("/cmdq.json")))
+        {
+            File file = LittleFS.open(F("/cmdq.json"), "r");
+            if (file)
+            {
+                String content = file.readString();
+                file.close();
+                server->send(200, F("application/json"), content);
+                return;
+            }
+        }
+        // Return empty array if file doesn't exist
+        server->send(200, F("application/json"), F("[]"));
+        return;
+    }
+
+    server->send(400, F("text/plain"), F("Unbekannte Aktion"));
 }
 
 /**
