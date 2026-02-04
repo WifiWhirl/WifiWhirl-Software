@@ -588,6 +588,7 @@ function sendCommandWithValue(cmd, value) {
   obj["XTIME"] = Math.floor(Date.now() / 1000);
   obj["INTERVAL"] = 0;
   obj["TXT"] = "";
+  obj["FORCE"] = true;  // Frontend commands always force (bypass safety checks)
   var json = JSON.stringify(obj);
   connection.send(json);
   console.log(json);
@@ -697,6 +698,7 @@ function sendCommand(cmd) {
   obj["XTIME"] = Math.floor(Date.now() / 1000);
   obj["INTERVAL"] = 0;
   obj["TXT"] = "";
+  obj["FORCE"] = true;  // Frontend commands always force (bypass safety checks)
   var json = JSON.stringify(obj);
   connection.send(json);
   console.log(json);

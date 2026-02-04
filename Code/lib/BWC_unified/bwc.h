@@ -36,7 +36,7 @@ struct command_que_item
     uint64_t xtime;
     uint32_t interval;
     String text = "";
-    bool overwrite = false;
+    bool force = false;  // When true, bypass safety checks (e.g., allow pump off while heater runs)
 };
 
 // Smart Schedule structure for predictive heating

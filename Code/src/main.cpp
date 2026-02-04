@@ -693,12 +693,14 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
         int64_t xtime = doc[F("XTIME")];
         int64_t interval = doc[F("INTERVAL")];
         String txt = doc[F("TXT")] | "";
+        bool force = doc[F("FORCE")] | false;  // Default false if not provided
         command_que_item item;
         item.cmd = command;
         item.val = value;
         item.xtime = xtime;
         item.interval = interval;
         item.text = txt;
+        item.force = force;
         bwc->add_command(item);
     }
     break;

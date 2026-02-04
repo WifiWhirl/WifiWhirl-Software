@@ -378,9 +378,12 @@ void BWC::_handleCommandQ()
         _command_que.push_back(_command_que[0]);
     }
 
-    // Do not turn off pump if Heater is running
+    // Do not turn off pump if Heater is running (unless forced)
     // Fixes situations when you want to heat your pool but your daily pump cycle is running and turning off your heater
-    if (_command_que[0].cmd == SETPUMP && cio->cio_states.heat)
+    if (_command_que[0].cmd == SETPUMP && 
+        _command_que[0].val == 0 &&           // Only block turn-off commands
+        cio->cio_states.heat && 
+        !_command_que[0].force)               // Allow if force=true
     {
         _command_que.erase(_command_que.begin());
         _next_notification_time = _notification_time; // reset alarm time
