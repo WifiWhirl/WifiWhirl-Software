@@ -184,6 +184,8 @@ void BWC::loop()
     _handleCommandQ();
     /*Handle smart schedule before processing toggles so pump/heater changes are applied*/
     _handleSmartSchedule();
+    /*Check if jets have exceeded their configured timeout*/
+    _checkJetTimeouts();
     /*If new target was not set above, use whatever the cio says*/
     cio->setRawPayload(dsp->getRawPayload());
     cio->handleToggles();
@@ -695,6 +697,11 @@ void BWC::_handleStateChanges()
         _bubbles_change_timestamp_ms = millis();
     }
 
+    if (cio->cio_states.jets != _prev_cio_states.jets)
+    {
+        _jets_change_timestamp_ms = millis();
+    }
+
     if ((cio->cio_states.locked != _prev_cio_states.locked) && dsp->EnabledButtons[LOCK] && _audio_enabled && (dsp->dsp_toggles.pressed_button == LOCK))
     {
         _beep();
@@ -1020,6 +1027,8 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("WEATHER")] = _weather;
     doc[F("HASJETS")] = cio->getHasjets();
     doc[F("POOLCAP")] = _pool_capacity;
+    doc[F("AIRTO")] = _airjet_timeout_minutes;
+    doc[F("HJTO")] = _hydrojet_timeout_minutes;
     doc[F("LCK")] = dsp->EnabledButtons[LOCK];
     doc[F("TMR")] = dsp->EnabledButtons[TIMER];
     doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];
@@ -1110,6 +1119,18 @@ void BWC::setJSONSettings(const String &message)
     _plz = doc[F("PLZ")].as<String>();
     _weather = doc[F("WEATHER")];
     _pool_capacity = doc[F("POOLCAP")];
+    // Airjet timeout: 5-30 minutes, default 30
+    if (doc.containsKey(F("AIRTO")))
+    {
+        uint8_t val = doc[F("AIRTO")];
+        _airjet_timeout_minutes = (val >= 5 && val <= 30) ? val : 30;
+    }
+    // Hydrojet timeout: 5-60 minutes, default 60
+    if (doc.containsKey(F("HJTO")))
+    {
+        uint8_t val = doc[F("HJTO")];
+        _hydrojet_timeout_minutes = (val >= 5 && val <= 60) ? val : 60;
+    }
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
     dsp->EnabledButtons[TIMER] = doc[F("TMR")];
     dsp->EnabledButtons[BUBBLES] = doc[F("AIR")];
@@ -1129,6 +1150,53 @@ bool BWC::newData()
     bool result = _new_data_available;
     _new_data_available = false;
     return result;
+}
+
+/**
+ * Check if airjets or hydrojets have exceeded their configured timeout
+ * and turn them off if necessary
+ */
+void BWC::_checkJetTimeouts()
+{
+    uint32_t now = millis();
+    
+    // Check airjet timeout (only if configured below hardware default of 30 min)
+    if (cio->cio_states.bubbles && _airjet_timeout_minutes < 30)
+    {
+        uint32_t elapsed_ms = now - _bubbles_change_timestamp_ms;
+        uint32_t timeout_ms = (uint32_t)_airjet_timeout_minutes * 60UL * 1000UL;
+        if (elapsed_ms >= timeout_ms)
+        {
+            // Queue command to turn off airjets
+            command_que_item item;
+            item.cmd = SETBUBBLES;
+            item.val = 0;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            add_command(item);
+            Serial.println(F("Airjet timeout - turning off"));
+        }
+    }
+    
+    // Check hydrojet timeout (only if configured below hardware default of 60 min)
+    if (cio->cio_states.jets && _hydrojet_timeout_minutes < 60)
+    {
+        uint32_t elapsed_ms = now - _jets_change_timestamp_ms;
+        uint32_t timeout_ms = (uint32_t)_hydrojet_timeout_minutes * 60UL * 1000UL;
+        if (elapsed_ms >= timeout_ms)
+        {
+            // Queue command to turn off hydrojets
+            command_que_item item;
+            item.cmd = SETJETS;
+            item.val = 0;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            add_command(item);
+            Serial.println(F("Hydrojet timeout - turning off"));
+        }
+    }
 }
 
 void BWC::_updateTimes()
@@ -1318,6 +1386,8 @@ void BWC::_loadSettings()
     _plz = doc[F("PLZ")].as<String>();
     _weather = doc[F("WEATHER")];
     _pool_capacity = doc[F("POOLCAP")];
+    _airjet_timeout_minutes = doc[F("AIRTO")] | 30;
+    _hydrojet_timeout_minutes = doc[F("HJTO")] | 60;
     enableWeather = _weather;
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
     dsp->EnabledButtons[TIMER] = doc[F("TMR")];
@@ -1622,6 +1692,8 @@ void BWC::saveSettings()
     doc[F("WEATHER")] = _weather;
     enableWeather = _weather;
     doc[F("POOLCAP")] = _pool_capacity;
+    doc[F("AIRTO")] = _airjet_timeout_minutes;
+    doc[F("HJTO")] = _hydrojet_timeout_minutes;
     doc[F("LCK")] = dsp->EnabledButtons[LOCK];
     doc[F("TMR")] = dsp->EnabledButtons[TIMER];
     doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];

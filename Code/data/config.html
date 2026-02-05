@@ -18,6 +18,17 @@
 
     <script src="function.js" type="text/javascript"></script>
     <script src="index.js" type="text/javascript"></script>
+    <style>
+      /* Hide number input spinners */
+      input::-webkit-outer-spin-button,
+      input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type=number] {
+        -moz-appearance: textfield;
+      }
+    </style>
   </head>
 
   <body onload="togglefields()">
@@ -174,6 +185,48 @@
                 size="6"
                 pattern="\d{1,3}"
               /><span class="inputunit" style="margin-left: -30px">Sek</span>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              <label for="airjetTimeout">Airjet Timeout:</label>
+              <span
+                data-text="Maximale Laufzeit der Luftdüsen. Standard ist 30 Minuten (Hardware-Limit). Bei niedrigerer Einstellung schaltet WifiWhirl die Luftdüsen automatisch ab."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <input
+                type="number"
+                id="airjetTimeout"
+                min="5"
+                max="30"
+                value="30"
+                size="6"
+              /><span class="inputunit" style="margin-left: -30px">Min</span>
+            </td>
+            <td></td>
+          </tr>
+          <tr id="hydrojetTimeoutRow">
+            <td>
+              <label for="hydrojetTimeout">Hydrojet Timeout:</label>
+              <span
+                data-text="Maximale Laufzeit der Wasserdüsen. Standard ist 60 Minuten (Hardware-Limit). Bei niedrigerer Einstellung schaltet WifiWhirl die Wasserdüsen automatisch ab."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <input
+                type="number"
+                id="hydrojetTimeout"
+                min="5"
+                max="60"
+                value="60"
+                size="6"
+              /><span class="inputunit" style="margin-left: -30px">Min</span>
             </td>
             <td></td>
           </tr>
@@ -552,8 +605,14 @@
             const displayState = json.HASJETS ? "" : "none";
             if (hydroCheckboxCell) hydroCheckboxCell.style.display = displayState;
             if (hydroLabelCell) hydroLabelCell.style.display = displayState;
+
+            // Hide Hydrojet timeout row if no jets available
+            const hydrojetTimeoutRow = document.getElementById("hydrojetTimeoutRow");
+            if (hydrojetTimeoutRow) hydrojetTimeoutRow.style.display = displayState;
             
             document.getElementById("poolCap").value = json.POOLCAP;
+            document.getElementById("airjetTimeout").value = json.AIRTO || 30;
+            document.getElementById("hydrojetTimeout").value = json.HJTO || 60;
             document.getElementById("lock_btn").checked = json.LCK;
             document.getElementById("timer_btn").checked = json.TMR;
             document.getElementById("bubbles_btn").checked = json.AIR;
@@ -718,6 +777,8 @@
           PLZ: document.getElementById("plz").value,
           WEATHER: document.getElementById("enableWeather").checked,
           POOLCAP: document.getElementById("poolCap").value,
+          AIRTO: parseInt(document.getElementById("airjetTimeout").value) || 30,
+          HJTO: parseInt(document.getElementById("hydrojetTimeout").value) || 60,
           LCK: document.getElementById("lock_btn").checked,
           TMR: document.getElementById("timer_btn").checked,
           AIR: document.getElementById("bubbles_btn").checked,

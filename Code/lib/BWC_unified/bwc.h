@@ -155,6 +155,9 @@ private:
     void _loadSmartSchedule();
     void _saveSmartSchedule();
     bool _save_smartschedule_needed = false;
+    
+    // Jet timeout handling
+    void _checkJetTimeouts();
 
 private:
     bool _notify;
@@ -203,6 +206,8 @@ private:
     String _plz;
     bool _weather = 0;
     int _pool_capacity = 700;
+    uint8_t _airjet_timeout_minutes = 30;   // 5-30 min, default 30 (no software timeout)
+    uint8_t _hydrojet_timeout_minutes = 60; // 5-60 min, default 60 (no software timeout)
     bool _save_settings_needed = false;
     bool _save_cmdq_needed = false;
     bool _save_states_needed = false;
@@ -219,7 +224,7 @@ private:
     sStates _prev_cio_states, _prev_dsp_states;
     Buttons _prevbutton = NOBTN;
     unsigned long _temp_change_timestamp_ms, _heatred_change_timestamp_ms;
-    unsigned long _pump_change_timestamp_ms, _bubbles_change_timestamp_ms;
+    unsigned long _pump_change_timestamp_ms, _bubbles_change_timestamp_ms, _jets_change_timestamp_ms;
     int _deltatemp;
     
     // Smart Schedule state
