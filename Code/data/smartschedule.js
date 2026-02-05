@@ -149,14 +149,24 @@ function displayScheduleStatus(data) {
     }
     
     // Calculate and display time until start
-    if (data.TIMEUNTILSTART) {
+    if (data.STARTTIME && data.STARTTIME > 0) {
+      // Only show time until start if a start time has been calculated
       const timeUntilStart = data.TIMEUNTILSTART;
-      if (timeUntilStart <= 0) {
+      if (timeUntilStart <= 0 && data.HEATER) {
+        // Show "now running" only if heater is actually on
         document.getElementById('statusTimeUntilStart').innerHTML = 
           '<span style="color: #4caf50; font-weight: bold;">Jetzt! (Heizung läuft)</span>';
+      } else if (timeUntilStart <= 0) {
+        // Start time reached but heater not on yet (starting soon)
+        document.getElementById('statusTimeUntilStart').innerHTML = 
+          '<span style="color: #ff9800;">Startet gleich...</span>';
       } else {
         document.getElementById('statusTimeUntilStart').textContent = formatDuration(timeUntilStart);
       }
+    } else {
+      // No start time calculated yet - still measuring
+      document.getElementById('statusTimeUntilStart').innerHTML = 
+        '<span style="color: #2196f3;">Wird berechnet...</span>';
     }
   }
 }

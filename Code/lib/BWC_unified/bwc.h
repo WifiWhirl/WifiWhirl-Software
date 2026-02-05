@@ -150,6 +150,7 @@ private:
     void _handleSmartSchedule();
     void _startAccurateTempReading();
     void _processAccurateTempReading();
+    void _resetSmartScheduleState();
     float _calculateHeatingTime(uint8_t current_temp, uint8_t target_temp);
     void _loadSmartSchedule();
     void _saveSmartSchedule();

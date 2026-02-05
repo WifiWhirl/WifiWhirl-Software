@@ -1865,13 +1865,14 @@ void BWC::cancelSmartSchedule()
     item.interval = 0;
     item.text = "";
     
-    // Safety: Turn off heater if it was started by this schedule
+    // Turn off heater if it was started by this schedule
     // Check if heater is on AND we had a calculated start time (meaning schedule started it)
     if (cio->cio_states.heat && _smart_schedule.calculated_start_time > 0 && 
         _timestamp_secs >= _smart_schedule.calculated_start_time)
     {
         item.cmd = SETHEATER;
         item.val = 0;
+        item.force = false;
         add_command(item);
         Serial.println(F("SmartSchedule: Cancel - Queued heater off"));
     }
@@ -1881,12 +1882,32 @@ void BWC::cancelSmartSchedule()
     {
         item.cmd = SETPUMP;
         item.val = 0;
+        item.force = true;  // Force pump off even if heater command is pending
         add_command(item);
-        Serial.println(F("SmartSchedule: Cancel - Queued pump off"));
+        Serial.println(F("SmartSchedule: Cancel - Queued pump off (forced)"));
     }
     
+    _resetSmartScheduleState();
+    Serial.println(F("SmartSchedule: Cancelled and deleted"));
+}
+
+/**
+ * Reset all smart schedule state to defaults
+ * Used by cancelSmartSchedule() and when schedule completes at target_time
+ */
+void BWC::_resetSmartScheduleState()
+{
     _smart_schedule.active = false;
+    _smart_schedule.target_time = 0;
+    _smart_schedule.target_temp = 0;
+    _smart_schedule.keep_heater_on = false;
+    _smart_schedule.calculated_start_time = 0;
+    _smart_schedule.next_check_time = 0;
+    _smart_schedule.last_heating_estimate = 0;
+    _smart_schedule.accurate_temperature = 0;
     _smart_schedule.temp_reading_state = 0;
+    _smart_schedule.temp_reading_timer = 0;
+    _smart_schedule.original_pump_state = false;
     _smart_schedule.check_completed = false;
     
     _save_smartschedule_needed = true;
@@ -1965,24 +1986,49 @@ void BWC::_handleSmartSchedule()
     if (!_smart_schedule.active)
         return;
     
+    // Check if target time has passed FIRST (before temp reading)
+    // This ensures schedule is completed even if temp reading is in progress
+    if (_timestamp_secs >= _smart_schedule.target_time)
+    {
+        Serial.println(F("SmartSchedule: Target time reached"));
+        
+        // If keep_heater_on is false, turn off heater and pump
+        if (!_smart_schedule.keep_heater_on)
+        {
+            command_que_item item;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            
+            if (cio->cio_states.heat)
+            {
+                item.cmd = SETHEATER;
+                item.val = 0;
+                item.force = false;
+                add_command(item);
+                Serial.println(F("SmartSchedule: Queued heater off"));
+            }
+            
+            if (cio->cio_states.pump)
+            {
+                item.cmd = SETPUMP;
+                item.val = 0;
+                item.force = true;  // Force pump off even if heater command is pending
+                add_command(item);
+                Serial.println(F("SmartSchedule: Queued pump off (forced)"));
+            }
+        }
+        
+        // Delete/reset the schedule completely
+        _resetSmartScheduleState();
+        Serial.println(F("SmartSchedule: Schedule completed and deleted"));
+        return;
+    }
+    
     // Process temperature reading sequence if active
     if (_smart_schedule.temp_reading_state > 0)
     {
         _processAccurateTempReading();
-        return;
-    }
-    
-    // Check if target time has passed
-    if (_timestamp_secs >= _smart_schedule.target_time)
-    {
-        // Target time reached - cancelSmartSchedule will handle turning off heater/pump
-        if (!_smart_schedule.keep_heater_on)
-        {
-            Serial.println(F("SmartSchedule: Target reached - deactivating"));
-        }
-        
-        // Deactivate schedule (this queues heater/pump off commands if needed)
-        cancelSmartSchedule();
         return;
     }
     
@@ -1992,14 +2038,34 @@ void BWC::_handleSmartSchedule()
     {
         if (!cio->cio_states.heat)
         {
-            // Apply target temperature from schedule to global target
-            cio->cio_toggles.target = _smart_schedule.target_temp;
-            cio->cio_toggles.heat_change = 1; // Turn on heater
-            Serial.println(F("SmartSchedule: Start time reached - turning on heater"));
+            command_que_item item;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            item.force = false;
+            
+            // Set target temperature from schedule
+            item.cmd = SETTARGET;
+            item.val = _smart_schedule.target_temp;
+            add_command(item);
+            
+            // Turn on heater
+            item.cmd = SETHEATER;
+            item.val = 1;
+            add_command(item);
+            
+            Serial.print(F("SmartSchedule: Start time reached - target: "));
+            Serial.print(_smart_schedule.target_temp);
+            Serial.println(F("C, heater on"));
         }
     }
     
     // Check if it's time for next temperature check and recalculation
+    // IMPORTANT: Once check_completed is true (heating has started), don't do more recalculations
+    // The schedule should maintain heating until target_time, not recalculate start time
+    if (_smart_schedule.check_completed)
+        return;
+    
     if (_timestamp_secs < _smart_schedule.next_check_time)
         return;
     
@@ -2091,10 +2157,25 @@ void BWC::_processAccurateTempReading()
                 
                 if (!cio->cio_states.heat)
                 {
-                    // Apply target temperature from schedule to global target
-                    cio->cio_toggles.target = _smart_schedule.target_temp;
-                    cio->cio_toggles.heat_change = 1; // Turn on heater
-                    Serial.println(F("SmartSchedule: Starting heater NOW!"));
+                    command_que_item item;
+                    item.xtime = 0;
+                    item.interval = 0;
+                    item.text = "";
+                    item.force = false;
+                    
+                    // Set target temperature from schedule
+                    item.cmd = SETTARGET;
+                    item.val = _smart_schedule.target_temp;
+                    add_command(item);
+                    
+                    // Turn on heater
+                    item.cmd = SETHEATER;
+                    item.val = 1;
+                    add_command(item);
+                    
+                    Serial.print(F("SmartSchedule: Starting heater NOW - target: "));
+                    Serial.print(_smart_schedule.target_temp);
+                    Serial.println(F("C"));
                 }
             }
             else
