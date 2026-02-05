@@ -605,6 +605,9 @@
       function initApplication() {
         if (localStorage.getItem("showSectionTemperature")) {
           setWebConfig();
+        } else {
+          // Apply alternating backgrounds even if no config exists yet
+          updateSectionBackgrounds();
         }
         loadWebConfig();
         connect();
@@ -659,6 +662,24 @@
           localStorage.getItem("useControlSelector") !== "false"
             ? "table"
             : "none";
+        // Update alternating section backgrounds for visible sections
+        updateSectionBackgrounds();
+      }
+
+      function updateSectionBackgrounds() {
+        var sections = document.querySelectorAll("#site > section");
+        var visibleIndex = 0;
+        sections.forEach(function(section) {
+          section.classList.remove("odd-section");
+          // Check computed style since display might not be set inline initially
+          var isVisible = window.getComputedStyle(section).display !== "none";
+          if (isVisible) {
+            if (visibleIndex % 2 === 0) {
+              section.classList.add("odd-section");
+            }
+            visibleIndex++;
+          }
+        });
       }
 
       function loadWebConfig() {

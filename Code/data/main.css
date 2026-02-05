@@ -100,13 +100,13 @@ section {
   padding: 1em 1em;
   background: #e2e2e2;
 }
-section:nth-of-type(2n + 1) {
+section.odd-section {
   background: #ededed;
 }
 .darkmode section {
   background: #4d4d4d;
 }
-.darkmode section:nth-of-type(2n + 1) {
+.darkmode section.odd-section {
   background: #3a3a3a;
 }
 #sectionDisplay {
