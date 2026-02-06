@@ -64,13 +64,13 @@ var wqEditingState = {
   ph: false,
   cl: false,
   cya: false,
-  alk: false
+  alk: false,
 };
 var wqDebounceTimers = {
   ph: null,
   cl: null,
   cya: null,
-  alk: null
+  alk: null,
 };
 updateBrtState = false;
 
@@ -224,7 +224,7 @@ function handlemsg(e) {
         document
           .getElementById("htrspan")
           .classList.add(
-            msgobj.RED ? "heateron" : msgobj.GRN ? "heateroff" : "n-o-n-e"
+            msgobj.RED ? "heateron" : msgobj.GRN ? "heateroff" : "n-o-n-e",
           );
       }
 
@@ -232,14 +232,14 @@ function handlemsg(e) {
       document.getElementById("display").innerHTML = String.fromCharCode(
         msgobj.CH1,
         msgobj.CH2,
-        msgobj.CH3
+        msgobj.CH3,
       );
       document.getElementById("display").style.color = rgb(
         255 -
           dspBrtMultiplier * 8 +
           dspBrtMultiplier * (parseInt(msgobj.BRT) + 1),
         0,
-        0
+        0,
       );
       if (msgobj.CH1 != 101 && msgobj.CH3 != 32 && msgobj.CH1 != 54) {
         msgobj.UNT
@@ -285,7 +285,7 @@ function handlemsg(e) {
       if (document.activeElement !== elemSelectorTemp && !updateTempState) {
         elemSelectorTemp.value = msgobj.TGT;
         elemSelectorTemp.parentElement.querySelector(
-          ".numDisplay"
+          ".numDisplay",
         ).textContent = msgobj.TGT;
       }
       if (document.activeElement !== elemSelectorAmb && !updateAmbState) {
@@ -346,7 +346,9 @@ function handlemsg(e) {
       clTimerEl.innerHTML = getTimeSinceText(clTimeSec);
       clTimerEl.title = formatTimestamp(msgobj.CLTIME);
       document.getElementById("cltimerbtn").className =
-        (clDays > msgobj.CLINT && clTimeSec <= TWENTY_YEARS_SEC) ? "button_red" : "button";
+        clDays > msgobj.CLINT && clTimeSec <= TWENTY_YEARS_SEC
+          ? "button_red"
+          : "button";
 
       // filter change reset timer
       var fTimeSec = Math.floor(Date.now() / 1000 - msgobj.FTIME);
@@ -355,7 +357,9 @@ function handlemsg(e) {
       fTimerEl.innerHTML = getTimeSinceText(fTimeSec);
       fTimerEl.title = formatTimestamp(msgobj.FTIME);
       document.getElementById("ftimerbtn").className =
-        (fDays > msgobj.FINT && fTimeSec <= TWENTY_YEARS_SEC) ? "button_red" : "button";
+        fDays > msgobj.FINT && fTimeSec <= TWENTY_YEARS_SEC
+          ? "button_red"
+          : "button";
 
       // filter clean reset timer
       var fcTimeSec = Math.floor(Date.now() / 1000 - msgobj.FCTIME);
@@ -364,7 +368,9 @@ function handlemsg(e) {
       fcTimerEl.innerHTML = getTimeSinceText(fcTimeSec);
       fcTimerEl.title = formatTimestamp(msgobj.FCTIME);
       document.getElementById("fctimerbtn").className =
-        (fcDays > msgobj.FCINT && fcTimeSec <= TWENTY_YEARS_SEC) ? "button_red" : "button";
+        fcDays > msgobj.FCINT && fcTimeSec <= TWENTY_YEARS_SEC
+          ? "button_red"
+          : "button";
 
       // water change reset timer
       var wcTimeSec = Math.floor(Date.now() / 1000 - msgobj.WCTIME);
@@ -373,11 +379,13 @@ function handlemsg(e) {
       wcTimerEl.innerHTML = getTimeSinceText(wcTimeSec);
       wcTimerEl.title = formatTimestamp(msgobj.WCTIME);
       document.getElementById("wctimerbtn").className =
-        (wcDays > msgobj.WCINT && wcTimeSec <= TWENTY_YEARS_SEC) ? "button_red" : "button";
+        wcDays > msgobj.WCINT && wcTimeSec <= TWENTY_YEARS_SEC
+          ? "button_red"
+          : "button";
 
       // statistics
       document.getElementById("heatingtime").innerHTML = s2dhms(
-        msgobj.HEATINGTIME
+        msgobj.HEATINGTIME,
       );
       document.getElementById("uptime").innerHTML = s2dhms(msgobj.UPTIME);
       document.getElementById("airtime").innerHTML = s2dhms(msgobj.AIRTIME);
@@ -462,11 +470,11 @@ function formatTimestamp(unixTimestamp) {
   var timeSinceSec = Math.floor(Date.now() / 1000) - unixTimestamp;
   if (timeSinceSec > TWENTY_YEARS_SEC) return "";
   var date = new Date(unixTimestamp * 1000);
-  var day = String(date.getDate()).padStart(2, '0');
-  var month = String(date.getMonth() + 1).padStart(2, '0');
+  var day = String(date.getDate()).padStart(2, "0");
+  var month = String(date.getMonth() + 1).padStart(2, "0");
   var year = date.getFullYear();
-  var hours = String(date.getHours()).padStart(2, '0');
-  var minutes = String(date.getMinutes()).padStart(2, '0');
+  var hours = String(date.getHours()).padStart(2, "0");
+  var minutes = String(date.getMinutes()).padStart(2, "0");
   return day + "." + month + "." + year + " " + hours + ":" + minutes + " Uhr";
 }
 
@@ -474,24 +482,24 @@ function formatTimestamp(unixTimestamp) {
 function getTimeSinceText(seconds) {
   // If timestamp is more than 20 years in the past, show "noch nie"
   if (seconds > TWENTY_YEARS_SEC) return "noch nie";
-  
+
   // "gerade eben" only for the last 60 seconds
   if (seconds < 60) return "gerade eben";
-  
+
   // minutes (1-59 min)
   var minutes = Math.floor(seconds / 60);
   if (minutes < 60) {
     if (minutes == 1) return "vor einer Minute";
     return "vor " + minutes + " Minuten";
   }
-  
+
   // hours (1-23 h)
   var hours = Math.floor(seconds / 3600);
   if (hours < 24) {
     if (hours == 1) return "vor einer Stunde";
     return "vor " + hours + " Stunden";
   }
-  
+
   // days (1+)
   var days = Math.floor(seconds / 86400);
   if (days == 1) return "vor einem Tag";
@@ -507,7 +515,7 @@ function parseWqValue(inputValue) {
 function onPhInput() {
   wqEditingState.ph = true;
   if (wqDebounceTimers.ph) clearTimeout(wqDebounceTimers.ph);
-  wqDebounceTimers.ph = setTimeout(function() {
+  wqDebounceTimers.ph = setTimeout(function () {
     savePhValue();
     wqEditingState.ph = false;
   }, 1000);
@@ -525,7 +533,7 @@ function savePhValue() {
 function onClInput() {
   wqEditingState.cl = true;
   if (wqDebounceTimers.cl) clearTimeout(wqDebounceTimers.cl);
-  wqDebounceTimers.cl = setTimeout(function() {
+  wqDebounceTimers.cl = setTimeout(function () {
     saveClValue();
     wqEditingState.cl = false;
   }, 1000);
@@ -543,7 +551,7 @@ function saveClValue() {
 function onCyaInput() {
   wqEditingState.cya = true;
   if (wqDebounceTimers.cya) clearTimeout(wqDebounceTimers.cya);
-  wqDebounceTimers.cya = setTimeout(function() {
+  wqDebounceTimers.cya = setTimeout(function () {
     saveCyaValue();
     wqEditingState.cya = false;
   }, 1000);
@@ -562,7 +570,7 @@ function saveCyaValue() {
 function onAlkInput() {
   wqEditingState.alk = true;
   if (wqDebounceTimers.alk) clearTimeout(wqDebounceTimers.alk);
-  wqDebounceTimers.alk = setTimeout(function() {
+  wqDebounceTimers.alk = setTimeout(function () {
     saveAlkValue();
     wqEditingState.alk = false;
   }, 1000);
@@ -588,7 +596,7 @@ function sendCommandWithValue(cmd, value) {
   obj["XTIME"] = Math.floor(Date.now() / 1000);
   obj["INTERVAL"] = 0;
   obj["TXT"] = "";
-  obj["FORCE"] = true;  // Frontend commands always force (bypass safety checks)
+  obj["FORCE"] = true; // Frontend commands always force (bypass safety checks)
   var json = JSON.stringify(obj);
   connection.send(json);
   console.log(json);
@@ -641,7 +649,7 @@ function sendCommand(cmd) {
   if (cmd == "setTarget" || cmd == "setTargetSelector") {
     value = parseInt(
       document.getElementById(cmd == "setTarget" ? "temp" : "selectorTemp")
-        .value
+        .value,
     );
     value = getProperValue(value, unit ? 20 : 68, unit ? 40 : 104);
     document.getElementById("sliderTempVal").innerHTML = value.toString();
@@ -654,7 +662,8 @@ function sendCommand(cmd) {
     value = 0;
   } else if (cmd == "setAmbient" || cmd == "setAmbientSelector") {
     value = parseInt(
-      document.getElementById(cmd == "setAmbient" ? "amb" : "selectorAmb").value
+      document.getElementById(cmd == "setAmbient" ? "amb" : "selectorAmb")
+        .value,
     );
     value = getProperValue(value, unit ? -40 : -40, unit ? 60 : 140);
     document.getElementById("sliderAmbVal").innerHTML = value.toString();
@@ -663,20 +672,20 @@ function sendCommand(cmd) {
     updateAmbState = true;
   } else if (cmd == "setBrightness" || cmd == "setBrightnessSelector") {
     var brtElement = document.getElementById(
-      cmd == "setBrightness" ? "brt" : "selectorBrt"
+      cmd == "setBrightness" ? "brt" : "selectorBrt",
     );
     value = parseInt(brtElement.value);
     value = getProperValue(
       value,
       Number(brtElement.min),
-      Number(brtElement.max)
+      Number(brtElement.max),
     );
     document.getElementById("sliderBrtVal").innerHTML = value.toString();
     document.getElementById("selectorBrt").value = value.toString();
     document.getElementById("display").style.color = rgb(
       255 - dspBrtMultiplier * 8 + dspBrtMultiplier * (value + 1),
       0,
-      0
+      0,
     );
     updateBrtState = true;
   } else if (
@@ -698,7 +707,7 @@ function sendCommand(cmd) {
   obj["XTIME"] = Math.floor(Date.now() / 1000);
   obj["INTERVAL"] = 0;
   obj["TXT"] = "";
-  obj["FORCE"] = true;  // Frontend commands always force (bypass safety checks)
+  obj["FORCE"] = true; // Frontend commands always force (bypass safety checks)
   var json = JSON.stringify(obj);
   connection.send(json);
   console.log(json);

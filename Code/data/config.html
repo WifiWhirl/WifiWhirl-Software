@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
   <head>
     <title>WifiWhirl | SPA-Konfiguration</title>
@@ -9,7 +9,10 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
     <meta
       name="viewport"
@@ -25,7 +28,7 @@
         -webkit-appearance: none;
         margin: 0;
       }
-      input[type=number] {
+      input[type="number"] {
         -moz-appearance: textfield;
       }
     </style>
@@ -289,36 +292,102 @@
           <tr>
             <td colspan="8">
               Aktivierte Bedientasten | <label for="toggle_all">Alle:</label>
-              <input type="checkbox" id="toggle_all" onchange="confirmDisable(this);toggleAll();" />
+              <input
+                type="checkbox"
+                id="toggle_all"
+                onchange="
+                  confirmDisable(this);
+                  toggleAll();
+                "
+              />
             </td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="power_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="power_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="power_btn">Ein/Aus</label></td>
-            <td><input type="checkbox" id="lock_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="lock_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="lock_btn">Tastensperre</label></td>
-            <td><input type="checkbox" id="bubbles_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="bubbles_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="bubbles_btn">Airjet</label></td>
-            <td><input type="checkbox" id="hydrojets_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="hydrojets_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="hydrojets_btn">Hydrojet</label></td>
-            
           </tr>
           <tr>
-            <td><input type="checkbox" id="pump_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="pump_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="pump_btn">Pumpe</label></td>
-            <td><input type="checkbox" id="up_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="up_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="up_btn">Aufwärts</label></td>
-            <td><input type="checkbox" id="timer_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="timer_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="timer_btn">Timer</label></td>
             <td></td>
             <td></td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="heat_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="heat_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="heat_btn">Heizung</label></td>
-            <td><input type="checkbox" id="down_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="down_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="down_btn">Abwärts</label></td>
-            <td><input type="checkbox" id="unit_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="unit_btn"
+                onchange="confirmDisable(this)"
+              />
+            </td>
             <td><label for="unit_btn">Einheit</label></td>
             <td></td>
             <td></td>
@@ -328,7 +397,10 @@
           <button
             id="save"
             class="button"
-            onclick="buttonConfirm(this);saveConfig()"
+            onclick="
+              buttonConfirm(this);
+              saveConfig();
+            "
           >
             Speichern
           </button>
@@ -422,7 +494,10 @@
               <button
                 id="addcmd"
                 class="button"
-                onclick="buttonConfirm(this);addCommand()"
+                onclick="
+                  buttonConfirm(this);
+                  addCommand();
+                "
               >
                 Hinzufügen
               </button>
@@ -451,7 +526,10 @@
               <button
                 id="loadq"
                 class="button"
-                onclick="buttonConfirm(this);loadfromfile()"
+                onclick="
+                  buttonConfirm(this);
+                  loadfromfile();
+                "
               >
                 Wiederherstellen
               </button>
@@ -462,7 +540,10 @@
               <button
                 id="resetq"
                 class="button_red"
-                onclick="buttonConfirm(this);resetCommandQueue()"
+                onclick="
+                  buttonConfirm(this);
+                  resetCommandQueue();
+                "
               >
                 Warteschlange leeren
               </button>
@@ -594,22 +675,31 @@
             document.getElementById("plz").value = json.PLZ;
             document.getElementById("enableWeather").checked = json.WEATHER;
             weatherEnabled = json.WEATHER;
-            
+
             // Hide Hydrojet command if hardware has no jets
-            const hydroOption = document.querySelector("#commands option[value='11']");
-            if (hydroOption) hydroOption.style.display = json.HASJETS ? "" : "none";
+            const hydroOption = document.querySelector(
+              "#commands option[value='11']",
+            );
+            if (hydroOption)
+              hydroOption.style.display = json.HASJETS ? "" : "none";
 
             // Hide Hydrojet enable-checkboxes if no jets available
-            const hydroCheckboxCell = document.getElementById("hydrojets_btn")?.parentElement;
-            const hydroLabelCell = document.querySelector("label[for='hydrojets_btn']")?.parentElement;
+            const hydroCheckboxCell =
+              document.getElementById("hydrojets_btn")?.parentElement;
+            const hydroLabelCell = document.querySelector(
+              "label[for='hydrojets_btn']",
+            )?.parentElement;
             const displayState = json.HASJETS ? "" : "none";
-            if (hydroCheckboxCell) hydroCheckboxCell.style.display = displayState;
+            if (hydroCheckboxCell)
+              hydroCheckboxCell.style.display = displayState;
             if (hydroLabelCell) hydroLabelCell.style.display = displayState;
 
             // Hide Hydrojet timeout row if no jets available
-            const hydrojetTimeoutRow = document.getElementById("hydrojetTimeoutRow");
-            if (hydrojetTimeoutRow) hydrojetTimeoutRow.style.display = displayState;
-            
+            const hydrojetTimeoutRow =
+              document.getElementById("hydrojetTimeoutRow");
+            if (hydrojetTimeoutRow)
+              hydrojetTimeoutRow.style.display = displayState;
+
             document.getElementById("poolCap").value = json.POOLCAP;
             document.getElementById("airjetTimeout").value = json.AIRTO || 30;
             document.getElementById("hydrojetTimeout").value = json.HJTO || 60;
@@ -681,14 +771,18 @@
           varinput.removeAttribute("ontouchend");
           varinput.setAttribute(
             "onmousemove",
-            "showpreviewval('val', 'sliderDsp')"
+            "showpreviewval('val', 'sliderDsp')",
           );
           varinput.setAttribute(
             "ontouchmove",
-            "showpreviewval('val', 'sliderDsp')"
+            "showpreviewval('val', 'sliderDsp')",
           );
           showpreviewval("val", "sliderDsp");
-        } else if (select.value < 12 || select.value == 23 || select.value == 26) {
+        } else if (
+          select.value < 12 ||
+          select.value == 23 ||
+          select.value == 26
+        ) {
           // on off checkbox
           textinput.style.display = "none";
           valinput.style.display = "table-row";
@@ -709,11 +803,11 @@
           varinput.removeAttribute("ontouchmove");
           varinput.setAttribute(
             "onmousedown",
-            "(this.value = this.checked ? 0 : 1)"
+            "(this.value = this.checked ? 0 : 1)",
           );
           varinput.setAttribute(
             "ontouchend",
-            "(this.value = this.checked ? 0 : 1)"
+            "(this.value = this.checked ? 0 : 1)",
           );
         }
       }
@@ -722,7 +816,7 @@
         // Safely determine the value for the VALUE field
         let valueToSend;
         const commandValue = parseInt(
-          document.getElementById("commands").value
+          document.getElementById("commands").value,
         );
         if (commandValue === 12) {
           // Case for command 12 (brightness slider)
@@ -731,7 +825,7 @@
         } else {
           // Case for other commands (on/off radio buttons)
           const checkedInput = document.querySelector(
-            'input[name="val"]:checked'
+            'input[name="val"]:checked',
           );
           valueToSend = checkedInput ? parseFloat(checkedInput.value) : 0;
         }
@@ -763,7 +857,7 @@
         var json = {
           TIMEZONE: 0,
           PRICE: parseFloat(
-            document.getElementById("price").value.replace(",", ".")
+            document.getElementById("price").value.replace(",", "."),
           ).toFixed(2),
           CLINT: parseInt(document.getElementById("clinterval").value),
           FINT: parseInt(document.getElementById("finterval").value),
@@ -772,13 +866,14 @@
           AUDIO: document.getElementById("audio").checked,
           NOTIFY: document.getElementById("notification").checked,
           NOTIFTIME: parseInt(
-            document.getElementById("notificationtime").value
+            document.getElementById("notificationtime").value,
           ),
           PLZ: document.getElementById("plz").value,
           WEATHER: document.getElementById("enableWeather").checked,
           POOLCAP: document.getElementById("poolCap").value,
           AIRTO: parseInt(document.getElementById("airjetTimeout").value) || 30,
-          HJTO: parseInt(document.getElementById("hydrojetTimeout").value) || 60,
+          HJTO:
+            parseInt(document.getElementById("hydrojetTimeout").value) || 60,
           LCK: document.getElementById("lock_btn").checked,
           TMR: document.getElementById("timer_btn").checked,
           AIR: document.getElementById("bubbles_btn").checked,
@@ -873,8 +968,8 @@
                 (json["VALUE"][i] == 1
                   ? "einschalten"
                   : json["VALUE"][i] == 0
-                  ? "ausschalten"
-                  : json["VALUE"][i]) +
+                    ? "ausschalten"
+                    : json["VALUE"][i]) +
                 "</strong><br>" +
                 "Nächste Ausführung: " +
                 new Intl.DateTimeFormat(undefined, dateoptions).format(date) + //date.toLocaleString()
@@ -922,7 +1017,11 @@
       }
 
       function resetCommandQueue() {
-        if (!confirm("Möchtest du die Warteschlange wirklich leeren? Alle geplanten Befehle werden gelöscht.")) {
+        if (
+          !confirm(
+            "Möchtest du die Warteschlange wirklich leeren? Alle geplanten Befehle werden gelöscht.",
+          )
+        ) {
           return;
         }
         var req = new XMLHttpRequest();
@@ -948,16 +1047,20 @@
             if (req.status === 200) {
               // Generate filename with datetime
               var now = new Date();
-              var datetime = now.getFullYear() +
+              var datetime =
+                now.getFullYear() +
                 String(now.getMonth() + 1).padStart(2, "0") +
-                String(now.getDate()).padStart(2, "0") + "_" +
+                String(now.getDate()).padStart(2, "0") +
+                "_" +
                 String(now.getHours()).padStart(2, "0") +
                 String(now.getMinutes()).padStart(2, "0") +
                 String(now.getSeconds()).padStart(2, "0");
               var filename = "wifiwhirl_queue_" + datetime + ".json";
-              
+
               // Create blob and trigger download
-              var blob = new Blob([req.responseText], { type: "application/json" });
+              var blob = new Blob([req.responseText], {
+                type: "application/json",
+              });
               var link = document.createElement("a");
               link.href = window.URL.createObjectURL(blob);
               link.download = filename;
@@ -980,11 +1083,11 @@
         fileInput.onchange = function (e) {
           var file = e.target.files[0];
           if (!file) return;
-          
+
           var reader = new FileReader();
           reader.onload = function (event) {
             var content = event.target.result;
-            
+
             // Send raw file content to backend for validation and storage
             var req = new XMLHttpRequest();
             req.open("POST", "/cmdq_file/?action=upload");
@@ -1049,13 +1152,14 @@
         if (elem.checked) return; // only on uncheck
         var label = document.querySelector("label[for='" + elem.id + "']");
         var btnName = label ? label.innerText.trim() : elem.id;
-        var msg = "Achtung!\n\nMit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl-Modul möglich. " +
-                  "Die Bedientasten auf der Pumpe werden damit deaktiviert!\n\nBist du dir sicher, dass du ";
+        var msg =
+          "Achtung!\n\nMit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl Modul möglich. " +
+          "Die Bedientasten auf der Pumpe werden damit deaktiviert!\n\nBist du dir sicher, dass du ";
 
         if (btnName === "Alle:") {
           msg += "ALLE Tasten deaktivieren möchtest?";
         } else {
-          msg += "die Taste \"" + btnName + "\" deaktivieren möchtest?";
+          msg += 'die Taste "' + btnName + '" deaktivieren möchtest?';
         }
         if (!confirm(msg)) {
           elem.checked = true; // revert change

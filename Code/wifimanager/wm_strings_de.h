@@ -140,7 +140,7 @@
  #endif
  
  // Info html
- const char HTTP_INFO_esphead[] PROGMEM = "<h3>WifiWhirl-Modul</h3><hr><dl>";
+ const char HTTP_INFO_esphead[] PROGMEM = "<h3>WifiWhirl Modul</h3><hr><dl>";
  const char HTTP_INFO_fchipid[] PROGMEM = "<dt>Flash Chip ID</dt><dd>{1}</dd>";
  const char HTTP_INFO_corever[] PROGMEM = "<dt>Core Version</dt><dd>{1}</dd>";
  const char HTTP_INFO_bootver[] PROGMEM = "<dt>Boot Version</dt><dd>{1}</dd>";

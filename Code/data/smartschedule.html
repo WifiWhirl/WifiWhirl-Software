@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
   <head>
     <title>WifiWhirl | Smart Schedule</title>
@@ -9,7 +9,10 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
     <meta
       name="viewport"
@@ -55,11 +58,13 @@
       <!-- Current Schedule Status -->
       <section>
         <h2>Aktueller Status</h2>
-        <div id="statusActive" style="display: none;">
+        <div id="statusActive" style="display: none">
           <table>
             <tr>
               <td><strong>Status:</strong></td>
-              <td><strong><span id="statusLabel">Aktiv</span></strong></td>
+              <td>
+                <strong><span id="statusLabel">Aktiv</span></strong>
+              </td>
             </tr>
             <tr>
               <td>Zieltemperatur:</td>
@@ -85,11 +90,16 @@
               <td>Geschätzte Heizdauer:</td>
               <td><span id="statusEstimate">--</span></td>
             </tr>
-            <tr style="background-color: rgba(76, 175, 80, 0.1);">
+            <tr style="background-color: rgba(76, 175, 80, 0.1)">
               <td><strong>Heizung Status:</strong></td>
-              <td><strong><span id="statusHeater">--</span></strong></td>
+              <td>
+                <strong><span id="statusHeater">--</span></strong>
+              </td>
             </tr>
-            <tr id="statusReadingState" style="display: none; background-color: rgba(33, 150, 243, 0.1);">
+            <tr
+              id="statusReadingState"
+              style="display: none; background-color: rgba(33, 150, 243, 0.1)"
+            >
               <td colspan="2" class="center">
                 <span id="statusReadingStateText">--</span>
               </td>
@@ -113,7 +123,10 @@
                 <button
                   id="cancelBtn"
                   class="button_red"
-                  onclick="buttonConfirm(this);cancelSchedule()"
+                  onclick="
+                    buttonConfirm(this);
+                    cancelSchedule();
+                  "
                 >
                   Zeitplan abbrechen
                 </button>
@@ -125,7 +138,7 @@
           <table>
             <tr>
               <td colspan="2" class="center">
-                <strong>Kein aktiver Zeitplan</strong><br/>
+                <strong>Kein aktiver Zeitplan</strong><br />
                 Erstelle unten einen neuen Smart Schedule.
               </td>
             </tr>
@@ -139,29 +152,21 @@
         <table>
           <tr>
             <td colspan="2">
-              Smart Schedule plant automatisch, wann die Heizung gestartet werden muss, 
-              damit dein Pool zur gewünschten Zeit die Zieltemperatur erreicht hat.
+              Smart Schedule plant automatisch, wann die Heizung gestartet
+              werden muss, damit dein Pool zur gewünschten Zeit die
+              Zieltemperatur erreicht hat.
             </td>
           </tr>
           <tr>
             <td><label for="targetDate">Datum:</label></td>
             <td>
-              <input
-                type="date"
-                id="targetDate"
-                required
-              />
+              <input type="date" id="targetDate" required />
             </td>
           </tr>
           <tr>
             <td><label for="targetTime">Uhrzeit:</label></td>
             <td>
-              <input
-                type="time"
-                id="targetTime"
-                value="19:00"
-                required
-              />
+              <input type="time" id="targetTime" value="19:00" required />
             </td>
           </tr>
           <tr>
@@ -191,7 +196,10 @@
               <button
                 id="setScheduleBtn"
                 class="button"
-                onclick="buttonConfirm(this);setSchedule()"
+                onclick="
+                  buttonConfirm(this);
+                  setSchedule();
+                "
               >
                 Zeitplan aktivieren
               </button>
@@ -206,38 +214,46 @@
         <table>
           <tr>
             <td>
-              <strong>Automatische Berechnung:</strong><br/>
-              Das System berechnet basierend auf aktueller Wassertemperatur, Umgebungstemperatur und Poolkapazität, wann die Heizung gestartet werden muss.
+              <strong>Automatische Berechnung:</strong><br />
+              Das System berechnet basierend auf aktueller Wassertemperatur,
+              Umgebungstemperatur und Poolkapazität, wann die Heizung gestartet
+              werden muss.
             </td>
           </tr>
           <tr>
             <td>
-              <strong>Präzise Temperaturmessung:</strong><br/>
-              Für genaue Messungen wird die Pumpe 20 Sekunden eingeschaltet, dann 20 Sekunden gewartet, bevor die Temperatur gemessen wird.
+              <strong>Präzise Temperaturmessung:</strong><br />
+              Für genaue Messungen wird die Pumpe 20 Sekunden eingeschaltet,
+              dann 20 Sekunden gewartet, bevor die Temperatur gemessen wird.
             </td>
           </tr>
           <tr>
             <td>
-              <strong>Adaptive Prüfintervalle:</strong><br/>
-              Bei mehr als 24h bis zum Heizstart: Prüfung alle 12h. Danach wird in der halben verbleibenden Zeit erneut geprüft.
+              <strong>Adaptive Prüfintervalle:</strong><br />
+              Bei mehr als 24h bis zum Heizstart: Prüfung alle 12h. Danach wird
+              in der halben verbleibenden Zeit erneut geprüft.
             </td>
           </tr>
           <tr>
             <td>
-              <strong>Sicherheitspuffer:</strong><br/>
-              Es wird ein Puffer von 10% (mindestens 1 Stunde) eingeplant, damit dein Pool garantiert rechtzeitig warm ist.
+              <strong>Sicherheitspuffer:</strong><br />
+              Es wird ein Puffer von 10% (mindestens 1 Stunde) eingeplant, damit
+              dein Pool garantiert rechtzeitig warm ist.
             </td>
           </tr>
           <tr>
             <td>
-              <strong>Persistent:</strong><br/>
+              <strong>Persistent:</strong><br />
               Der Zeitplan bleibt auch nach einem Neustart aktiv.
             </td>
           </tr>
           <tr>
             <td>
-              <strong>Manuelle Steuerung:</strong><br/>
-              Wenn du während eines aktiven Zeitplans die Heizung manuell ausschaltest (über die Übersichtsseite oder das Bedienpanel), wird der Zeitplan automatisch abgebrochen. So behältst du jederzeit die volle Kontrolle.
+              <strong>Manuelle Steuerung:</strong><br />
+              Wenn du während eines aktiven Zeitplans die Heizung manuell
+              ausschaltest (über die Übersichtsseite oder das Bedienpanel), wird
+              der Zeitplan automatisch abgebrochen. So behältst du jederzeit die
+              volle Kontrolle.
             </td>
           </tr>
         </table>
@@ -254,4 +270,3 @@
     <script src="darkmode.js"></script>
   </body>
 </html>
-

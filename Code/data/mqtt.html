@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <title>WifiWhirl | MQTT-Konfiguration</title>
@@ -9,9 +9,15 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
     <script src="function.js" type="text/javascript"></script>
     <script src="index.js" type="text/javascript"></script>
   </head>
@@ -57,10 +63,7 @@
           <tr>
             <td>MQTT Server:</td>
             <td>
-              <input
-                type="text"
-                id="mqttServer"
-              />
+              <input type="text" id="mqttServer" />
             </td>
           </tr>
           <tr>
@@ -73,7 +76,13 @@
           </tr>
           <tr>
             <td>Passwort:</td>
-            <td><input type="password" id="mqttPassword" placeholder="Leer lassen, um aktuelles Passwort zu behalten" /></td>
+            <td>
+              <input
+                type="password"
+                id="mqttPassword"
+                placeholder="Leer lassen, um aktuelles Passwort zu behalten"
+              />
+            </td>
           </tr>
           <tr>
             <td>Client-ID:</td>
@@ -129,7 +138,11 @@
       function saveMqttConfig() {
         if (document.getElementById("enableMqtt").checked) {
           var passwordField = document.getElementById("mqttPassword");
-          if (passwordField.value.length > 0 && !validatePassword("mqttPassword")) return;
+          if (
+            passwordField.value.length > 0 &&
+            !validatePassword("mqttPassword")
+          )
+            return;
         }
 
         buttonConfirm(document.getElementById("save"));
@@ -143,53 +156,55 @@
           mqttClientId: document.getElementById("mqttClientId").value,
           mqttBaseTopic: document.getElementById("mqttBaseTopic").value,
           mqttTelemetryInterval: document.getElementById(
-            "mqttTelemetryInterval"
+            "mqttTelemetryInterval",
           ).value,
         };
-        
+
         var req = new XMLHttpRequest();
         req.open("POST", "/setmqtt/");
-        
+
         // Handle response - check if restart is needed
         req.onload = function () {
           if (req.status == 200) {
             console.log("Response received:", req.responseText);
-            
+
             // Try to parse response as JSON
             try {
               var response = JSON.parse(req.responseText);
               console.log("Parsed response:", response);
-              
+
               if (response.restart === true) {
-                console.log("Restart required - showing alert");       
+                console.log("Restart required - showing alert");
                 document.open();
                 document.write(
-                  '<!DOCTYPE html>' +
-                  '<html>' +
-                  '<head>' +
-                  '<title>WifiWhirl | Neustart</title>' +
-                  '<meta charset="utf-8" />' +
-                  '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
-                  '<style>' +
-                  'body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }' +
-                  'h1 { color: #4051b5; margin-bottom: 20px; }' +
-                  'p { font-size: 18px; margin: 20px; color: #333; }' +
-                  '.info { color: #666; font-size: 16px; }' +
-                  '.btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #4051b5; color: white; text-decoration: none; border-radius: 5px; }' +
-                  '.btn:hover { background: #2c3a8f; }' +
-                  '</style>' +
-                  '</head>' +
-                  '<body>' +
-                  '<h1>WifiWhirl startet neu...</h1>' +
-                  '<p>' + response.reason + '</p>' +
-                  '<p class="info">Die MQTT Konfiguration wird automatisch aktualisiert.</p>' +
-                  '<p class="info">Bitte warte ca. 30 Sekunden...</p>' +
-                  '<a href="/" class="btn">Zurück zur Übersicht</a>' +
-                  '<script>' +
-                  'setTimeout(function() { window.location.href = "/"; }, 30000);' +
-                  '<\/script>' +
-                  '</body>' +
-                  '</html>'
+                  "<!DOCTYPE html>" +
+                    "<html>" +
+                    "<head>" +
+                    "<title>WifiWhirl | Neustart</title>" +
+                    '<meta charset="utf-8" />' +
+                    '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+                    "<style>" +
+                    "body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }" +
+                    "h1 { color: #4051b5; margin-bottom: 20px; }" +
+                    "p { font-size: 18px; margin: 20px; color: #333; }" +
+                    ".info { color: #666; font-size: 16px; }" +
+                    ".btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #4051b5; color: white; text-decoration: none; border-radius: 5px; }" +
+                    ".btn:hover { background: #2c3a8f; }" +
+                    "</style>" +
+                    "</head>" +
+                    "<body>" +
+                    "<h1>WifiWhirl startet neu...</h1>" +
+                    "<p>" +
+                    response.reason +
+                    "</p>" +
+                    '<p class="info">Die MQTT Konfiguration wird automatisch aktualisiert.</p>' +
+                    '<p class="info">Bitte warte ca. 30 Sekunden...</p>' +
+                    '<a href="/" class="btn">Zurück zur Übersicht</a>' +
+                    "<script>" +
+                    'setTimeout(function() { window.location.href = "/"; }, 30000);' +
+                    "<\/script>" +
+                    "</body>" +
+                    "</html>",
                 );
                 document.close();
               } else {
@@ -197,15 +212,18 @@
               }
             } catch (e) {
               // Response is not JSON - normal save without restart
-              console.log("MQTT settings saved (no restart needed), exception:", e);
+              console.log(
+                "MQTT settings saved (no restart needed), exception:",
+                e,
+              );
             }
           }
         };
-        
-        req.onerror = function() {
+
+        req.onerror = function () {
           console.error("Request failed");
         };
-        
+
         console.log("Sending MQTT config:", json);
         req.send(JSON.stringify(json));
         document.getElementById("mqttPassword").value = "";
