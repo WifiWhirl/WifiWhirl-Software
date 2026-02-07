@@ -1911,16 +1911,22 @@ bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_
     _smart_schedule.keep_heater_on = keep_heater_on;
     _smart_schedule.next_check_time = 0; // Check immediately on next loop
     _smart_schedule.calculated_start_time = 0;
-    _smart_schedule.last_heating_estimate = 0.0f;
     _smart_schedule.temp_reading_state = 0;
     _smart_schedule.temp_reading_timer = 0;
     _smart_schedule.accurate_temperature = 0; // Will be read during first temp check cycle
     _smart_schedule.check_completed = false;  // Reset completion status
     
+    // Calculate initial heating estimate immediately using current sensor temperature.
+    // This provides instant UI feedback; the pump measurement cycle will refine it.
+    _smart_schedule.last_heating_estimate = _calculateHeatingTime(
+        cio->cio_states.temperature, target_temp);
+    
     _save_smartschedule_needed = true;
     _new_data_available = true;
     
-    Serial.println(F("SmartSchedule: Schedule activated, will check immediately"));
+    Serial.print(F("SmartSchedule: Schedule activated, initial estimate: "));
+    Serial.print(_smart_schedule.last_heating_estimate);
+    Serial.println(F(" hours"));
     
     return true;
 }
@@ -2008,10 +2014,22 @@ void BWC::getJSONSmartSchedule(String &rtn)
     doc[F("CURRENTTIME")] = _timestamp_secs;
     doc[F("CURRENTTEMP")] = cio->cio_states.temperature;
     doc[F("GLOBALTARGET")] = cio->cio_states.target; // Current global target temperature
-    // Use current temperature if accurate temp hasn't been read yet (0 or invalid)
-    uint8_t display_temp = (_smart_schedule.accurate_temperature > 0) ? 
-                           _smart_schedule.accurate_temperature : 
-                           cio->cio_states.temperature;
+    // If pump is running, the live sensor reading is accurate (water is circulating).
+    // Otherwise, use the last stored reading from when the pump was last running.
+    // Fallback to current sensor reading if no measurement has been taken yet.
+    uint8_t display_temp;
+    if (cio->cio_states.pump)
+    {
+        display_temp = cio->cio_states.temperature;
+    }
+    else if (_smart_schedule.accurate_temperature > 0)
+    {
+        display_temp = _smart_schedule.accurate_temperature;
+    }
+    else
+    {
+        display_temp = cio->cio_states.temperature;
+    }
     doc[F("ACCURATETEMP")] = display_temp;
     doc[F("HEATER")] = cio->cio_states.heat;
     doc[F("PUMP")] = cio->cio_states.pump;

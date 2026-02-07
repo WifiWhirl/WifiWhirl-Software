@@ -96,19 +96,18 @@ function displayScheduleStatus(data) {
         : "Wird gemessen...";
 
     // Display heating estimate (same format as remaining time)
-    if (data.ESTIMATE && data.ESTIMATE > 0) {
-      if (data.ESTIMATE >= 999) {
-        document.getElementById("statusEstimate").innerHTML =
-          '<span style="color: #ff9800;">Unmöglich zu heizen (Umgebung zu kalt)</span>';
-      } else {
-        // Convert hours to seconds and use formatDuration
-        const estimateSeconds = Math.round(data.ESTIMATE * 3600);
-        document.getElementById("statusEstimate").textContent =
-          formatDuration(estimateSeconds);
-      }
-    } else {
+    if (data.ESTIMATE >= 999) {
+      document.getElementById("statusEstimate").innerHTML =
+        '<span style="color: #ff9800;">Unmöglich zu heizen (Umgebung zu kalt)</span>';
+    } else if (data.ESTIMATE > 0) {
+      // Convert hours to seconds and use formatDuration
+      const estimateSeconds = Math.round(data.ESTIMATE * 3600);
       document.getElementById("statusEstimate").textContent =
-        "Wird berechnet...";
+        formatDuration(estimateSeconds);
+    } else {
+      // Estimate is 0: pool is already at or above target temperature
+      document.getElementById("statusEstimate").textContent =
+        "Bereits auf Temperatur";
     }
 
     // Display heater status
