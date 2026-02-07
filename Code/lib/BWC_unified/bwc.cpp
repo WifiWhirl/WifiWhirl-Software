@@ -2015,7 +2015,7 @@ void BWC::getJSONSmartSchedule(String &rtn)
     doc[F("ACCURATETEMP")] = display_temp;
     doc[F("HEATER")] = cio->cio_states.heat;
     doc[F("PUMP")] = cio->cio_states.pump;
-    doc[F("READING_STATE")] = _smart_schedule.temp_reading_state; // 0=idle, 1=pump_on, 2=wait, 3=reading
+    doc[F("READING_STATE")] = _smart_schedule.temp_reading_state; // 0=idle, 1=pump_on, 2=reading
     
     // Calculate time remaining
     int64_t time_remaining = (int64_t)_smart_schedule.target_time - (int64_t)_timestamp_secs;
@@ -2176,25 +2176,15 @@ void BWC::_processAccurateTempReading()
     case 1: // Pump running
         if (_timestamp_secs >= _smart_schedule.temp_reading_timer)
         {
-            // 20 seconds passed, move to waiting state
-            _smart_schedule.temp_reading_state = 2;
-            _smart_schedule.temp_reading_timer = _timestamp_secs + 20; // Wait another 20 seconds
-            Serial.println(F("SmartSchedule: Pump run complete - waiting for settling"));
-        }
-        break;
-        
-    case 2: // Waiting for water to settle
-        if (_timestamp_secs >= _smart_schedule.temp_reading_timer)
-        {
-            // 20 seconds wait passed, read temperature
+            // 20 seconds passed, read temperature immediately
             _smart_schedule.accurate_temperature = cio->cio_states.temperature;
-            _smart_schedule.temp_reading_state = 3; // Move to reading complete
-            Serial.print(F("SmartSchedule: Accurate temp reading: "));
+            _smart_schedule.temp_reading_state = 2; // Move to reading complete
+            Serial.print(F("SmartSchedule: Pump run complete - temp reading: "));
             Serial.println(_smart_schedule.accurate_temperature);
         }
         break;
         
-    case 3: // Reading complete
+    case 2: // Reading complete
         {
             // Restore pump state if we changed it
             if (!_smart_schedule.original_pump_state && cio->cio_states.pump)

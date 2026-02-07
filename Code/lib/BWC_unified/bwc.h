@@ -49,7 +49,7 @@ struct smart_schedule_t
     uint64_t calculated_start_time = 0; // Calculated heating start time
     uint64_t next_check_time = 0;       // Next check timestamp
     float last_heating_estimate = 0.0f; // Last calculated heating time in hours
-    uint8_t temp_reading_state = 0;     // 0=idle, 1=pump_on, 2=waiting, 3=reading
+    uint8_t temp_reading_state = 0;     // 0=idle, 1=pump_on, 2=reading
     uint64_t temp_reading_timer = 0;    // Timer for temperature reading sequence
     bool original_pump_state = false;   // Store original pump state before reading
     uint8_t accurate_temperature = 0;   // Temperature read after pump circulation

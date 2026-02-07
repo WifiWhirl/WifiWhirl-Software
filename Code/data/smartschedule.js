@@ -128,7 +128,6 @@ function displayScheduleStatus(data) {
       const readingStates = [
         "",
         "Pumpe läuft (20s)",
-        "Wartet auf Messung (20s)",
         "Temperatur wird gelesen",
       ];
       document.getElementById("statusReadingStateText").innerHTML =
