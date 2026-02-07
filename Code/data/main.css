@@ -644,7 +644,7 @@ a.topnavicon {
 }
 
 /**********************
- * temperture selector
+ * temperature selector
 \*/
 
 table#tableSelector {
@@ -702,7 +702,7 @@ table#tableSelector {
   position: relative;
   left: -2px;
 }
-.selector .numDisplay.noleft{
+.selector .numDisplay.noleft {
   left: 0px;
 }
 .selector .degrees .numDisplay::after {

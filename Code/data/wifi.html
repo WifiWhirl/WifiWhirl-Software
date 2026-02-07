@@ -197,13 +197,13 @@
         <table>
           <tr style="margin-bottom: 30px">
             <span
-              >Wenn das WifiWhirl Modul keine Verbindung zu deinem WLAN herstellen
-              kann (z. B. bei falschem Passwort, Routerwechsel oder
-              Netzwerkausfall), öffnet es automatisch einen eigenen WLAN-Zugangspunkt
-              namens <strong id="fallbackApName">...</strong>.
+              >Wenn das WifiWhirl Modul keine Verbindung zu deinem WLAN
+              herstellen kann (z. B. bei falschem Passwort, Routerwechsel oder
+              Netzwerkausfall), öffnet es automatisch einen eigenen
+              WLAN-Zugangspunkt namens <strong id="fallbackApName">...</strong>.
               Verbinde dich mit diesem Netzwerk und dem Passwort auf dem
-              Aufkleber auf deinem Modul oder der mitgelieferten Anleitung, um die WLAN-Einstellungen
-              neu zu konfigurieren.</span
+              Aufkleber auf deinem Modul oder der mitgelieferten Anleitung, um
+              die WLAN-Einstellungen neu zu konfigurieren.</span
             >
           </tr>
           <tr>
@@ -244,9 +244,9 @@
         <p>
           Nach dem Zurücksetzen startet das WifiWhirl-Modul neu und öffnet
           automatisch den Zugangspunkt <strong id="resetApName">...</strong>.
-          Verbinde dich mit diesem Netzwerk und dem Passwort auf dem
-          Aufkleber auf deinem Modul oder der mitgelieferten Anleitung, um die WLAN-Einstellungen
-          neu zu konfigurieren.
+          Verbinde dich mit diesem Netzwerk und dem Passwort auf dem Aufkleber
+          auf deinem Modul oder der mitgelieferten Anleitung, um die
+          WLAN-Einstellungen neu zu konfigurieren.
         </p>
         <p style="text-align: center">
           <button id="resetwifi" class="button_red" onclick="resetWifi()">
@@ -466,7 +466,9 @@
           "Alle Netzwerkeinstellungen (WLAN, IP, NTP) werden gelöscht " +
           "und auf die Werkseinstellungen zurückgesetzt.\n\n" +
           "Das Modul startet danach neu und öffnet das WLAN " +
-          '"' + apName + '".\n\n' +
+          '"' +
+          apName +
+          '".\n\n' +
           "Möchtest du wirklich fortfahren?";
         if (confirm(msg)) {
           var req = new XMLHttpRequest();
