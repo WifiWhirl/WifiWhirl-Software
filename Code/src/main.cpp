@@ -535,7 +535,11 @@ void startNTP()
     Serial.println(F("start NTP"));
     if (wifi_info.ip4NTP_str.length() > 0)
     {
-        configTime(0, 0, wifi_info.ip4NTP_str.c_str());
+        static char ntpServer[64];
+        strlcpy(ntpServer, wifi_info.ip4NTP_str.c_str(), sizeof(ntpServer));
+        configTime(0, 0, ntpServer);
+        Serial.print(F("NTP server: "));
+        Serial.println(ntpServer);
     }
     else
     {
@@ -1744,6 +1748,7 @@ void handleGetWifi()
     doc[F("ip4DnsPrimary")] = wifi_info.ip4DnsPrimary_str;
     doc[F("ip4DnsSecondary")] = wifi_info.ip4DnsSecondary_str;
     doc[F("ip4NTP")] = wifi_info.ip4NTP_str;
+    doc[F("wmApName")] = wmApName;
     String json;
     if (serializeJson(doc, json) == 0)
     {
@@ -1801,20 +1806,20 @@ void handleSetWifi()
     if (doc.containsKey(F("ip4NTP")))
         wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
 
-    // Compare old and new settings to determine if anything actually changed
-    bool changed = (wifi_info.enableAp != old_info.enableAp) ||
-                   (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
-                   (wifi_info.apSsid != old_info.apSsid) ||
-                   (wifi_info.apPwd != old_info.apPwd) ||
-                   (wifi_info.enableStaticIp4 != old_info.enableStaticIp4) ||
-                   (wifi_info.ip4Address_str != old_info.ip4Address_str) ||
-                   (wifi_info.ip4Gateway_str != old_info.ip4Gateway_str) ||
-                   (wifi_info.ip4Subnet_str != old_info.ip4Subnet_str) ||
-                   (wifi_info.ip4DnsPrimary_str != old_info.ip4DnsPrimary_str) ||
-                   (wifi_info.ip4DnsSecondary_str != old_info.ip4DnsSecondary_str) ||
-                   (wifi_info.ip4NTP_str != old_info.ip4NTP_str);
+    // Detect what changed: NTP can be applied live, everything else needs a reboot
+    bool ntpChanged = (wifi_info.ip4NTP_str != old_info.ip4NTP_str);
+    bool networkChanged = (wifi_info.enableAp != old_info.enableAp) ||
+                          (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
+                          (wifi_info.apSsid != old_info.apSsid) ||
+                          (wifi_info.apPwd != old_info.apPwd) ||
+                          (wifi_info.enableStaticIp4 != old_info.enableStaticIp4) ||
+                          (wifi_info.ip4Address_str != old_info.ip4Address_str) ||
+                          (wifi_info.ip4Gateway_str != old_info.ip4Gateway_str) ||
+                          (wifi_info.ip4Subnet_str != old_info.ip4Subnet_str) ||
+                          (wifi_info.ip4DnsPrimary_str != old_info.ip4DnsPrimary_str) ||
+                          (wifi_info.ip4DnsSecondary_str != old_info.ip4DnsSecondary_str);
 
-    if (!changed)
+    if (!ntpChanged && !networkChanged)
     {
         // Nothing changed, no need to save or restart
         Serial.println(F("WiFi: No changes detected"));
@@ -1824,7 +1829,16 @@ void handleSetWifi()
 
     saveWifi(wifi_info);
 
-    // Settings changed - restart required to apply new network configuration.
+    if (ntpChanged && !networkChanged)
+    {
+        // Only NTP changed - apply live without reboot
+        Serial.println(F("WiFi: NTP server changed, applying live"));
+        startNTP();
+        server->send(200, F("application/json"), F("{\"restart\":false,\"saved\":true}"));
+        return;
+    }
+
+    // Network settings changed - restart required to apply
     Serial.println(F("WiFi: Network config changed, restarting..."));
     
     String response = F("{\"restart\":true,\"reason\":\"Netzwerkeinstellungen geändert. WifiWhirl startet neu.\"}");

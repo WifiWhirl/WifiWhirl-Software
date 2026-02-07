@@ -82,40 +82,6 @@
       </section>
 
       <section>
-        <h2>Fallback WLAN:</h2>
-        <table>
-          <tr style="margin-bottom: 30px">
-            <span
-              >Sollte die automatische WLAN Verbindung scheitern, wird ein
-              eigener WLAN Zugangspunkt eröffnet. Verbinde dich mit diesem WLAN,
-              um die Konfiguration anzupassen (vgl. Anleitung).</span
-            >
-          </tr>
-          <tr>
-            <td><label for="enableWM">Fallback WLAN aktivieren:</label></td>
-            <td>
-              <input
-                type="checkbox"
-                id="enableWM"
-                onchange="confirmDisableWM(this)"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td colspan="2" style="text-align: center; padding-top: 10px">
-              <button
-                id="saveFallback"
-                class="button"
-                onclick="saveFallbackConfig()"
-              >
-                Fallback Einstellung speichern
-              </button>
-            </td>
-          </tr>
-        </table>
-      </section>
-
-      <section>
         <h2>Statische IP-Adresse:</h2>
         <table>
           <tr>
@@ -226,17 +192,64 @@
       </section>
 
       <section>
-        <h2>WLAN-Konfiguration zurücksetzen:</h2>
+        <h2>Fallback WLAN:</h2>
+        <table>
+          <tr style="margin-bottom: 30px">
+            <span
+              >Wenn das WifiWhirl Modul keine Verbindung zu deinem WLAN herstellen
+              kann (z. B. bei falschem Passwort, Routerwechsel oder
+              Netzwerkausfall), öffnet es automatisch einen eigenen WLAN-Zugangspunkt
+              namens <strong id="fallbackApName">...</strong>.
+              Verbinde dich mit diesem Netzwerk und dem Passwort auf dem
+              Aufkleber auf deinem Modul oder der mitgelieferten Anleitung, um die WLAN-Einstellungen
+              neu zu konfigurieren.</span
+            >
+          </tr>
+          <tr>
+            <td><label for="enableWM">Fallback WLAN aktivieren:</label></td>
+            <td>
+              <input
+                type="checkbox"
+                id="enableWM"
+                onchange="confirmDisableWM(this)"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button
+                id="saveFallback"
+                class="button"
+                onclick="saveFallbackConfig()"
+              >
+                Fallback Einstellung speichern
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <section>
+        <h2>Netzwerkeinstellungen auf Werkseinstellungen zurücksetzen:</h2>
         <p>
-          Dieser Button setzt die WLAN-Einstellungen des WifiWhirl Moduls
-          zurück.<br />
-          Das WifiWhirl Modul wird neu gestartet und startet das Fallback WLAN.
-          Verbinde dich mit dem Zugriffspunkt und konfiguriere deine
-          WLAN-Verbindung erneut (genau wie bei der ersten Konfiguration).
+          Setzt alle Netzwerkeinstellungen auf die Werkseinstellungen zurück.
+          Dabei werden folgende Einstellungen gelöscht:
+        </p>
+        <ul style="margin: 10px 0; padding-left: 20px">
+          <li>Gespeicherter WLAN-Name und Passwort</li>
+          <li>Statische IP-Adresse und DNS-Einstellungen</li>
+          <li>Benutzerdefinierter NTP-Server</li>
+        </ul>
+        <p>
+          Nach dem Zurücksetzen startet das WifiWhirl-Modul neu und öffnet
+          automatisch den Zugangspunkt <strong id="resetApName">...</strong>.
+          Verbinde dich mit diesem Netzwerk und dem Passwort auf dem
+          Aufkleber auf deinem Modul oder der mitgelieferten Anleitung, um die WLAN-Einstellungen
+          neu zu konfigurieren.
         </p>
         <p style="text-align: center">
           <button id="resetwifi" class="button_red" onclick="resetWifi()">
-            WLAN zurücksetzen
+            Auf Werkseinstellungen zurücksetzen
           </button>
         </p>
       </section>
@@ -249,6 +262,9 @@
     </div>
 
     <script>
+      // AP name - populated from backend, used by reset dialog
+      var apName = "";
+
       loadNetworkConfig();
 
       function loadNetworkConfig() {
@@ -274,6 +290,11 @@
             document.getElementById("ip4DnsSecondary").value =
               json.ip4DnsSecondary;
             document.getElementById("ip4NTP").value = json.ip4NTP;
+
+            // Store and display fallback AP name
+            apName = json.wmApName || "wifiwhirl";
+            document.getElementById("fallbackApName").textContent = apName;
+            document.getElementById("resetApName").textContent = apName;
 
             // Set initial visibility of static IP fields
             toggleStaticIpFields();
@@ -327,7 +348,9 @@
             "</head>" +
             "<body>" +
             "<h1>WifiWhirl startet neu...</h1>" +
-            "<p>" + reason + "</p>" +
+            "<p>" +
+            reason +
+            "</p>" +
             '<p class="info">Die Netzwerkkonfiguration wird aktualisiert.</p>' +
             '<p class="info">Bitte warte ca. 30 Sekunden...</p>' +
             '<a href="/" class="btn">Zurück zur Übersicht</a>' +
@@ -345,8 +368,17 @@
        */
       function sendPartialConfig(buttonId, data) {
         var btn = document.getElementById(buttonId);
+        var originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = "Wird gespeichert...";
+
+        function showResult(text, duration) {
+          btn.innerHTML = text;
+          setTimeout(function () {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+          }, duration);
+        }
 
         var req = new XMLHttpRequest();
         req.open("POST", "/setwifi/");
@@ -359,23 +391,21 @@
                 showRestartPage(response.reason);
                 return;
               }
+              if (response.saved === true) {
+                showResult("gespeichert &check;", 4000);
+                return;
+              }
             } catch (e) {
-              // Non-JSON response - saved without restart
+              // Non-JSON response
             }
-            // No restart needed (no changes detected)
-            buttonConfirm(btn, "Keine Änderung &check;", 4);
+            showResult("Keine Änderung &check;", 4000);
           } else {
-            btn.innerHTML = "Fehler!";
-            btn.disabled = false;
+            showResult("Fehler!", 3000);
           }
         };
 
         req.onerror = function () {
-          btn.innerHTML = "Verbindungsfehler!";
-          setTimeout(function () {
-            btn.innerHTML = "Speichern";
-            btn.disabled = false;
-          }, 3000);
+          showResult("Verbindungsfehler!", 3000);
         };
 
         req.send(JSON.stringify(data));
@@ -430,14 +460,43 @@
       }
 
       function resetWifi() {
-        if (
-          confirm("Möchtest du die WLAN-Einstellungen wirklich zurücksetzen?")
-        ) {
+        var msg =
+          "Achtung!\n\n" +
+          "Alle Netzwerkeinstellungen (WLAN, IP, NTP) werden gelöscht " +
+          "und auf die Werkseinstellungen zurückgesetzt.\n\n" +
+          "Das Modul startet danach neu und öffnet das WLAN " +
+          '"' + apName + '".\n\n' +
+          "Möchtest du wirklich fortfahren?";
+        if (confirm(msg)) {
           var req = new XMLHttpRequest();
           req.open("GET", "/resetwifi/");
           req.send();
-          document.body.innerHTML =
-            "Dein WifiWhirl Modul wird jetzt neu gestartet. Bitte verbinde dich mit dem WifiWhirl WLAN und konfiguriere dein Heim-WLAN erneut.";
+          document.open();
+          document.write(
+            "<!DOCTYPE html>" +
+              "<html>" +
+              "<head>" +
+              "<title>WifiWhirl | Zurückgesetzt</title>" +
+              '<meta charset="utf-8" />' +
+              '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+              "<style>" +
+              "body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }" +
+              "h1 { color: #e53935; margin-bottom: 20px; }" +
+              "p { font-size: 18px; margin: 20px; color: #333; }" +
+              ".info { color: #666; font-size: 16px; }" +
+              "</style>" +
+              "</head>" +
+              "<body>" +
+              "<h1>Netzwerk zurückgesetzt</h1>" +
+              "<p>Dein WifiWhirl-Modul startet jetzt neu.</p>" +
+              '<p class="info">Verbinde dich mit dem WLAN <strong>' +
+              apName +
+              "</strong> und dem Passwort auf der Rückseite deines Moduls, " +
+              "um deine WLAN-Verbindung erneut einzurichten.</p>" +
+              "</body>" +
+              "</html>",
+          );
+          document.close();
         }
       }
     </script>
