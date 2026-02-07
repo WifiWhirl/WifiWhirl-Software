@@ -78,23 +78,26 @@
 
       <section>
         <h2>Energiekosten</h2>
-        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8;">
-          Dein Strompreis pro kWh wird zur Berechnung der geschätzten Gesamtenergiekosten auf dem Dashboard verwendet.
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Dein Strompreis pro kWh wird zur Berechnung der geschätzten
+          Gesamtenergiekosten auf dem Dashboard verwendet.
         </p>
         <table>
           <tr>
             <td><label for="price">Preis pro kWh:</label></td>
             <td>
-              <span class="input-group"><input
-                type="number"
-                id="price"
-                value="0.35"
-                min="0"
-                max="9.99"
-                step="0.01"
-                inputmode="decimal"
-                required
-              /><span class="inputunit">€</span></span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="price"
+                  value="0.35"
+                  min="0"
+                  max="9.99"
+                  step="0.01"
+                  inputmode="decimal"
+                  required
+                /><span class="inputunit">€</span></span
+              >
             </td>
           </tr>
         </table>
@@ -105,8 +108,9 @@
 
       <section>
         <h2>Wartungsintervalle</h2>
-        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8;">
-          Lege fest, nach wie vielen Tagen die Timer-Buttons auf dem Dashboard ihre Farbe ändern, um dich auf die fällige Wartung hinzuweisen.
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Lege fest, nach wie vielen Tagen die Timer-Buttons auf dem Dashboard
+          ihre Farbe ändern, um dich auf die fällige Wartung hinzuweisen.
         </p>
         <table>
           <tr>
@@ -119,16 +123,18 @@
               >
             </td>
             <td>
-              <span class="input-group"><input
-                type="number"
-                id="clinterval"
-                value="7"
-                min="1"
-                max="99"
-                step="1"
-                inputmode="numeric"
-                required
-              /><span class="inputunit">Tage</span></span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="clinterval"
+                  value="7"
+                  min="1"
+                  max="99"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit">Tage</span></span
+              >
             </td>
           </tr>
           <tr>
@@ -141,16 +147,18 @@
               >
             </td>
             <td>
-              <span class="input-group"><input
-                type="number"
-                id="finterval"
-                value="30"
-                min="1"
-                max="99"
-                step="1"
-                inputmode="numeric"
-                required
-              /><span class="inputunit">Tage</span></span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="finterval"
+                  value="30"
+                  min="1"
+                  max="99"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit">Tage</span></span
+              >
             </td>
           </tr>
           <tr>
@@ -163,16 +171,18 @@
               >
             </td>
             <td>
-              <span class="input-group"><input
-                type="number"
-                id="fcinterval"
-                value="60"
-                min="1"
-                max="99"
-                step="1"
-                inputmode="numeric"
-                required
-              /><span class="inputunit">Tage</span></span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="fcinterval"
+                  value="60"
+                  min="1"
+                  max="99"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit">Tage</span></span
+              >
             </td>
           </tr>
           <tr>
@@ -185,16 +195,18 @@
               >
             </td>
             <td>
-              <span class="input-group"><input
-                type="number"
-                id="wcinterval"
-                value="90"
-                min="1"
-                max="99"
-                step="1"
-                inputmode="numeric"
-                required
-              /><span class="inputunit">Tage</span></span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="wcinterval"
+                  value="90"
+                  min="1"
+                  max="99"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit">Tage</span></span
+              >
             </td>
           </tr>
         </table>
@@ -205,23 +217,26 @@
 
       <section>
         <h2>Pool & Wetter</h2>
-        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8;">
-          Diese Einstellungen werden für die Berechnung der geschätzten Heizdauer bis zum Erreichen der Zieltemperatur verwendet.
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Diese Einstellungen werden für die Berechnung der geschätzten
+          Heizdauer bis zum Erreichen der Zieltemperatur verwendet.
         </p>
         <table>
           <tr>
             <td><label for="poolCap">Poolinhalt in Liter:</label></td>
             <td>
-              <span class="input-group"><input
-                type="number"
-                id="poolCap"
-                value="700"
-                min="100"
-                max="9999"
-                step="1"
-                inputmode="numeric"
-                required
-              /><span class="inputunit">Liter</span></span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="poolCap"
+                  value="700"
+                  min="100"
+                  max="9999"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit">Liter</span></span
+              >
             </td>
           </tr>
           <tr>
@@ -246,7 +261,13 @@
           <tr id="coordinates" style="display: none">
             <td>Postleitzahl:</td>
             <td>
-              <input type="text" inputmode="numeric" id="plz" maxlength="5" size="6" />
+              <input
+                type="text"
+                inputmode="numeric"
+                id="plz"
+                maxlength="5"
+                size="6"
+              />
             </td>
           </tr>
           <tr id="cityhintrow">
@@ -277,14 +298,16 @@
               >
             </td>
             <td>
-              <span class="input-group"><input
-                type="number"
-                id="airjetTimeout"
-                min="5"
-                max="30"
-                value="30"
-                inputmode="numeric"
-              /><span class="inputunit">Min</span></span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="airjetTimeout"
+                  min="5"
+                  max="30"
+                  value="30"
+                  inputmode="numeric"
+                /><span class="inputunit">Min</span></span
+              >
             </td>
           </tr>
           <tr id="hydrojetTimeoutRow">
@@ -297,14 +320,16 @@
               >
             </td>
             <td>
-              <span class="input-group"><input
-                type="number"
-                id="hydrojetTimeout"
-                min="5"
-                max="60"
-                value="60"
-                inputmode="numeric"
-              /><span class="inputunit">Min</span></span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="hydrojetTimeout"
+                  min="5"
+                  max="60"
+                  value="60"
+                  inputmode="numeric"
+                /><span class="inputunit">Min</span></span
+              >
             </td>
           </tr>
         </table>
@@ -315,8 +340,9 @@
 
       <section>
         <h2>Bedientasten</h2>
-        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8;">
-          Aktiviere oder deaktiviere einzelne Tasten auf der physischen Pumpe. Deaktivierte Tasten können nur noch über WifiWhirl gesteuert werden.
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Aktiviere oder deaktiviere einzelne Tasten auf der physischen Pumpe.
+          Deaktivierte Tasten können nur noch über WifiWhirl gesteuert werden.
         </p>
         <table>
           <tr>
@@ -537,9 +563,7 @@
 
         var json = {
           TIMEZONE: 0,
-          PRICE: parseFloat(
-            document.getElementById("price").value,
-          ).toFixed(2),
+          PRICE: parseFloat(document.getElementById("price").value).toFixed(2),
           CLINT: parseInt(document.getElementById("clinterval").value),
           FINT: parseInt(document.getElementById("finterval").value),
           FCINT: parseInt(document.getElementById("fcinterval").value),

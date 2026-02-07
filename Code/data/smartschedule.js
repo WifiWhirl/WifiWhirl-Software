@@ -9,11 +9,13 @@ let scheduleUpdateInterval = null;
  * Load smart schedule on page load
  */
 function loadSmartSchedule() {
-  // Set default date to today
+  // Set default datetime to today at 19:00
   const today = new Date();
-  document.getElementById("targetDate").value = today
-    .toISOString()
-    .split("T")[0];
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  document.getElementById("targetDateTime").value =
+    year + "-" + month + "-" + day + "T19:00";
 
   // Fetch current global target temperature and set as default
   fetchGlobalTargetTemp();
@@ -233,14 +235,13 @@ function formatDuration(seconds) {
  */
 function setSchedule() {
   // Get form values
-  const dateStr = document.getElementById("targetDate").value;
-  const timeStr = document.getElementById("targetTime").value;
+  const dateTimeStr = document.getElementById("targetDateTime").value;
   const targetTemp = parseInt(document.getElementById("targetTemp").value);
   const keepHeaterOn = document.getElementById("keepHeaterOn").value === "true";
 
   // Validate inputs
-  if (!dateStr || !timeStr) {
-    alert("Bitte gib das Datum und die Uhrzeit ein.");
+  if (!dateTimeStr) {
+    alert("Bitte gib Datum und Uhrzeit ein.");
     return;
   }
 
@@ -249,8 +250,7 @@ function setSchedule() {
     return;
   }
 
-  // Combine date and time into Unix timestamp
-  const dateTimeStr = `${dateStr}T${timeStr}:00`;
+  // Convert datetime-local value to Unix timestamp
   const targetDate = new Date(dateTimeStr);
   const targetTime = Math.floor(targetDate.getTime() / 1000);
 
