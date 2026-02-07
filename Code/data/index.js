@@ -32,11 +32,10 @@ const cmdMap = {
   toggleLCK: 23,
   resetTimerCleanFilter: 24,
   resetTimerWaterChange: 25,
-  resetTimerPh: 27,
-  setPhValue: 28,
-  setClValue: 29,
-  setCyaValue: 30,
-  setAlkValue: 31,
+  setPhValue: 27,
+  setClValue: 28,
+  setCyaValue: 29,
+  setAlkValue: 30,
 };
 
 // button element ID mapping
@@ -197,6 +196,16 @@ function handlemsg(e) {
     ambElement.title = msgobj.WEATHER
       ? "Umgebungstemperatur wird per Wetterdatenabfrage gesetzt."
       : "";
+    // Also disable the selector variant (input + buttons)
+    const selectorAmbElement = document.getElementById("selectorAmb");
+    selectorAmbElement.disabled = msgobj.WEATHER;
+    var selectorDiv = selectorAmbElement.closest(".selector");
+    if (selectorDiv) {
+      var buttons = selectorDiv.querySelectorAll("button");
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].disabled = msgobj.WEATHER;
+      }
+    }
   }
   try {
     if (msgobj.CONTENT == "STATES") {

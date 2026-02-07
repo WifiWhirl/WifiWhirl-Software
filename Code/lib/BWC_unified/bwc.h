@@ -182,7 +182,7 @@ private:
     uint16_t _last_ph_value;       // Last pH value * 10 (e.g. 72 = 7.2 pH)
     uint16_t _last_cl_value;       // Last chlorine value * 10 (e.g. 15 = 1.5 mg/L)
     uint16_t _last_cya_value;      // Last cyanuric acid value * 10 (e.g. 300 = 30.0 mg/L)
-    uint16_t _last_alk_value;      // Last alkalinity value in ppm (e.g. 100 = 100 ppm)
+    uint16_t _last_alk_value;      // Last alkalinity value in mg/L (e.g. 100 = 100 mg/L)
     uint32_t _uptime;
     uint32_t _pumptime;
     uint32_t _heatingtime;

@@ -36,6 +36,7 @@ const char _max_key[] PROGMEM = "max";
 const char _mode_key[] PROGMEM = "mode";
 const char _assumed_state[] PROGMEM = "assumed_state";
 const char _object_id[] PROGMEM = "object_id";
+const char _step_key[] PROGMEM = "step";
 
 // Climate entity specific keys
 const char _max_temp[] PROGMEM = "max_temp";
@@ -186,6 +187,19 @@ static const HaEntityConfig entities[] PROGMEM = {
 
     // Temperature control
     {"number", "_target_temp_c_set", "Zieltemperatur einstellen", "number.", "/message", "{{ value_json.TGTC }}", "/command", "{CMD:0,VALUE:{{ value | int }}}", "mdi:thermometer", "°C", "temperature", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "20", "40", "slider", nullptr},
+
+    // Water quality - settable number entities
+    {"number", "_ph_value", "pH-Wert", "number.", "/times", "{{ value_json.PHVAL / 10 }}", "/command", "{CMD:27,VALUE:{{ (value * 10) | int }}}", "mdi:beaker-outline", "pH", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "14", "box", nullptr},
+    {"number", "_cl_value", "Chlorgehalt", "number.", "/times", "{{ value_json.CLVAL / 10 }}", "/command", "{CMD:28,VALUE:{{ (value * 10) | int }}}", "mdi:flask-outline", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "10", "box", nullptr},
+    {"number", "_cya_value", "Cyanursäure", "number.", "/times", "{{ value_json.CYAVAL / 10 }}", "/command", "{CMD:29,VALUE:{{ (value * 10) | int }}}", "mdi:shield-sun-outline", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "100", "box", nullptr},
+    {"number", "_alk_value", "Alkalität", "number.", "/times", "{{ value_json.ALKVAL }}", "/command", "{CMD:30,VALUE:{{ value | int }}}", "mdi:water", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "300", "box", nullptr},
+
+    // Water quality - timestamp sensors
+    {"sensor", "_ph_time", "pH zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.PHTIME | int) }}", nullptr, nullptr, "mdi:beaker-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_cl_time", "Chlor zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.CLVTIME | int) }}", nullptr, nullptr, "mdi:flask-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_cya_time", "Cyanursäure zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.CYATIME | int) }}", nullptr, nullptr, "mdi:shield-sun-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_alk_time", "Alkalität zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.ALKTIME | int) }}", nullptr, nullptr, "mdi:water", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+
 };
 
 constexpr size_t MQTT_TOPIC_LEN = 256; // MQTT topic must be <=255 per spec + null terminator
@@ -566,6 +580,18 @@ void setupHA()
         {
             strcpy_P(ram_buffer, pgm_p);
             doc[FPSTR(_assumed_state)] = atoi(ram_buffer);
+        }
+
+        // Add step attribute for water quality number entities (pH and chlorine need 0.1 step)
+        pgm_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
+        strcpy_P(ram_buffer, pgm_p);
+        if (strcmp(ram_buffer, "_ph_value") == 0 || strcmp(ram_buffer, "_cl_value") == 0)
+        {
+            doc[FPSTR(_step_key)] = 0.1;
+        }
+        else if (strcmp(ram_buffer, "_cya_value") == 0 || strcmp(ram_buffer, "_alk_value") == 0)
+        {
+            doc[FPSTR(_step_key)] = 1;
         }
 
         // Set up availability topic for connection status monitoring

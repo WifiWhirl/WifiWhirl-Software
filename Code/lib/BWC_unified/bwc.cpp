@@ -30,7 +30,7 @@ BWC::BWC()
     _last_ph_value = 72;           // Default pH 7.2 (stored as 72)
     _last_cl_value = 10;           // Default 1.0 mg/L (stored as 10)
     _last_cya_value = 300;         // Default 30.0 mg/L (stored as 300)
-    _last_alk_value = 100;         // Default 100 ppm
+    _last_alk_value = 100;         // Default 100 mg/L
     _cya_timestamp_s = 0;
     _alk_timestamp_s = 0;
 }
@@ -529,11 +529,6 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         _save_settings_needed = true;
         _new_data_available = true;
         break;
-    case RESETPHTIMER:
-        _ph_timestamp_s = _timestamp_secs;
-        _save_settings_needed = true;
-        _new_data_available = true;
-        break;
     case SETPHVALUE:
         // pH value * 10 (e.g. 72 = 7.2 pH), valid range 0-140 (0.0-14.0)
         if (val >= 0 && val <= 140)
@@ -565,7 +560,7 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         }
         break;
     case SETALKVALUE:
-        // Alkalinity value in ppm, valid range 0-300
+        // Alkalinity value in mg/L, valid range 0-300
         if (val >= 0 && val <= 300)
         {
             _last_alk_value = (uint16_t)val;

@@ -809,7 +809,7 @@
       }
 
       function resetTotals() {
-        if (confirm("Möchtest du wirklich alle Zähler zurücksetzen?")) {
+        if (confirm("Möchtest du wirklich alle Zähler zurücksetzen? Dies setzt auch alle Zähler der Energiekosten zurück.")) {
           buttonConfirm(document.getElementById("reset"));
           sendCommand("resetTotals");
         }
