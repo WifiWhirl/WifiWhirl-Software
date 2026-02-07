@@ -77,6 +77,10 @@
       </div>
 
       <section>
+        <h2>Energiekosten</h2>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8;">
+          Dein Strompreis pro kWh wird zur Berechnung der geschätzten Gesamtenergiekosten auf dem Dashboard verwendet.
+        </p>
         <table>
           <tr>
             <td><label for="price">Preis pro kWh:</label></td>
@@ -92,10 +96,28 @@
                 required
               /><span class="inputunit">€</span></span>
             </td>
-            <td></td>
           </tr>
+        </table>
+        <div class="center">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Wartungsintervalle</h2>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8;">
+          Lege fest, nach wie vielen Tagen die Timer-Buttons auf dem Dashboard ihre Farbe ändern, um dich auf die fällige Wartung hinzuweisen.
+        </p>
+        <table>
           <tr>
-            <td><label for="clinterval">Chlor hinzufügen:</label></td>
+            <td>
+              <label for="clinterval">Chlor hinzufügen:</label>
+              <span
+                data-text="Standard: 14 Tage. Empfehlung: 3–7 Tage je nach Nutzung."
+                class="tooltip"
+                >?</span
+              >
+            </td>
             <td>
               <span class="input-group"><input
                 type="number"
@@ -108,10 +130,16 @@
                 required
               /><span class="inputunit">Tage</span></span>
             </td>
-            <td></td>
           </tr>
           <tr>
-            <td><label for="finterval">Filterreinigung:</label></td>
+            <td>
+              <label for="finterval">Filterreinigung:</label>
+              <span
+                data-text="Standard: 30 Tage. Der Filter sollte regelmäßig ausgespült werden."
+                class="tooltip"
+                >?</span
+              >
+            </td>
             <td>
               <span class="input-group"><input
                 type="number"
@@ -124,10 +152,16 @@
                 required
               /><span class="inputunit">Tage</span></span>
             </td>
-            <td></td>
           </tr>
           <tr>
-            <td><label for="fcinterval">Filterwechsel:</label></td>
+            <td>
+              <label for="fcinterval">Filterwechsel:</label>
+              <span
+                data-text="Standard: 60 Tage. Die Filterkartusche sollte komplett ausgetauscht werden."
+                class="tooltip"
+                >?</span
+              >
+            </td>
             <td>
               <span class="input-group"><input
                 type="number"
@@ -140,10 +174,16 @@
                 required
               /><span class="inputunit">Tage</span></span>
             </td>
-            <td></td>
           </tr>
           <tr>
-            <td><label for="wcinterval">Wasserwechsel:</label></td>
+            <td>
+              <label for="wcinterval">Wasserwechsel:</label>
+              <span
+                data-text="Standard: 90 Tage. Das gesamte Wasser sollte erneuert werden. Empfehlung: 60–90 Tage je nach Nutzung."
+                class="tooltip"
+                >?</span
+              >
+            </td>
             <td>
               <span class="input-group"><input
                 type="number"
@@ -156,8 +196,19 @@
                 required
               /><span class="inputunit">Tage</span></span>
             </td>
-            <td></td>
           </tr>
+        </table>
+        <div class="center">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Pool & Wetter</h2>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8;">
+          Diese Einstellungen werden für die Berechnung der geschätzten Heizdauer bis zum Erreichen der Zieltemperatur verwendet.
+        </p>
+        <table>
           <tr>
             <td><label for="poolCap">Poolinhalt in Liter:</label></td>
             <td>
@@ -172,78 +223,7 @@
                 required
               /><span class="inputunit">Liter</span></span>
             </td>
-            <td></td>
           </tr>
-          <tr>
-            <td><label for="audio">Töne (ein/aus):</label></td>
-            <td><input type="checkbox" id="audio" /></td>
-            <td></td>
-          </tr>
-          <tr>
-            <td>
-              <label for="airjetTimeout">Airjet Timeout:</label>
-              <span
-                data-text="Maximale Laufzeit der Luftdüsen. Standard ist 30 Minuten (Hardware-Limit). Bei niedrigerer Einstellung schaltet WifiWhirl die Luftdüsen automatisch ab."
-                class="tooltip"
-                >?</span
-              >
-            </td>
-            <td>
-              <span class="input-group"><input
-                type="number"
-                id="airjetTimeout"
-                min="5"
-                max="30"
-                value="30"
-                size="6"
-                inputmode="numeric"
-              /><span class="inputunit">Min</span></span>
-            </td>
-            <td></td>
-          </tr>
-          <tr id="hydrojetTimeoutRow">
-            <td>
-              <label for="hydrojetTimeout">Hydrojet Timeout:</label>
-              <span
-                data-text="Maximale Laufzeit der Wasserdüsen. Standard ist 60 Minuten (Hardware-Limit). Bei niedrigerer Einstellung schaltet WifiWhirl die Wasserdüsen automatisch ab."
-                class="tooltip"
-                >?</span
-              >
-            </td>
-            <td>
-              <span class="input-group"><input
-                type="number"
-                id="hydrojetTimeout"
-                min="5"
-                max="60"
-                value="60"
-                size="6"
-                inputmode="numeric"
-              /><span class="inputunit">Min</span></span>
-            </td>
-            <td></td>
-          </tr>
-          <!-- <tr>
-            <td>
-              <label for="calibration">Kalibriert:</label
-              ><span
-                data-text="Wenn aktiviert, ist die virtuelle Temperatur kalibriert. Kalibrieren: Schalte die Heizung AUS und die Pumpe EIN. Stoppe die Zeit, bis die Temperatur um einige Grad gesunken ist. Schalte währenddessen keine Air- oder Hydrojets ein. Die Wassertemperatur muss sich zu Beginn um mehrere Grad von der Umgebungstemperatur unterscheiden."
-                class="tooltip"
-                >?</span
-              >
-            </td>
-            <td>
-              <input
-                type="checkbox"
-                id="calibration"
-                onclick="toggleCalibration()"
-              />
-            </td>
-          </tr> -->
-          <!-- <tr>
-            <td></td>
-            <td><a href="calib.html">manuelle Kalibrierung</a></td>
-          </tr> -->
           <tr>
             <td>
               <label for="enableWeather"
@@ -263,7 +243,6 @@
               />
             </td>
           </tr>
-
           <tr id="coordinates" style="display: none">
             <td>Postleitzahl:</td>
             <td>
@@ -276,12 +255,73 @@
             </td>
           </tr>
         </table>
+        <div class="center">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
+        </div>
       </section>
+
       <section>
+        <h2>Geräteeinstellungen</h2>
+        <table>
+          <tr>
+            <td><label for="audio">Töne (ein/aus):</label></td>
+            <td><input type="checkbox" id="audio" /></td>
+          </tr>
+          <tr>
+            <td>
+              <label for="airjetTimeout">Airjet Timeout:</label>
+              <span
+                data-text="Maximale Laufzeit der Luftdüsen. Standard ist 30 Minuten (Hardware-Limit). Bei niedrigerer Einstellung schaltet WifiWhirl die Luftdüsen automatisch ab."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <span class="input-group"><input
+                type="number"
+                id="airjetTimeout"
+                min="5"
+                max="30"
+                value="30"
+                inputmode="numeric"
+              /><span class="inputunit">Min</span></span>
+            </td>
+          </tr>
+          <tr id="hydrojetTimeoutRow">
+            <td>
+              <label for="hydrojetTimeout">Hydrojet Timeout:</label>
+              <span
+                data-text="Maximale Laufzeit der Wasserdüsen. Standard ist 60 Minuten (Hardware-Limit). Bei niedrigerer Einstellung schaltet WifiWhirl die Wasserdüsen automatisch ab."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <span class="input-group"><input
+                type="number"
+                id="hydrojetTimeout"
+                min="5"
+                max="60"
+                value="60"
+                inputmode="numeric"
+              /><span class="inputunit">Min</span></span>
+            </td>
+          </tr>
+        </table>
+        <div class="center">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Bedientasten</h2>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8;">
+          Aktiviere oder deaktiviere einzelne Tasten auf der physischen Pumpe. Deaktivierte Tasten können nur noch über WifiWhirl gesteuert werden.
+        </p>
         <table>
           <tr>
             <td colspan="8">
-              Aktivierte Bedientasten | <label for="toggle_all">Alle:</label>
+              <label for="toggle_all">Alle aktivieren/deaktivieren:</label>
               <input
                 type="checkbox"
                 id="toggle_all"
@@ -384,16 +424,7 @@
           </tr>
         </table>
         <div class="center">
-          <button
-            id="save"
-            class="button"
-            onclick="
-              buttonConfirm(this);
-              saveConfig();
-            "
-          >
-            Speichern
-          </button>
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
         </div>
       </section>
 
@@ -493,7 +524,14 @@
         };
       }
 
-      function saveConfig() {
+      function saveConfig(btnElement) {
+        // Disable the button and show saving state
+        var originalText = btnElement ? btnElement.textContent : "";
+        if (btnElement) {
+          btnElement.disabled = true;
+          btnElement.textContent = "Wird gespeichert...";
+        }
+
         var req = new XMLHttpRequest();
         req.open("POST", "/setconfig/");
 
@@ -528,6 +566,20 @@
         var jsonstring = JSON.stringify(json);
         req.send(jsonstring);
         console.log(jsonstring);
+
+        req.onreadystatechange = function () {
+          if (this.readyState == 4 && btnElement) {
+            if (this.status == 200) {
+              btnElement.textContent = "Gespeichert";
+            } else {
+              btnElement.textContent = "Fehler!";
+            }
+            setTimeout(function () {
+              btnElement.textContent = originalText;
+              btnElement.disabled = false;
+            }, 2000);
+          }
+        };
 
         if (document.getElementById("enableWeather").checked) {
           weatherEnabled = 1;
@@ -580,7 +632,7 @@
           "Achtung!\n\nMit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl Modul möglich. " +
           "Die Bedientasten auf der Pumpe werden damit deaktiviert!\n\nBist du dir sicher, dass du ";
 
-        if (btnName === "Alle:") {
+        if (elem.id === "toggle_all") {
           msg += "ALLE Tasten deaktivieren möchtest?";
         } else {
           msg += 'die Taste "' + btnName + '" deaktivieren möchtest?';
