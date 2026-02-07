@@ -135,7 +135,6 @@ private:
     void _saveStates();
     float _estHeatingTime();
     void _handleStateChanges();
-    void _handleNotification();
     static bool _compare_command(const command_que_item &i1, const command_que_item &i2);
     bool _load_melody_json(const String &filename);
     void _add_melody(const String &filename);
@@ -160,8 +159,6 @@ private:
     void _checkJetTimeouts();
 
 private:
-    bool _notify;
-    int _notification_time, _next_notification_time;
     Ticker _save_settings_ticker;
     Ticker _scroll_text_ticker;
     bool _scroll = false;

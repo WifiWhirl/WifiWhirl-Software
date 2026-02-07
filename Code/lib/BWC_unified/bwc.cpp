@@ -130,8 +130,6 @@ void BWC::begin()
     // dsp->LEDshow();
     _save_settings_ticker.attach(600.0f, save_settings_cb, this);
     _scroll_text_ticker.attach(0.25f, scroll_text_cb, this);
-
-    _next_notification_time = _notification_time;
 }
 
 void BWC::loop()
@@ -198,7 +196,6 @@ void BWC::loop()
         _saveStates();
     if (_save_smartschedule_needed)
         _saveSmartSchedule();
-    _handleNotification();
     _handleStateChanges();
     // logstates();
     if (BWC_DEBUG)
@@ -337,34 +334,6 @@ bool BWC::_compare_command(const command_que_item &i1, const command_que_item &i
     return i1.xtime < i2.xtime;
 }
 
-void BWC::_handleNotification()
-{
-    /* user don't want a notification*/
-    if (!_notify)
-        return;
-    /* there is no upcoming command*/
-    if (_command_que.size() == 0)
-    {
-        _next_notification_time = _notification_time;
-        return;
-    }
-    /* not the time yet*/
-    if ((int64_t)_command_que[0].xtime - (int64_t)_timestamp_secs > (int64_t)_next_notification_time)
-        return;
-    /* only _notify for these commands*/
-    if (!(_command_que[0].cmd == SETBUBBLES || _command_que[0].cmd == SETHEATER || _command_que[0].cmd == SETJETS || _command_que[0].cmd == SETPUMP))
-        return;
-
-    if (_audio_enabled)
-        _sweepup();
-    dsp->text += "  --" + String(_next_notification_time) + "--";
-    // dsp->dsp_states.text = "i-i-";
-    if (_next_notification_time <= 2)
-        _next_notification_time = -10; // postpone "alarm" until after the command xtime (will be reset on command execution)
-    else
-        _next_notification_time /= 2;
-}
-
 void BWC::_handleCommandQ()
 {
     if (_command_que.size() < 1)
@@ -388,7 +357,6 @@ void BWC::_handleCommandQ()
         !_command_que[0].force)               // Allow if force=true
     {
         _command_que.erase(_command_que.begin());
-        _next_notification_time = _notification_time; // reset alarm time
         _save_cmdq_needed = true;
         return;
     }
@@ -485,7 +453,6 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
     case RESETQ:
         _command_que.clear();
         _save_cmdq_needed = true;
-        _next_notification_time = _notification_time; // reset alarm time
         return false;
         break;
     case REBOOTESP:
@@ -651,7 +618,6 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
     }
     // remove from commandQ
     _command_que.erase(_command_que.begin());
-    _next_notification_time = _notification_time; // reset alarm time
     _save_cmdq_needed = true;
     if (restartESP)
     {
@@ -1016,8 +982,6 @@ void BWC::getJSONSettings(String &rtn)
 #endif
     doc[F("REBOOTTIME")] = reboot_time_t;
     doc[F("MODEL")] = cio->getModel();
-    doc[F("NOTIFY")] = _notify;
-    doc[F("NOTIFTIME")] = _notification_time;
     doc[F("PLZ")] = _plz;
     doc[F("WEATHER")] = _weather;
     doc[F("HASJETS")] = cio->getHasjets();
@@ -1109,8 +1073,6 @@ void BWC::setJSONSettings(const String &message)
     if (doc.containsKey(F("PHINT")))
         _ph_interval = doc[F("PHINT")];
     _audio_enabled = doc[F("AUDIO")];
-    _notify = doc[F("NOTIFY")];
-    _notification_time = doc[F("NOTIFTIME")];
     _plz = doc[F("PLZ")].as<String>();
     _weather = doc[F("WEATHER")];
     _pool_capacity = doc[F("POOLCAP")];
@@ -1372,8 +1334,6 @@ void BWC::_loadSettings()
     _cya_timestamp_s = doc[F("CYATIME")] | 0;
     _alk_timestamp_s = doc[F("ALKTIME")] | 0;
     _audio_enabled = doc[F("AUDIO")];
-    _notify = doc[F("NOTIFY")];
-    _notification_time = doc[F("NOTIFTIME")];
     _energy_total_kWh = doc[F("KWH")];
     _energy_daily_Ws = doc[F("KWHD")];
     _ambient_temp = doc[F("AMB")] | 20;
@@ -1681,8 +1641,6 @@ void BWC::saveSettings()
     // doc[F("SAVETIME")] = DateTime.format(DateFormatter::SIMPLE);
     doc[F("AMB")] = _ambient_temp;
     doc[F("BRT")] = _dsp_brightness;
-    doc[F("NOTIFY")] = _notify;
-    doc[F("NOTIFTIME")] = _notification_time;
     doc[F("PLZ")] = _plz;
     doc[F("WEATHER")] = _weather;
     enableWeather = _weather;
