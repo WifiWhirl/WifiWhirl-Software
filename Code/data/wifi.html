@@ -71,6 +71,13 @@
             <td>Passwort (PSK):</td>
             <td><input type="password" id="apPwd" /></td>
           </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button id="saveWlan" class="button" onclick="saveWlanConfig()">
+                WLAN-Verbindung speichern
+              </button>
+            </td>
+          </tr>
         </table>
       </section>
 
@@ -94,6 +101,17 @@
               />
             </td>
           </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button
+                id="saveFallback"
+                class="button"
+                onclick="saveFallbackConfig()"
+              >
+                Fallback Einstellung speichern
+              </button>
+            </td>
+          </tr>
         </table>
       </section>
 
@@ -106,9 +124,15 @@
                 Statische IP-Adresse aktivieren:
               </label>
             </td>
-            <td><input type="checkbox" id="enableStaticIp4" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="enableStaticIp4"
+                onchange="toggleStaticIpFields()"
+              />
+            </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>IP-Adresse:</td>
             <td>
               <input
@@ -119,7 +143,7 @@
               />
             </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>Subnetzmaske:</td>
             <td>
               <input
@@ -130,7 +154,7 @@
               />
             </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>Gateway:</td>
             <td>
               <input
@@ -141,7 +165,7 @@
               />
             </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>DNS-Server (primär):</td>
             <td>
               <input
@@ -152,7 +176,7 @@
               />
             </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>DNS-Server (sekundär):</td>
             <td>
               <input
@@ -161,6 +185,17 @@
                 maxlength="15"
                 style="width: 185px"
               />
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button
+                id="saveStaticIp"
+                class="button"
+                onclick="saveStaticIpConfig()"
+              >
+                IP-Adresskonfiguration speichern
+              </button>
             </td>
           </tr>
         </table>
@@ -180,15 +215,10 @@
               />
             </td>
           </tr>
-        </table>
-      </section>
-
-      <section>
-        <table>
           <tr>
-            <td colspan="2" style="text-align: center">
-              <button id="save" class="button" onclick="saveNetworkConfig()">
-                Speichern
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button id="saveNtp" class="button" onclick="saveNtpConfig()">
+                Zeitserver Einstellung speichern
               </button>
             </td>
           </tr>
@@ -244,6 +274,9 @@
             document.getElementById("ip4DnsSecondary").value =
               json.ip4DnsSecondary;
             document.getElementById("ip4NTP").value = json.ip4NTP;
+
+            // Set initial visibility of static IP fields
+            toggleStaticIpFields();
           }
         };
       }
@@ -260,33 +293,140 @@
         }
       }
 
-      function saveNetworkConfig() {
-        if (!validatePassword("apPwd")) return;
+      /**
+       * Toggle visibility of static IP address fields based on checkbox
+       */
+      function toggleStaticIpFields() {
+        var enabled = document.getElementById("enableStaticIp4").checked;
+        var fields = document.querySelectorAll(".staticIpField");
+        for (var i = 0; i < fields.length; i++) {
+          fields[i].style.display = enabled ? "" : "none";
+        }
+      }
 
-        buttonConfirm(
-          document.getElementById("save"),
-          "gespeichert &check; (Vergiss nicht, das WifiWhirl Modul neu zu starten.)",
-          6,
+      /**
+       * Show restart page with countdown and auto-redirect
+       */
+      function showRestartPage(reason) {
+        document.open();
+        document.write(
+          "<!DOCTYPE html>" +
+            "<html>" +
+            "<head>" +
+            "<title>WifiWhirl | Neustart</title>" +
+            '<meta charset="utf-8" />' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+            "<style>" +
+            "body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }" +
+            "h1 { color: #4051b5; margin-bottom: 20px; }" +
+            "p { font-size: 18px; margin: 20px; color: #333; }" +
+            ".info { color: #666; font-size: 16px; }" +
+            ".btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #4051b5; color: white; text-decoration: none; border-radius: 5px; }" +
+            ".btn:hover { background: #2c3a8f; }" +
+            "</style>" +
+            "</head>" +
+            "<body>" +
+            "<h1>WifiWhirl startet neu...</h1>" +
+            "<p>" + reason + "</p>" +
+            '<p class="info">Die Netzwerkkonfiguration wird aktualisiert.</p>' +
+            '<p class="info">Bitte warte ca. 30 Sekunden...</p>' +
+            '<a href="/" class="btn">Zurück zur Übersicht</a>' +
+            "<script>" +
+            'setTimeout(function() { window.location.href = "/"; }, 30000);' +
+            "<\/script>" +
+            "</body>" +
+            "</html>",
         );
+        document.close();
+      }
+
+      /**
+       * Helper: send partial config to /setwifi/ and handle restart response
+       */
+      function sendPartialConfig(buttonId, data) {
+        var btn = document.getElementById(buttonId);
+        btn.disabled = true;
+        btn.innerHTML = "Wird gespeichert...";
 
         var req = new XMLHttpRequest();
         req.open("POST", "/setwifi/");
-        var json = {
+
+        req.onload = function () {
+          if (req.status == 200) {
+            try {
+              var response = JSON.parse(req.responseText);
+              if (response.restart === true) {
+                showRestartPage(response.reason);
+                return;
+              }
+            } catch (e) {
+              // Non-JSON response - saved without restart
+            }
+            // No restart needed (no changes detected)
+            buttonConfirm(btn, "Keine Änderung &check;", 4);
+          } else {
+            btn.innerHTML = "Fehler!";
+            btn.disabled = false;
+          }
+        };
+
+        req.onerror = function () {
+          btn.innerHTML = "Verbindungsfehler!";
+          setTimeout(function () {
+            btn.innerHTML = "Speichern";
+            btn.disabled = false;
+          }, 3000);
+        };
+
+        req.send(JSON.stringify(data));
+        console.log(data);
+      }
+
+      /**
+       * Save WLAN settings only (SSID + password)
+       */
+      function saveWlanConfig() {
+        if (!validatePassword("apPwd")) return;
+
+        sendPartialConfig("saveWlan", {
           enableAp: document.getElementById("enableAp").checked,
           apSsid: document.getElementById("apSsid").value,
           apPwd: document.getElementById("apPwd").value,
+        });
+
+        document.getElementById("apPwd").value = "<Passwort eingeben>";
+      }
+
+      /**
+       * Save fallback WiFi setting only
+       */
+      function saveFallbackConfig() {
+        sendPartialConfig("saveFallback", {
           enableWM: document.getElementById("enableWM").checked,
+        });
+      }
+
+      /**
+       * Save static IP settings only
+       */
+      function saveStaticIpConfig() {
+        sendPartialConfig("saveStaticIp", {
           enableStaticIp4: document.getElementById("enableStaticIp4").checked,
           ip4Address: document.getElementById("ip4Address").value,
           ip4Gateway: document.getElementById("ip4Gateway").value,
           ip4Subnet: document.getElementById("ip4Subnet").value,
           ip4DnsPrimary: document.getElementById("ip4DnsPrimary").value,
           ip4DnsSecondary: document.getElementById("ip4DnsSecondary").value,
+        });
+      }
+
+      /**
+       * Save NTP server setting only
+       */
+      function saveNtpConfig() {
+        sendPartialConfig("saveNtp", {
           ip4NTP: document.getElementById("ip4NTP").value,
-        };
-        req.send(JSON.stringify(json));
-        document.getElementById("apPwd").value = "<Passwort eingeben>";
-        console.log(json);
+        });
       }
 
       function resetWifi() {

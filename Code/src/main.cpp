@@ -1771,25 +1771,83 @@ void handleSetWifi()
         return;
     }
 
-    sWifi_info wifi_info;
+    // Load existing settings first to support partial updates.
+    // Each section on the frontend sends only its own fields,
+    // so missing fields must retain their previous values.
+    sWifi_info old_info = loadWifi();
+    sWifi_info wifi_info = old_info;
 
-    wifi_info.enableAp = doc[F("enableAp")];
-    if (doc.containsKey("enableWM"))
+    if (doc.containsKey(F("enableAp")))
+        wifi_info.enableAp = doc[F("enableAp")];
+    if (doc.containsKey(F("enableWM")))
         wifi_info.enableWmApFallback = doc[F("enableWM")];
-    wifi_info.apSsid = doc[F("apSsid")].as<String>();
-    wifi_info.apPwd = doc[F("apPwd")].as<String>();
+    if (doc.containsKey(F("apSsid")))
+        wifi_info.apSsid = doc[F("apSsid")].as<String>();
+    if (doc.containsKey(F("apPwd")))
+        wifi_info.apPwd = doc[F("apPwd")].as<String>();
 
-    wifi_info.enableStaticIp4 = doc[F("enableStaticIp4")];
-    wifi_info.ip4Address_str = doc[F("ip4Address")].as<String>();
-    wifi_info.ip4Gateway_str = doc[F("ip4Gateway")].as<String>();
-    wifi_info.ip4Subnet_str = doc[F("ip4Subnet")].as<String>();
-    wifi_info.ip4DnsPrimary_str = doc[F("ip4DnsPrimary")].as<String>();
-    wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
-    wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
+    if (doc.containsKey(F("enableStaticIp4")))
+        wifi_info.enableStaticIp4 = doc[F("enableStaticIp4")];
+    if (doc.containsKey(F("ip4Address")))
+        wifi_info.ip4Address_str = doc[F("ip4Address")].as<String>();
+    if (doc.containsKey(F("ip4Gateway")))
+        wifi_info.ip4Gateway_str = doc[F("ip4Gateway")].as<String>();
+    if (doc.containsKey(F("ip4Subnet")))
+        wifi_info.ip4Subnet_str = doc[F("ip4Subnet")].as<String>();
+    if (doc.containsKey(F("ip4DnsPrimary")))
+        wifi_info.ip4DnsPrimary_str = doc[F("ip4DnsPrimary")].as<String>();
+    if (doc.containsKey(F("ip4DnsSecondary")))
+        wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
+    if (doc.containsKey(F("ip4NTP")))
+        wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
+
+    // Compare old and new settings to determine if anything actually changed
+    bool changed = (wifi_info.enableAp != old_info.enableAp) ||
+                   (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
+                   (wifi_info.apSsid != old_info.apSsid) ||
+                   (wifi_info.apPwd != old_info.apPwd) ||
+                   (wifi_info.enableStaticIp4 != old_info.enableStaticIp4) ||
+                   (wifi_info.ip4Address_str != old_info.ip4Address_str) ||
+                   (wifi_info.ip4Gateway_str != old_info.ip4Gateway_str) ||
+                   (wifi_info.ip4Subnet_str != old_info.ip4Subnet_str) ||
+                   (wifi_info.ip4DnsPrimary_str != old_info.ip4DnsPrimary_str) ||
+                   (wifi_info.ip4DnsSecondary_str != old_info.ip4DnsSecondary_str) ||
+                   (wifi_info.ip4NTP_str != old_info.ip4NTP_str);
+
+    if (!changed)
+    {
+        // Nothing changed, no need to save or restart
+        Serial.println(F("WiFi: No changes detected"));
+        server->send(200, F("application/json"), F("{\"restart\":false}"));
+        return;
+    }
 
     saveWifi(wifi_info);
 
-    server->send(200, F("text/plain"), "");
+    // Settings changed - restart required to apply new network configuration.
+    Serial.println(F("WiFi: Network config changed, restarting..."));
+    
+    String response = F("{\"restart\":true,\"reason\":\"Netzwerkeinstellungen geändert. WifiWhirl startet neu.\"}");
+    server->send(200, F("application/json"), response);
+    
+    // Give server time to send response
+    delay(500);
+    
+    // Save all settings
+    bwc->saveSettings();
+    
+    // Stop all services gracefully
+    periodicTimer.detach();
+    updateMqttTimer.detach();
+    updateWSTimer.detach();
+    if (mqttClient) {
+        mqttClient->disconnect();
+    }
+    
+    delay(1000);
+    
+    // Restart ESP to apply new network configuration
+    ESP.restart();
 }
 
 /*
