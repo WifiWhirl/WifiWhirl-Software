@@ -628,6 +628,21 @@ a.topnavicon {
   visibility: visible;
 }
 
+.tooltip.left::before {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 15px;
+}
+
+.tooltip.left::after {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: -5px;
+  border-color: transparent transparent transparent var(--accent-color);
+}
+
 /**********************
  * temperture selector
 \*/
