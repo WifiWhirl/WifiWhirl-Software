@@ -623,7 +623,9 @@ a.topnavicon {
 .tooltip:focus::before,
 .tooltip:focus::after,
 .tooltip:hover::before,
-.tooltip:hover::after {
+.tooltip:hover::after,
+.tooltip.active::before,
+.tooltip.active::after {
   visibility: visible;
 }
 

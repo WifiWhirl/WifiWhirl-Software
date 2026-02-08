@@ -665,6 +665,33 @@
           elem.checked = true; // revert change
         }
       }
+   
+      // Fix tooltips on iOS Safari: label[for] in same <td> steals focus
+      (function () {
+        var tips = document.querySelectorAll(".tooltip");
+        for (var i = 0; i < tips.length; i++) {
+          tips[i].setAttribute("tabindex", "0");
+          tips[i].addEventListener("click", function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            // Close any other open tooltip first
+            var all = document.querySelectorAll(".tooltip.active");
+            for (var j = 0; j < all.length; j++) {
+              if (all[j] !== this) all[j].classList.remove("active");
+            }
+            this.classList.toggle("active");
+            this.focus();
+          });
+        }
+        // Dismiss tooltip when tapping anywhere else
+        document.addEventListener("click", function () {
+          var all = document.querySelectorAll(".tooltip.active");
+          for (var j = 0; j < all.length; j++) {
+            all[j].classList.remove("active");
+            all[j].blur();
+          }
+        });
+      })();
     </script>
     <script src="darkmode.js"></script>
   </body>
