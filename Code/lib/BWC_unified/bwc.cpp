@@ -361,6 +361,24 @@ void BWC::_handleCommandQ()
         return;
     }
 
+    // Force pump off while heater is running: turn off heater first
+    // The hot tub hardware prevents pump-off while the heater is active.
+    // Insert a heater-off command before the pump-off so it is processed first.
+    if (_command_que[0].cmd == SETPUMP &&
+        _command_que[0].val == 0 &&
+        cio->cio_states.heat &&
+        _command_que[0].force)
+    {
+        command_que_item heater_off;
+        heater_off.cmd = SETHEATER;
+        heater_off.val = 0;
+        heater_off.xtime = 0;
+        heater_off.interval = 0;
+        heater_off.force = false;
+        _command_que.insert(_command_que.begin(), heater_off);
+        // heater-off is now at [0], pump-off shifted to [1]; heater-off is processed this cycle
+    }
+
     _handlecommand(_command_que[0].cmd, _command_que[0].val, _command_que[0].text);
 }
 
