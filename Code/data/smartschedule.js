@@ -97,19 +97,47 @@ function displayScheduleStatus(data) {
         ? data.ACCURATETEMP + " °C"
         : "Wird gemessen...";
 
-    // Display heating estimate (same format as remaining time)
+    // Display heating estimate (raw, without buffer)
     if (data.ESTIMATE >= 999) {
       document.getElementById("statusEstimate").innerHTML =
         '<span style="color: #ff9800;">Unmöglich zu heizen (Umgebung zu kalt)</span>';
+      document.getElementById("statusBuffer").textContent = "--";
     } else if (data.ESTIMATE > 0) {
-      // Convert hours to seconds and use formatDuration
-      const estimateSeconds = Math.round(data.ESTIMATE * 3600);
+      var estimateSeconds = Math.round(data.ESTIMATE * 3600);
       document.getElementById("statusEstimate").textContent =
         formatDuration(estimateSeconds);
+      // Display safety buffer
+      var bufferSeconds = Math.round((data.BUFFER || 0) * 3600);
+      document.getElementById("statusBuffer").textContent =
+        bufferSeconds > 0 ? formatDuration(bufferSeconds) : "--";
     } else {
-      // Estimate is 0: pool is already at or above target temperature
       document.getElementById("statusEstimate").textContent =
         "Bereits auf Temperatur";
+      document.getElementById("statusBuffer").textContent = "--";
+    }
+
+    // Display remaining heating time (live countdown while heater is running)
+    var remainingRow = document.getElementById("statusRemainingRow");
+    if (data.HEATER && data.STARTTIME > 0 && data.ESTIMATE > 0) {
+      // Heater is running: remaining = (start_time + estimate) - now
+      var expectedEnd = data.STARTTIME + Math.round(data.ESTIMATE * 3600);
+      var remaining = expectedEnd - Math.floor(Date.now() / 1000);
+      remainingRow.style.display = "table-row";
+      if (remaining > 0) {
+        document.getElementById("statusRemaining").textContent =
+          formatDuration(remaining);
+      } else {
+        document.getElementById("statusRemaining").innerHTML =
+          '<span style="color: #4caf50;">Zieltemperatur sollte gleich erreicht sein</span>';
+      }
+    } else if (data.ESTIMATE >= 999) {
+      remainingRow.style.display = "none";
+    } else if (data.ESTIMATE <= 0) {
+      remainingRow.style.display = "table-row";
+      document.getElementById("statusRemaining").innerHTML =
+        '<span style="color: #4caf50;">Bereits auf Temperatur</span>';
+    } else {
+      remainingRow.style.display = "none";
     }
 
     // Display heater status

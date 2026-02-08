@@ -1981,6 +1981,14 @@ void BWC::getJSONSmartSchedule(String &rtn)
     doc[F("STARTTIME")] = _smart_schedule.calculated_start_time;
     doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
     doc[F("ESTIMATE")] = _smart_schedule.last_heating_estimate;
+    // Calculate safety buffer (10% of estimate, minimum 1 hour)
+    float buffer_hours = 0;
+    if (_smart_schedule.last_heating_estimate > 0 && _smart_schedule.last_heating_estimate < 999)
+    {
+        buffer_hours = _smart_schedule.last_heating_estimate * 0.10f;
+        if (buffer_hours < 1.0f) buffer_hours = 1.0f;
+    }
+    doc[F("BUFFER")] = buffer_hours;
     doc[F("CHECKCOMPLETED")] = _smart_schedule.check_completed;
     doc[F("CURRENTTIME")] = _timestamp_secs;
     doc[F("CURRENTTEMP")] = cio->cio_states.temperature;
