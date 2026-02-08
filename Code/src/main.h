@@ -129,6 +129,7 @@ sWifi_info loadWifi();
 void saveWifi(const sWifi_info &wifi_info);
 void handleGetWifi();
 void handleSetWifi();
+void handleScanWifi();
 void handleResetWifi();
 void resetWiFi();
 void loadMqtt();

@@ -732,6 +732,7 @@ void startHttpServer()
     server->on(F("/setwebconfig/"), handleSetWebConfig);
     server->on(F("/getwifi/"), handleGetWifi);
     server->on(F("/setwifi/"), handleSetWifi);
+    server->on(F("/scanwifi/"), handleScanWifi);
     server->on(F("/resetwifi/"), handleResetWifi);
     server->on(F("/getmqtt/"), handleGetMqtt);
     server->on(F("/setmqtt/"), handleSetMqtt);
@@ -1716,6 +1717,53 @@ void saveWifi(const sWifi_info &wifi_info)
         // Serial.println(F("{\"error\": \"Failed to serialize file\"}"));
     }
     file.close();
+}
+
+/**
+ * response for /scanwifi/
+ * Scans for available WiFi networks and returns them as JSON
+ */
+void handleScanWifi()
+{
+    // Synchronous scan; typically completes in 2-5 seconds
+    int n = WiFi.scanNetworks(false, false);
+
+    DynamicJsonDocument doc(2048);
+    JsonArray networks = doc.createNestedArray(F("networks"));
+
+    for (int i = 0; i < n && i < 20; i++)
+    {
+        // Skip empty SSIDs (hidden networks)
+        if (WiFi.SSID(i).length() == 0)
+            continue;
+
+        // Skip duplicate SSIDs (keep the one with stronger signal)
+        bool duplicate = false;
+        for (size_t j = 0; j < networks.size(); j++)
+        {
+            if (networks[j]["ssid"].as<String>() == WiFi.SSID(i))
+            {
+                duplicate = true;
+                break;
+            }
+        }
+        if (duplicate)
+            continue;
+
+        JsonObject net = networks.createNestedObject();
+        net[F("ssid")] = WiFi.SSID(i);
+        net[F("rssi")] = WiFi.RSSI(i);
+        net[F("enc")] = (WiFi.encryptionType(i) != ENC_TYPE_NONE);
+    }
+
+    WiFi.scanDelete();
+
+    String json;
+    if (serializeJson(doc, json) == 0)
+    {
+        json = F("{\"networks\":[]}");
+    }
+    server->send(200, F("application/json"), json);
 }
 
 /**
