@@ -1,95 +1,101 @@
 #sectionUpdate {
-    display: flex;
-    justify-content: center;
-    text-align: center;
-    background: #ededed;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  background: #ededed;
 }
 
 .darkmode #sectionUpdate {
-    background: #4d4d4d;
+  background: #4d4d4d;
 }
 
 .form-container {
-    min-width: 350px;
+  min-width: 350px;
 }
 
 progress {
-    display: block; /* default: inline-block */
-    width: 100%;
-    margin: 2em auto;
-    padding: 4px;
-    border: 0 none;
-    background: #e2e2e2;
-    border-radius: 7px;
-    box-shadow: inset 0px 1px 1px rgba(0,0,0,0.5), 0px 1px 0px rgba(255,255,255,0.2);
+  display: block; /* default: inline-block */
+  width: 100%;
+  margin: 2em auto;
+  padding: 4px;
+  border: 0 none;
+  background: #e2e2e2;
+  border-radius: 7px;
+  box-shadow:
+    inset 0px 1px 1px rgba(0, 0, 0, 0.5),
+    0px 1px 0px rgba(255, 255, 255, 0.2);
 }
 
 .darkmode progress {
-    background: #444;
+  background: #444;
 }
 
 progress::-moz-progress-bar {
-    border-radius: 7px;
-    background: #444;
-    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.4), 0 2px 5px 0px rgba(0,0,0,0.3);
+  border-radius: 7px;
+  background: #444;
+  box-shadow:
+    inset 0 -2px 4px rgba(0, 0, 0, 0.4),
+    0 2px 5px 0px rgba(0, 0, 0, 0.3);
 }
 
 .darkmode progress::-moz-progress-bar {
-    background: #e2e2e2;
+  background: #e2e2e2;
 }
 /* webkit */
-@media screen and (-webkit-min-device-pixel-ratio:0) {
-    progress {
-        height: 25px;
-    }
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  progress {
+    height: 25px;
+  }
 }
 progress::-webkit-progress-bar {
-    background: transparent;
+  background: transparent;
 }
 progress::-webkit-progress-value {
-    border-radius: 12px;
-    background: #FFF;
-    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.4), 0 2px 5px 0px rgba(0,0,0,0.3);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow:
+    inset 0 -2px 4px rgba(0, 0, 0, 0.4),
+    0 2px 5px 0px rgba(0, 0, 0, 0.3);
 }
 /* environnement styles */
 
 input[type="file"] {
-    width: 100%;
-    border: 0px transparent;
-    padding: 4px 4px 4px 4px;
-    margin-top: 20px;
-    margin-bottom: 0px;
-    border-radius: 7px;
-    background-color: #e2e2e2;
-    color: #6b6b6b;
+  width: 100%;
+  border: 0px transparent;
+  padding: 4px 4px 4px 4px;
+  margin-top: 20px;
+  margin-bottom: 0px;
+  border-radius: 7px;
+  background-color: #e2e2e2;
+  color: #6b6b6b;
 }
 .darkmode input[type="file"] {
-    color: black;
+  color: black;
 }
 
 h2 {
-    color: #444;
-    text-transform: none;
+  color: #444;
+  text-transform: none;
 }
 
 .darkmode h2 {
-    color: #e2e2e2;
+  color: #e2e2e2;
 }
 
 @-webkit-keyframes progress-animation {
-    0% {
-        background-position: 100%;
-    }
-    100% {
-        background-position: 0;
-    }
+  0% {
+    background-position: 100%;
+  }
+  100% {
+    background-position: 0;
+  }
 }
 
 @keyframes progress-animation {
-    0% {
-        background-position: 100%;
-    }
-    100% {
-        background-position: 0;
-    }
+  0% {
+    background-position: 100%;
+  }
+  100% {
+    background-position: 0;
+  }
 }

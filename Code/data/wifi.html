@@ -32,13 +32,20 @@
         align-items: center;
         padding: 10px 12px;
         cursor: pointer;
-        border-bottom: 1px solid rgba(128,128,128,0.15);
+        border-bottom: 1px solid rgba(128, 128, 128, 0.15);
         transition: background 0.15s;
         gap: 10px;
       }
-      .wifi-item:last-child { border-bottom: none; }
-      .wifi-item:hover { background: rgba(64,81,181,0.08); }
-      .wifi-item.selected { background: rgba(64,81,181,0.18); font-weight: bold; }
+      .wifi-item:last-child {
+        border-bottom: none;
+      }
+      .wifi-item:hover {
+        background: rgba(64, 81, 181, 0.08);
+      }
+      .wifi-item.selected {
+        background: rgba(64, 81, 181, 0.18);
+        font-weight: bold;
+      }
       .wifi-item .wifi-ssid {
         flex: 1;
         overflow: hidden;
@@ -51,12 +58,26 @@
         gap: 6px;
         flex-shrink: 0;
       }
-      .wifi-item svg { display: block; }
-      .wifi-signal-arc { fill: none; stroke-width: 2; stroke-linecap: round; }
-      .wifi-signal-arc.active { stroke: var(--accent-color, #4051b5); }
-      .wifi-signal-arc.inactive { stroke: rgba(128,128,128,0.25); }
-      .wifi-signal-dot.active { fill: var(--accent-color, #4051b5); }
-      .wifi-signal-dot.inactive { fill: rgba(128,128,128,0.25); }
+      .wifi-item svg {
+        display: block;
+      }
+      .wifi-signal-arc {
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+      .wifi-signal-arc.active {
+        stroke: var(--accent-color, #4051b5);
+      }
+      .wifi-signal-arc.inactive {
+        stroke: rgba(128, 128, 128, 0.25);
+      }
+      .wifi-signal-dot.active {
+        fill: var(--accent-color, #4051b5);
+      }
+      .wifi-signal-dot.inactive {
+        fill: rgba(128, 128, 128, 0.25);
+      }
       .wifi-manual-item {
         display: flex;
         align-items: center;
@@ -66,7 +87,9 @@
         gap: 6px;
         font-size: 0.9em;
       }
-      .wifi-manual-item:hover { background: rgba(64,81,181,0.08); }
+      .wifi-manual-item:hover {
+        background: rgba(64, 81, 181, 0.08);
+      }
       .wifi-scan-info {
         text-align: center;
         padding: 6px;
@@ -74,23 +97,31 @@
         opacity: 0.6;
       }
       .darkmode .wifi-item {
-        border-bottom-color: rgba(255,255,255,0.08);
+        border-bottom-color: rgba(255, 255, 255, 0.08);
       }
       .darkmode .wifi-item:hover {
-        background: rgba(255,255,255,0.08);
+        background: rgba(255, 255, 255, 0.08);
       }
       .darkmode .wifi-item.selected {
-        background: rgba(100,140,255,0.2);
+        background: rgba(100, 140, 255, 0.2);
       }
-      .darkmode .wifi-signal-arc.inactive { stroke: rgba(255,255,255,0.18); }
-      .darkmode .wifi-signal-dot.inactive { fill: rgba(255,255,255,0.18); }
-      .darkmode .wifi-signal-arc.active { stroke: #7b9cff; }
-      .darkmode .wifi-signal-dot.active { fill: #7b9cff; }
+      .darkmode .wifi-signal-arc.inactive {
+        stroke: rgba(255, 255, 255, 0.18);
+      }
+      .darkmode .wifi-signal-dot.inactive {
+        fill: rgba(255, 255, 255, 0.18);
+      }
+      .darkmode .wifi-signal-arc.active {
+        stroke: #7b9cff;
+      }
+      .darkmode .wifi-signal-dot.active {
+        fill: #7b9cff;
+      }
       .darkmode .wifi-manual-item {
         color: #7b9cff;
       }
       .darkmode .wifi-manual-item:hover {
-        background: rgba(255,255,255,0.08);
+        background: rgba(255, 255, 255, 0.08);
       }
     </style>
   </head>
@@ -130,7 +161,7 @@
 
       <section>
         <h2>WLAN-Einstellungen:</h2>
-        <input type="checkbox" id="enableAp" style="display:none" />
+        <input type="checkbox" id="enableAp" style="display: none" />
 
         <!-- Network list (shown after scan) -->
         <div id="networkList" style="display: none"></div>
@@ -439,19 +470,31 @@
           { d: "M2 14a1 1 0 0 1 0-1", r: 3 },
           { d: "M5 11a5.5 5.5 0 0 0-7.5 0", cx: 1.25, r: 6 },
           { d: "M8.5 7.5a10 10 0 0 0-14 0", cx: 1.5, r: 9 },
-          { d: "M12 4a14.5 14.5 0 0 0-21 0", cx: 1.5, r: 12 }
+          { d: "M12 4a14.5 14.5 0 0 0-21 0", cx: 1.5, r: 12 },
         ];
         // SVG with 3 concentric arcs + dot at bottom center
         var svg = '<svg viewBox="0 0 24 18" width="22" height="16">';
         // Dot at bottom center
-        svg += '<circle cx="12" cy="16" r="1.5" class="wifi-signal-dot ' + (level >= 0 ? "active" : "inactive") + '"/>';
+        svg +=
+          '<circle cx="12" cy="16" r="1.5" class="wifi-signal-dot ' +
+          (level >= 0 ? "active" : "inactive") +
+          '"/>';
         // Arc 1 (smallest)
-        svg += '<path d="M9.5 13a3.5 3.5 0 0 1 5 0" class="wifi-signal-arc ' + (level >= 1 ? "active" : "inactive") + '"/>';
+        svg +=
+          '<path d="M9.5 13a3.5 3.5 0 0 1 5 0" class="wifi-signal-arc ' +
+          (level >= 1 ? "active" : "inactive") +
+          '"/>';
         // Arc 2
-        svg += '<path d="M7 10a7.5 7.5 0 0 1 10 0" class="wifi-signal-arc ' + (level >= 2 ? "active" : "inactive") + '"/>';
+        svg +=
+          '<path d="M7 10a7.5 7.5 0 0 1 10 0" class="wifi-signal-arc ' +
+          (level >= 2 ? "active" : "inactive") +
+          '"/>';
         // Arc 3 (largest)
-        svg += '<path d="M4.5 7a11.5 11.5 0 0 1 15 0" class="wifi-signal-arc ' + (level >= 3 ? "active" : "inactive") + '"/>';
-        svg += '</svg>';
+        svg +=
+          '<path d="M4.5 7a11.5 11.5 0 0 1 15 0" class="wifi-signal-arc ' +
+          (level >= 3 ? "active" : "inactive") +
+          '"/>';
+        svg += "</svg>";
         return svg;
       }
 
@@ -459,10 +502,12 @@
        * Lock icon SVG
        */
       function lockIconSvg() {
-        return '<svg viewBox="0 0 16 18" width="12" height="14" style="opacity:0.5">' +
+        return (
+          '<svg viewBox="0 0 16 18" width="12" height="14" style="opacity:0.5">' +
           '<rect x="2" y="8" width="12" height="9" rx="2" fill="currentColor"/>' +
           '<path d="M5 8V5.5a3 3 0 0 1 6 0V8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
-          '</svg>';
+          "</svg>"
+        );
       }
 
       /**
@@ -486,13 +531,16 @@
         listContainer.innerHTML = "";
 
         if (networks.length === 0) {
-          listContainer.innerHTML = '<div class="wifi-scan-info">Keine Netzwerke gefunden</div>';
+          listContainer.innerHTML =
+            '<div class="wifi-scan-info">Keine Netzwerke gefunden</div>';
           listContainer.style.display = "block";
           return;
         }
 
         // Sort by signal strength (strongest first)
-        networks.sort(function (a, b) { return b.rssi - a.rssi; });
+        networks.sort(function (a, b) {
+          return b.rssi - a.rssi;
+        });
 
         var list = document.createElement("div");
         list.className = "wifi-list";
@@ -507,16 +555,20 @@
           item.className = "wifi-item";
           if (ssid === currentSsid) item.className += " selected";
           item.setAttribute("data-ssid", ssid);
-          item.onclick = (function(s) {
-            return function() { selectNetwork(s); };
+          item.onclick = (function (s) {
+            return function () {
+              selectNetwork(s);
+            };
           })(ssid);
 
           item.innerHTML =
-            '<span class="wifi-ssid">' + escapeHtml(ssid) + '</span>' +
+            '<span class="wifi-ssid">' +
+            escapeHtml(ssid) +
+            "</span>" +
             '<span class="wifi-icons">' +
-              (enc ? lockIconSvg() : '') +
-              wifiSignalSvg(level) +
-            '</span>';
+            (enc ? lockIconSvg() : "") +
+            wifiSignalSvg(level) +
+            "</span>";
 
           list.appendChild(item);
         }
@@ -524,14 +576,20 @@
         // Manual entry option at the end
         var manualItem = document.createElement("div");
         manualItem.className = "wifi-manual-item";
-        manualItem.onclick = function() { switchToManualSsid(); };
-        manualItem.innerHTML = '&#9998; Manuell eingeben...';
+        manualItem.onclick = function () {
+          switchToManualSsid();
+        };
+        manualItem.innerHTML = "&#9998; Manuell eingeben...";
         list.appendChild(manualItem);
 
         listContainer.appendChild(list);
         var infoDiv = document.createElement("div");
         infoDiv.className = "wifi-scan-info";
-        infoDiv.textContent = networks.length + " Netzwerk" + (networks.length > 1 ? "e" : "") + " gefunden";
+        infoDiv.textContent =
+          networks.length +
+          " Netzwerk" +
+          (networks.length > 1 ? "e" : "") +
+          " gefunden";
         listContainer.appendChild(infoDiv);
         listContainer.style.display = "block";
       }
@@ -546,9 +604,10 @@
         // Update visual selection
         var items = document.querySelectorAll(".wifi-item");
         for (var i = 0; i < items.length; i++) {
-          items[i].className = items[i].getAttribute("data-ssid") === ssid
-            ? "wifi-item selected"
-            : "wifi-item";
+          items[i].className =
+            items[i].getAttribute("data-ssid") === ssid
+              ? "wifi-item selected"
+              : "wifi-item";
         }
       }
 
@@ -560,7 +619,8 @@
         var textInput = document.getElementById("apSsid");
         textInput.value = "";
         textInput.focus();
-        document.getElementById("scanBtn").textContent = "Verfügbare Netzwerke suchen";
+        document.getElementById("scanBtn").textContent =
+          "Verfügbare Netzwerke suchen";
       }
 
       /**
