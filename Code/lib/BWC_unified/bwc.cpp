@@ -20,7 +20,7 @@ BWC::BWC()
     _airtime = 0;
     _jettime = 0;
     _price = 0.35;
-    _cl_interval = 14;
+    _cl_interval = 7;
     _filter_interval = 30;
     _fc_interval = 60;
     _wc_interval = 90;
