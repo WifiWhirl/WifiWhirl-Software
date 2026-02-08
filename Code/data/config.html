@@ -101,7 +101,7 @@
             </td>
           </tr>
         </table>
-        <div class="center">
+        <div class="center" style="margin-top: 10px">
           <button class="button" onclick="saveConfig(this)">Speichern</button>
         </div>
       </section>
@@ -210,7 +210,7 @@
             </td>
           </tr>
         </table>
-        <div class="center">
+        <div class="center" style="margin-top: 10px">
           <button class="button" onclick="saveConfig(this)">Speichern</button>
         </div>
       </section>
@@ -276,7 +276,7 @@
             </td>
           </tr>
         </table>
-        <div class="center">
+        <div class="center" style="margin-top: 10px">
           <button class="button" onclick="saveConfig(this)">Speichern</button>
         </div>
       </section>
@@ -333,7 +333,7 @@
             </td>
           </tr>
         </table>
-        <div class="center">
+        <div class="center" style="margin-top: 10px">
           <button class="button" onclick="saveConfig(this)">Speichern</button>
         </div>
       </section>
@@ -363,7 +363,10 @@
               <input
                 type="checkbox"
                 id="power_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="power_btn">Ein/Aus</label></td>
@@ -371,7 +374,10 @@
               <input
                 type="checkbox"
                 id="lock_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="lock_btn">Tastensperre</label></td>
@@ -379,7 +385,10 @@
               <input
                 type="checkbox"
                 id="bubbles_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="bubbles_btn">Airjet</label></td>
@@ -387,7 +396,10 @@
               <input
                 type="checkbox"
                 id="hydrojets_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="hydrojets_btn">Hydrojet</label></td>
@@ -397,7 +409,10 @@
               <input
                 type="checkbox"
                 id="pump_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="pump_btn">Pumpe</label></td>
@@ -405,7 +420,10 @@
               <input
                 type="checkbox"
                 id="up_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="up_btn">Aufwärts</label></td>
@@ -413,7 +431,10 @@
               <input
                 type="checkbox"
                 id="timer_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="timer_btn">Timer</label></td>
@@ -425,7 +446,10 @@
               <input
                 type="checkbox"
                 id="heat_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="heat_btn">Heizung</label></td>
@@ -433,7 +457,10 @@
               <input
                 type="checkbox"
                 id="down_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="down_btn">Abwärts</label></td>
@@ -441,7 +468,10 @@
               <input
                 type="checkbox"
                 id="unit_btn"
-                onchange="confirmDisable(this)"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
               />
             </td>
             <td><label for="unit_btn">Einheit</label></td>
@@ -449,7 +479,7 @@
             <td></td>
           </tr>
         </table>
-        <div class="center">
+        <div class="center" style="margin-top: 10px">
           <button class="button" onclick="saveConfig(this)">Speichern</button>
         </div>
       </section>
@@ -544,6 +574,7 @@
             document.getElementById("up_btn").checked = json.UP;
             document.getElementById("power_btn").checked = json.PWR;
             document.getElementById("hydrojets_btn").checked = json.HJT;
+            updateToggleAll();
             if (json.WEATHER) loadWeatherCity();
             toggleWeatherSettings();
           }
@@ -612,27 +643,35 @@
         toggleWeatherSettings();
       }
 
+      var btnIds = [
+        "lock_btn",
+        "timer_btn",
+        "bubbles_btn",
+        "unit_btn",
+        "heat_btn",
+        "pump_btn",
+        "down_btn",
+        "up_btn",
+        "power_btn",
+        "hydrojets_btn",
+      ];
+
       function toggleAll() {
-        document.getElementById("lock_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("timer_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("bubbles_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("unit_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("heat_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("pump_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("down_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("up_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("power_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("hydrojets_btn").checked =
-          document.getElementById("toggle_all").checked;
+        var state = document.getElementById("toggle_all").checked;
+        for (var i = 0; i < btnIds.length; i++) {
+          document.getElementById(btnIds[i]).checked = state;
+        }
+      }
+
+      function updateToggleAll() {
+        var allChecked = true;
+        for (var i = 0; i < btnIds.length; i++) {
+          if (!document.getElementById(btnIds[i]).checked) {
+            allChecked = false;
+            break;
+          }
+        }
+        document.getElementById("toggle_all").checked = allChecked;
       }
 
       function toggleWeatherSettings() {
@@ -665,7 +704,7 @@
           elem.checked = true; // revert change
         }
       }
-   
+
       // Fix tooltips on iOS Safari: label[for] in same <td> steals focus
       (function () {
         var tips = document.querySelectorAll(".tooltip");
