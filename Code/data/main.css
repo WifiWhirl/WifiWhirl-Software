@@ -744,6 +744,9 @@ html.darkmode {
   position: relative;
   width: 50px;
   height: 30px;
+}
+
+#darkModeForm .switch {
   float: left;
 }
 
