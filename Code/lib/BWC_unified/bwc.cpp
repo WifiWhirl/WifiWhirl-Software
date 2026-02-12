@@ -2014,6 +2014,19 @@ void BWC::getJSONSmartSchedule(String &rtn)
     doc[F("PUMP")] = cio->cio_states.pump;
     doc[F("READING_STATE")] = _smart_schedule.temp_reading_state; // 0=idle, 1=pump_on, 2=reading
     
+    // Calculate dynamic remaining heating time (same calculation as dashboard T2R)
+    // Only calculate if heater is running and we have valid temperatures
+    float remaining_heating_hours = -1.0f; // -1 = not applicable/not heating
+    if (cio->cio_states.heat && display_temp > 0 && _smart_schedule.target_temp > display_temp)
+    {
+        remaining_heating_hours = _calculateHeatingTime(display_temp, _smart_schedule.target_temp);
+    }
+    else if (cio->cio_states.heat && display_temp >= _smart_schedule.target_temp)
+    {
+        remaining_heating_hours = 0.0f; // Already at or above target
+    }
+    doc[F("REMAINING_HEATING_TIME")] = remaining_heating_hours;
+    
     // Calculate time remaining
     int64_t time_remaining = (int64_t)_smart_schedule.target_time - (int64_t)_timestamp_secs;
     doc[F("TIMEREMAINING")] = time_remaining;

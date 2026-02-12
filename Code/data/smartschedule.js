@@ -117,18 +117,22 @@ function displayScheduleStatus(data) {
     }
 
     // Display remaining heating time (live countdown while heater is running)
+    // Use the same dynamic calculation as the dashboard ("Bereit in" / T2R)
     var remainingRow = document.getElementById("statusRemainingRow");
-    if (data.HEATER && data.STARTTIME > 0 && data.ESTIMATE > 0) {
-      // Heater is running: remaining = (start_time + estimate) - now
-      var expectedEnd = data.STARTTIME + Math.round(data.ESTIMATE * 3600);
-      var remaining = expectedEnd - Math.floor(Date.now() / 1000);
+    if (data.HEATER && data.REMAINING_HEATING_TIME !== undefined && data.REMAINING_HEATING_TIME >= 0) {
+      // Backend calculates this dynamically using the same physics as dashboard T2R
+      var remainingHours = data.REMAINING_HEATING_TIME;
       remainingRow.style.display = "table-row";
-      if (remaining > 0) {
-        document.getElementById("statusRemaining").textContent =
-          formatDuration(remaining);
-      } else {
+      if (remainingHours === 0) {
         document.getElementById("statusRemaining").innerHTML =
-          '<span style="color: #4caf50;">Zieltemperatur sollte gleich erreicht sein</span>';
+          '<span style="color: #4caf50;">Bereits auf Temperatur</span>';
+      } else if (remainingHours >= 999) {
+        document.getElementById("statusRemaining").innerHTML =
+          '<span style="color: #ff9800;">Berechnung nicht möglich</span>';
+      } else {
+        var remainingSeconds = Math.round(remainingHours * 3600);
+        document.getElementById("statusRemaining").textContent =
+          formatDuration(remainingSeconds);
       }
     } else if (data.ESTIMATE >= 999) {
       remainingRow.style.display = "none";
