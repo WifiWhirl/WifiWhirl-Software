@@ -20,27 +20,6 @@
     />
 
     <script src="function.js" type="text/javascript"></script>
-    <style>
-      /* Hide number input spinners and normalize Safari mobile styling */
-      input::-webkit-outer-spin-button,
-      input::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-      }
-      input[type="number"] {
-        -moz-appearance: textfield;
-        -webkit-appearance: none;
-        appearance: none;
-        width: 4em;
-      }
-      /* Input + unit wrapper: keeps value and unit on one line */
-      .input-group {
-        display: inline-flex;
-        align-items: baseline;
-        gap: 0.4em;
-        white-space: nowrap;
-      }
-    </style>
   </head>
 
   <body>
@@ -96,7 +75,7 @@
                   step="0.01"
                   inputmode="decimal"
                   required
-                /><span class="inputunit">€</span></span
+                /><span class="inputunit"> €</span></span
               >
             </td>
           </tr>
@@ -133,7 +112,7 @@
                   step="1"
                   inputmode="numeric"
                   required
-                /><span class="inputunit">Tage</span></span
+                /><span class="inputunit"> Tage</span></span
               >
             </td>
           </tr>
@@ -157,7 +136,7 @@
                   step="1"
                   inputmode="numeric"
                   required
-                /><span class="inputunit">Tage</span></span
+                /><span class="inputunit"> Tage</span></span
               >
             </td>
           </tr>
@@ -181,7 +160,7 @@
                   step="1"
                   inputmode="numeric"
                   required
-                /><span class="inputunit">Tage</span></span
+                /><span class="inputunit"> Tage</span></span
               >
             </td>
           </tr>
@@ -205,7 +184,7 @@
                   step="1"
                   inputmode="numeric"
                   required
-                /><span class="inputunit">Tage</span></span
+                /><span class="inputunit"> Tage</span></span
               >
             </td>
           </tr>
@@ -219,7 +198,8 @@
         <h2>Pool & Wetter</h2>
         <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
           Diese Einstellungen werden für die Berechnung der geschätzten
-          Heizdauer bis zum Erreichen der Zieltemperatur verwendet.
+          Heizdauer bis zum Erreichen der Zieltemperatur sowie für die
+          SmartSchedule Funktion verwendet.
         </p>
         <table>
           <tr>
@@ -235,14 +215,14 @@
                   step="1"
                   inputmode="numeric"
                   required
-                /><span class="inputunit">Liter</span></span
+                /><span class="inputunit"> Liter</span></span
               >
             </td>
           </tr>
           <tr>
             <td>
               <label for="enableWeather"
-                >Außentemperatur automatisch ermitteln:</label
+                >Außentemperatur<br />automatisch ermitteln:</label
               >
               <span
                 data-text="Mit der Ermittlung der Außentemperatur wird die Umgebungstemperatur automatisch gesetzt. Dies sollte nicht aktiviert werden, wenn der Pool im Innenraum steht."
@@ -306,7 +286,7 @@
                   max="30"
                   value="30"
                   inputmode="numeric"
-                /><span class="inputunit">Min</span></span
+                /><span class="inputunit"> Min</span></span
               >
             </td>
           </tr>
@@ -328,7 +308,7 @@
                   max="60"
                   value="60"
                   inputmode="numeric"
-                /><span class="inputunit">Min</span></span
+                /><span class="inputunit"> Min</span></span
               >
             </td>
           </tr>
