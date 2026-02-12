@@ -170,6 +170,27 @@
         </table>
       </section>
 
+      <section>
+        <table>
+          <tr>
+            <td>WebSocket Verbindung deaktivieren (Polling verwenden)</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="disableWebSocket" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+        </table>
+        <p style="font-size: 0.85em; margin: 8px 4px 0; opacity: 0.7">
+          Diese Einstellung wird nur lokal in diesem Browser gespeichert.
+          Aktiviere diese Option, falls du Verbindungsprobleme mit dem WifiWhirl
+          Modul hast (z.B. mit iOS 26 und Safari Browser). Nach dem Speichern
+          lade bitte das Dashboard neu.
+        </p>
+      </section>
+
       <p class="center">
         <button
           id="save"
@@ -190,6 +211,9 @@
     </div>
 
     <script>
+      // Always initialize the WebSocket toggle from localStorage (browser-local setting)
+      document.getElementById("disableWebSocket").checked =
+        localStorage.getItem("disableWebSocket") === "true";
       if (localStorage.getItem("showSectionTemperature")) {
         setWebConfig();
       }
@@ -218,6 +242,9 @@
           localStorage.getItem("showWQAlkalinity") === "true";
         document.getElementById("useControlSelector").checked =
           localStorage.getItem("useControlSelector") === "true";
+        // WebSocket toggle is localStorage-only
+        document.getElementById("disableWebSocket").checked =
+          localStorage.getItem("disableWebSocket") === "true";
       }
 
       function saveWebConfig() {
@@ -264,6 +291,11 @@
         localStorage.setItem(
           "useControlSelector",
           document.getElementById("useControlSelector").checked,
+        );
+        // WebSocket toggle is localStorage-only
+        localStorage.setItem(
+          "disableWebSocket",
+          document.getElementById("disableWebSocket").checked,
         );
         writeWebConfig();
       }

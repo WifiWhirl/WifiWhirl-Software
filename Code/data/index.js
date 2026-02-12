@@ -73,10 +73,86 @@ var wqDebounceTimers = {
 };
 updateBrtState = false;
 
+// polling mode state (interval handle)
+var pollInterval = null;
+
 // initial connect to the web socket
 // connect();
 
+// Check if polling mode is enabled via localStorage setting
+function isPollingMode() {
+  return localStorage.getItem("disableWebSocket") === "true";
+}
+
+// Start HTTP polling as a fallback for WebSocket
+function startPolling() {
+  // Mark the UI as connected since polling is active
+  document.body.classList.remove("error");
+  document.body.classList.add("connected");
+  initControlValues = true;
+  // Perform an initial poll immediately
+  pollData();
+  // Set up recurring poll every 3 seconds
+  if (!pollInterval) {
+    pollInterval = setInterval(pollData, 3000);
+  }
+}
+
+// Stop HTTP polling
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+// Fetch data from the HTTP polling endpoint and process each message object
+function pollData() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/getpolldata/");
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        // Mark as connected on successful response
+        document.body.classList.remove("error");
+        document.body.classList.add("connected");
+        try {
+          var data = JSON.parse(xhr.responseText);
+          // Response is a JSON array of message objects
+          if (Array.isArray(data)) {
+            for (var i = 0; i < data.length; i++) {
+              processMessageObj(data[i]);
+            }
+          }
+        } catch (e) {
+          console.log("Poll data parse error: ", e);
+        }
+      } else {
+        // Mark as error on failed response
+        document.body.classList.add("error");
+      }
+    }
+  };
+  xhr.send();
+}
+
+// Send a command via HTTP POST (used in polling mode)
+function sendCommandHttp(json) {
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", "/sendcommand/");
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.send(json);
+  console.log("HTTP command: " + json);
+}
+
 function connect() {
+  // If polling mode is enabled, use HTTP polling instead of WebSocket
+  if (isPollingMode()) {
+    console.log("WebSocket disabled, using HTTP polling");
+    startPolling();
+    return;
+  }
+
   connection = new WebSocket("ws://" + location.hostname + ":81/", ["arduino"]);
 
   connection.onopen = function () {
@@ -128,9 +204,15 @@ function tryParseJSONObject(jsonString) {
 }
 
 function handlemsg(e) {
+  // Parse WebSocket message event and delegate to processMessageObj
   console.log(e.data);
   var msgobj = tryParseJSONObject(e.data);
   if (!msgobj) return;
+  processMessageObj(msgobj);
+}
+
+// Processes a parsed message object (shared by WebSocket and HTTP polling)
+function processMessageObj(msgobj) {
   console.log(msgobj);
 
   if (msgobj.CONTENT == "OTHER") {
@@ -607,7 +689,12 @@ function sendCommandWithValue(cmd, value) {
   obj["TXT"] = "";
   obj["FORCE"] = true; // Frontend commands always force (bypass safety checks)
   var json = JSON.stringify(obj);
-  connection.send(json);
+  // Send via HTTP POST in polling mode, via WebSocket otherwise
+  if (isPollingMode()) {
+    sendCommandHttp(json);
+  } else {
+    connection.send(json);
+  }
   console.log(json);
 }
 
@@ -718,7 +805,12 @@ function sendCommand(cmd) {
   obj["TXT"] = "";
   obj["FORCE"] = true; // Frontend commands always force (bypass safety checks)
   var json = JSON.stringify(obj);
-  connection.send(json);
+  // Send via HTTP POST in polling mode, via WebSocket otherwise
+  if (isPollingMode()) {
+    sendCommandHttp(json);
+  } else {
+    connection.send(json);
+  }
   console.log(json);
 }
 
