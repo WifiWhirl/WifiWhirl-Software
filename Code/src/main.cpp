@@ -222,7 +222,7 @@ void loop()
         if (WiFi.status() != WL_CONNECTED)
         {
             bwc->print(F("  no net connection  "));
-            // Serial.println(F("WiFi > Trying to reconnect ..."));
+            WiFi.reconnect();
         }
         if (WiFi.status() == WL_CONNECTED)
         {
@@ -523,29 +523,17 @@ void startWiFi()
         while (WiFi.status() != WL_CONNECTED)
         {
             delay(1000);
-            // Serial.print(".");
+            bwc->loop();
             tryCount++;
 
             if (tryCount >= maxTries)
             {
-                // Serial.println("");
-                // Serial.println(F("WiFi > NOT connected!"));
                 if (wifi_info.enableWmApFallback)
                 {
-                    // disable specific WiFi config
-                    wifi_info.enableAp = false;
-                    wifi_info.enableStaticIp4 = false;
-                    // fallback to WiFi config portal
-                    startWiFiConfigPortal();
-                    // Safe wifi settings after initial config and restart module
-                    wifi_info.apSsid = WiFi.SSID();
-                    wifi_info.apPwd = WiFi.psk();
-                    saveWifi(wifi_info);
-                    ESP.restart();
+                    startWiFiConfigPortal(wifi_info.apSsid, wifi_info.apPwd);
                 }
                 break;
             }
-            // Serial.println("");
         }
     }
     else
@@ -575,7 +563,7 @@ void startWiFi()
 /**
  * start WiFiManager configuration portal
  */
-void startWiFiConfigPortal()
+void startWiFiConfigPortal(const String &storedSsid, const String &storedPwd)
 {
     Serial.println(F("WiFi > Using WiFiManager Config Portal"));
     ESP_WiFiManager wm;
@@ -590,20 +578,40 @@ void startWiFiConfigPortal()
     // Display "net" on pump while in AP mode
     bwc->printStatic("net");
 
-    // Start AP - non-blocking
     wm.autoConnect(wmApName, wmApPassword);
 
-    // Keep looping until WiFi connects
+    unsigned long lastReconnectAttempt = 0;
+    const unsigned long reconnectInterval = 10000;
+    bool hasStoredCredentials = (storedSsid.length() > 0);
+
     while (WiFi.status() != WL_CONNECTED)
     {
-        wm.process(); // Process WiFiManager
-        bwc->loop();  // Update pump display
+        wm.process();
+        bwc->loop();
         delay(100);
+
+        if (hasStoredCredentials && (millis() - lastReconnectAttempt >= reconnectInterval))
+        {
+            lastReconnectAttempt = millis();
+            Serial.println(F("WiFi > Config Portal: Retrying stored network..."));
+            WiFi.begin(storedSsid.c_str(), storedPwd.c_str());
+
+            unsigned long connectStart = millis();
+            while (WiFi.status() != WL_CONNECTED && (millis() - connectStart) < 15000)
+            {
+                wm.process();
+                bwc->loop();
+                delay(100);
+            }
+
+            if (WiFi.status() == WL_CONNECTED)
+            {
+                Serial.println(F("WiFi > Reconnected to stored network"));
+            }
+        }
     }
 
-    // Reset display when WiFi connects
     bwc->clearStatic();
-    // Serial.println("");
 }
 
 /**
@@ -2023,25 +2031,22 @@ void handleResetWifi()
 void resetWiFi()
 {
     sWifi_info wifi_info;
-    wifi_info.enableAp = true;
+    wifi_info.enableAp = false;
     wifi_info.enableWmApFallback = true;
-    wifi_info.apSsid = F("wifiwhirl");
-    wifi_info.apPwd = F("wifiwhirl");
+    wifi_info.apSsid = "";
+    wifi_info.apPwd = "";
     saveWifi(wifi_info);
-    delay(3000);
+
+    WiFi.disconnect(true);
+    WiFi.softAPdisconnect(true);
+    delay(500);
+
     periodicTimer.detach();
     updateMqttTimer.detach();
     updateWSTimer.detach();
     bwc->stop();
     bwc->saveSettings();
     delay(1000);
-    // #if defined(ESP8266)
-    //     ESP.eraseConfig();
-    // #endif
-    //     delay(1000);
-    //     wm.resetSettings();
-    //     startWiFiConfigPortal();
-    //     // WiFi.disconnect();
     //     delay(1000);
 }
 

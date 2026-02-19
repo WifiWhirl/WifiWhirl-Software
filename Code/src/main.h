@@ -97,7 +97,7 @@ void sendWS();
 void getOtherInfo(String &rtn);
 void sendMQTT();
 void startWiFi();
-void startWiFiConfigPortal();
+void startWiFiConfigPortal(const String &storedSsid = "", const String &storedPwd = "");
 void startNTP();
 void startOTA();
 void stopall();
