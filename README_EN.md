@@ -41,10 +41,13 @@ This repository contains the **source code** for the adapted ESP8266 firmware, a
 Although the WifiWhirl software is based on the excellent work by [visualapproach](https://github.com/visualapproach/), there are some adaptations and extensions in this version:
 
 * 🌐 **German User Interface:** The entire web interface has been completely **translated into German** for intuitive operation in German-speaking regions.
-* ⏰ **Optimized Automation:** The input fields and display of **automations** have been revised for better clarity and easier configuration.
+* ⏰ **Optimized Automation:** Dedicated automation page with command queue, backup/restore, and improved configuration.
 * 🧹 **Optimized Code:** Functions and code parts from the original software that were not absolutely necessary for pure whirlpool control have been removed to make the **codebase leaner and more maintainable**.
 * 🔥 **Improved Heating Logic:** A frequent problem has been addressed: The **heating now remains active** even when a programmed filter cycle is running simultaneously.
-* ⏰ **Optimized Time 2 Ready Calculation:** The calculation of time until your pool reaches the desired temperature has been significantly optimized, providing a more reliable estimate.
+* ⏰ **Smart Schedule:** Intelligent heating scheduling with automatic calculation of optimal start time based on current water, target, and ambient temperature.
+* 🧪 **Water Quality Monitoring:** Tracking of pH, chlorine, cyanuric acid, and alkalinity with timestamps and Home Assistant integration.
+* ⚡ **Energy Monitoring:** Real-time monitoring of power consumption and estimated costs in the dashboard.
+* 🔌 **REST API:** Webhook endpoints (`/gettemps/`, `/getstates/`) for easy integration with external systems.
 * ☁️ **Optional Cloud Connection:** For users of the [ready-made module](https://wifiwhirl.de/Modul/Kaufen/), an **optional cloud functionality** has been integrated. This enables retrieving weather data for the location (based on postal code for DE/AT) to determine outside temperature and calculate exact heating time (more cloud functions will follow).
 
 ---
@@ -54,10 +57,17 @@ Although the WifiWhirl software is based on the excellent work by [visualapproac
 * 🌡️ **Temperature:** Display current water temperature and set target temperature.
 * 🔥 **Heating:** Activate and deactivate heating function.
 * 💧 **Filter Pump:** Turn filter pump on and off.
-* 💨 **Bubble Function:** Control bubble massage (AirJet™ and HydroJet™).
+* 💨 **Bubble Function:** Control bubble massage (AirJet™ and HydroJet™) with configurable timeouts.
 * 📊 **Status Display:** Overview of all current states (heating on/off, filter on/off, temperature, etc.).
-* 🌐 **Web Interface:** Easy operation via web interface in the local network.
-* 📲 **MQTT Integration:** Connection to smart home systems like Home Assistant, ioBroker, etc.
+* 🌐 **Web Interface:** Easy operation via web interface in the local network with dark mode.
+* 📲 **MQTT Integration:** Connection to smart home systems like Home Assistant, ioBroker, etc. with comprehensive auto-discovery.
+* 🧪 **Water Quality:** Monitor pH level, chlorine, cyanuric acid, and alkalinity with timestamps.
+* ⏰ **Smart Schedule:** Intelligent heating scheduling - pool automatically at temperature when you want it.
+* ⚡ **Energy Monitoring:** Track power consumption and estimated costs.
+* 📡 **WiFi Scanning:** Automatic detection of available WiFi networks with signal strength display.
+* 🔄 **Automation:** Dedicated page for command queue configuration with backup/restore.
+* 🔌 **REST API:** Webhook endpoints for easy integration with external systems.
+* 🌐 **HTTP Polling Fallback:** Optional polling mode as alternative for WebSocket connection issues.
 
 ---
 
@@ -89,7 +99,7 @@ To transfer (flash) the WifiWhirl software to an ESP8266, you need:
 3.  **Install dependencies:** PlatformIO should automatically download required libraries.
 4.  **Adjust configuration:** Rename the file `config.h.dist` in the `src` folder to `config.h` and check the settings in the file.
 5.  **Connect ESP8266:** Connect the ESP8266 to your computer via USB.
-6.  **Compile & Upload:** Start the build and upload process via PlatformIO (`Upload` button and `Upload Filesystem Image` button).
+6.  **Compile & Upload:** Start the build and upload process via PlatformIO (`Upload` button). Frontend assets are embedded in the firmware - a separate filesystem upload is no longer needed.
 
 **➡️ Detailed Flashing Guide:** [https://wifiwhirl.de/Selbstbau/Software/](https://wifiwhirl.de/Selbstbau/Software/)
 
