@@ -32,6 +32,10 @@ const cmdMap = {
   toggleLCK: 23,
   resetTimerCleanFilter: 24,
   resetTimerWaterChange: 25,
+  setPhValue: 27,
+  setClValue: 28,
+  setCyaValue: 29,
+  setAlkValue: 30,
 };
 
 // button element ID mapping
@@ -53,12 +57,102 @@ const dspBrtMultiplier = 16;
 // update states
 updateTempState = false;
 updateAmbState = false;
+
+// water quality editing states and debounce timers
+var wqEditingState = {
+  ph: false,
+  cl: false,
+  cya: false,
+  alk: false,
+};
+var wqDebounceTimers = {
+  ph: null,
+  cl: null,
+  cya: null,
+  alk: null,
+};
 updateBrtState = false;
+
+// polling mode state (interval handle)
+var pollInterval = null;
 
 // initial connect to the web socket
 // connect();
 
+// Check if polling mode is enabled via localStorage setting
+function isPollingMode() {
+  return localStorage.getItem("disableWebSocket") === "true";
+}
+
+// Start HTTP polling as a fallback for WebSocket
+function startPolling() {
+  // Mark the UI as connected since polling is active
+  document.body.classList.remove("error");
+  document.body.classList.add("connected");
+  initControlValues = true;
+  // Perform an initial poll immediately
+  pollData();
+  // Set up recurring poll every 3 seconds
+  if (!pollInterval) {
+    pollInterval = setInterval(pollData, 3000);
+  }
+}
+
+// Stop HTTP polling
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+// Fetch data from the HTTP polling endpoint and process each message object
+function pollData() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/getpolldata/");
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        // Mark as connected on successful response
+        document.body.classList.remove("error");
+        document.body.classList.add("connected");
+        try {
+          var data = JSON.parse(xhr.responseText);
+          // Response is a JSON array of message objects
+          if (Array.isArray(data)) {
+            for (var i = 0; i < data.length; i++) {
+              processMessageObj(data[i]);
+            }
+          }
+        } catch (e) {
+          console.log("Poll data parse error: ", e);
+        }
+      } else {
+        // Mark as error on failed response
+        document.body.classList.add("error");
+      }
+    }
+  };
+  xhr.send();
+}
+
+// Send a command via HTTP POST (used in polling mode)
+function sendCommandHttp(json) {
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", "/sendcommand/");
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.send(json);
+  console.log("HTTP command: " + json);
+}
+
 function connect() {
+  // If polling mode is enabled, use HTTP polling instead of WebSocket
+  if (isPollingMode()) {
+    console.log("WebSocket disabled, using HTTP polling");
+    startPolling();
+    return;
+  }
+
   connection = new WebSocket("ws://" + location.hostname + ":81/", ["arduino"]);
 
   connection.onopen = function () {
@@ -110,9 +204,15 @@ function tryParseJSONObject(jsonString) {
 }
 
 function handlemsg(e) {
+  // Parse WebSocket message event and delegate to processMessageObj
   console.log(e.data);
   var msgobj = tryParseJSONObject(e.data);
   if (!msgobj) return;
+  processMessageObj(msgobj);
+}
+
+// Processes a parsed message object (shared by WebSocket and HTTP polling)
+function processMessageObj(msgobj) {
   console.log(msgobj);
 
   if (msgobj.CONTENT == "OTHER") {
@@ -178,6 +278,16 @@ function handlemsg(e) {
     ambElement.title = msgobj.WEATHER
       ? "Umgebungstemperatur wird per Wetterdatenabfrage gesetzt."
       : "";
+    // Also disable the selector variant (input + buttons)
+    const selectorAmbElement = document.getElementById("selectorAmb");
+    selectorAmbElement.disabled = msgobj.WEATHER;
+    var selectorDiv = selectorAmbElement.closest(".selector");
+    if (selectorDiv) {
+      var buttons = selectorDiv.querySelectorAll("button");
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].disabled = msgobj.WEATHER;
+      }
+    }
   }
   try {
     if (msgobj.CONTENT == "STATES") {
@@ -205,7 +315,7 @@ function handlemsg(e) {
         document
           .getElementById("htrspan")
           .classList.add(
-            msgobj.RED ? "heateron" : msgobj.GRN ? "heateroff" : "n-o-n-e"
+            msgobj.RED ? "heateron" : msgobj.GRN ? "heateroff" : "n-o-n-e",
           );
       }
 
@@ -213,14 +323,14 @@ function handlemsg(e) {
       document.getElementById("display").innerHTML = String.fromCharCode(
         msgobj.CH1,
         msgobj.CH2,
-        msgobj.CH3
+        msgobj.CH3,
       );
       document.getElementById("display").style.color = rgb(
         255 -
           dspBrtMultiplier * 8 +
           dspBrtMultiplier * (parseInt(msgobj.BRT) + 1),
         0,
-        0
+        0,
       );
       if (msgobj.CH1 != 101 && msgobj.CH3 != 32 && msgobj.CH1 != 54) {
         msgobj.UNT
@@ -266,7 +376,7 @@ function handlemsg(e) {
       if (document.activeElement !== elemSelectorTemp && !updateTempState) {
         elemSelectorTemp.value = msgobj.TGT;
         elemSelectorTemp.parentElement.querySelector(
-          ".numDisplay"
+          ".numDisplay",
         ).textContent = msgobj.TGT;
       }
       if (document.activeElement !== elemSelectorAmb && !updateAmbState) {
@@ -321,48 +431,52 @@ function handlemsg(e) {
       document.getElementById("time").innerHTML = date.toLocaleString();
 
       // chlorine add reset timer
-      var clDate = (Date.now() / 1000 - msgobj.CLTIME) / (24 * 3600.0);
-      var clDateRound = Math.round(clDate);
-      document.getElementById("cltimer").innerHTML =
-        (clDateRound == 1 ? "einem" : clDateRound) +
-        "  Tag" +
-        (clDateRound != 1 ? "en" : "");
+      var clTimeSec = Math.floor(Date.now() / 1000 - msgobj.CLTIME);
+      var clDays = clTimeSec / (24 * 3600);
+      var clTimerEl = document.getElementById("cltimer");
+      clTimerEl.innerHTML = getTimeSinceText(clTimeSec);
+      clTimerEl.title = formatTimestamp(msgobj.CLTIME);
       document.getElementById("cltimerbtn").className =
-        clDate > msgobj.CLINT ? "button_red" : "button";
+        clDays > msgobj.CLINT && clTimeSec <= TWENTY_YEARS_SEC
+          ? "button_red"
+          : "button";
 
       // filter change reset timer
-      var fDate = (Date.now() / 1000 - msgobj.FTIME) / (24 * 3600.0);
-      var fDateRound = Math.round(fDate);
-      document.getElementById("ftimer").innerHTML =
-        (fDateRound == 1 ? "einem " : fDateRound) +
-        " Tag" +
-        (fDateRound != 1 ? "en" : "");
+      var fTimeSec = Math.floor(Date.now() / 1000 - msgobj.FTIME);
+      var fDays = fTimeSec / (24 * 3600);
+      var fTimerEl = document.getElementById("ftimer");
+      fTimerEl.innerHTML = getTimeSinceText(fTimeSec);
+      fTimerEl.title = formatTimestamp(msgobj.FTIME);
       document.getElementById("ftimerbtn").className =
-        fDate > msgobj.FINT ? "button_red" : "button";
+        fDays > msgobj.FINT && fTimeSec <= TWENTY_YEARS_SEC
+          ? "button_red"
+          : "button";
 
       // filter clean reset timer
-      var fDate = (Date.now() / 1000 - msgobj.FCTIME) / (24 * 3600.0);
-      var fDateRound = Math.round(fDate);
-      document.getElementById("fctimer").innerHTML =
-        (fDateRound == 1 ? "einem " : fDateRound) +
-        " Tag" +
-        (fDateRound != 1 ? "en" : "");
+      var fcTimeSec = Math.floor(Date.now() / 1000 - msgobj.FCTIME);
+      var fcDays = fcTimeSec / (24 * 3600);
+      var fcTimerEl = document.getElementById("fctimer");
+      fcTimerEl.innerHTML = getTimeSinceText(fcTimeSec);
+      fcTimerEl.title = formatTimestamp(msgobj.FCTIME);
       document.getElementById("fctimerbtn").className =
-        fDate > msgobj.FCINT ? "button_red" : "button";
+        fcDays > msgobj.FCINT && fcTimeSec <= TWENTY_YEARS_SEC
+          ? "button_red"
+          : "button";
 
       // water change reset timer
-      var fDate = (Date.now() / 1000 - msgobj.WCTIME) / (24 * 3600.0);
-      var fDateRound = Math.round(fDate);
-      document.getElementById("wctimer").innerHTML =
-        (fDateRound == 1 ? "einem " : fDateRound) +
-        " Tag" +
-        (fDateRound != 1 ? "en" : "");
+      var wcTimeSec = Math.floor(Date.now() / 1000 - msgobj.WCTIME);
+      var wcDays = wcTimeSec / (24 * 3600);
+      var wcTimerEl = document.getElementById("wctimer");
+      wcTimerEl.innerHTML = getTimeSinceText(wcTimeSec);
+      wcTimerEl.title = formatTimestamp(msgobj.WCTIME);
       document.getElementById("wctimerbtn").className =
-        fDate > msgobj.WCINT ? "button_red" : "button";
+        wcDays > msgobj.WCINT && wcTimeSec <= TWENTY_YEARS_SEC
+          ? "button_red"
+          : "button";
 
       // statistics
       document.getElementById("heatingtime").innerHTML = s2dhms(
-        msgobj.HEATINGTIME
+        msgobj.HEATINGTIME,
       );
       document.getElementById("uptime").innerHTML = s2dhms(msgobj.UPTIME);
       document.getElementById("airtime").innerHTML = s2dhms(msgobj.AIRTIME);
@@ -376,13 +490,223 @@ function handlemsg(e) {
         " (" +
         (msgobj.T2R <= 0 ? "Zeit für ein Bad!" : "Nicht bereit") +
         ")";
+
+      // energy monitoring
+      document.getElementById("energy_power").innerHTML = msgobj.WATT || 0;
+      document.getElementById("energy_today").innerHTML = (msgobj.KWHD || 0)
+        .toFixed(2)
+        .toString()
+        .replace(".", ",");
+      document.getElementById("energy_total").innerHTML = (msgobj.KWH || 0)
+        .toFixed(2)
+        .toString()
+        .replace(".", ",");
+
+      // water quality - pH value (only update if not editing)
+      var phTimeSec = Math.floor(Date.now() / 1000 - msgobj.PHTIME);
+      var phVal = (msgobj.PHVAL || 72) / 10;
+      var phTimerEl = document.getElementById("phtimer");
+      phTimerEl.innerHTML = getTimeSinceText(phTimeSec);
+      phTimerEl.title = formatTimestamp(msgobj.PHTIME);
+      if (!wqEditingState.ph) {
+        document.getElementById("phinput").valueAsNumber = phVal;
+      }
+
+      // water quality - Chlorine value (only update if not editing)
+      var clvTimeSec = Math.floor(Date.now() / 1000 - msgobj.CLVTIME);
+      var clVal = (msgobj.CLVAL || 10) / 10;
+      var clvTimerEl = document.getElementById("cltimer2");
+      clvTimerEl.innerHTML = getTimeSinceText(clvTimeSec);
+      clvTimerEl.title = formatTimestamp(msgobj.CLVTIME);
+      if (!wqEditingState.cl) {
+        document.getElementById("clinput").valueAsNumber = clVal;
+      }
+
+      // water quality - Cyanuric acid (only update if not editing)
+      var cyaTimeSec = Math.floor(Date.now() / 1000 - (msgobj.CYATIME || 0));
+      var cyaVal = (msgobj.CYAVAL || 0) / 10;
+      var cyaTimerEl = document.getElementById("cyatimer");
+      if (cyaTimerEl) {
+        cyaTimerEl.innerHTML = getTimeSinceText(cyaTimeSec);
+        cyaTimerEl.title = formatTimestamp(msgobj.CYATIME);
+      }
+      if (document.getElementById("cyainput") && !wqEditingState.cya) {
+        document.getElementById("cyainput").value = Math.round(cyaVal);
+      }
+
+      // water quality - Alkalinity (only update if not editing)
+      var alkTimeSec = Math.floor(Date.now() / 1000 - (msgobj.ALKTIME || 0));
+      var alkVal = msgobj.ALKVAL || 0;
+      var alkTimerEl = document.getElementById("alktimer");
+      if (alkTimerEl) {
+        alkTimerEl.innerHTML = getTimeSinceText(alkTimeSec);
+        alkTimerEl.title = formatTimestamp(msgobj.ALKTIME);
+      }
+      if (document.getElementById("alkinput") && !wqEditingState.alk) {
+        document.getElementById("alkinput").value = alkVal;
+      }
     }
   } catch (error) {
     console.error(error);
   }
 }
 
+// 20 years in seconds (threshold for "noch nie" / never)
+const TWENTY_YEARS_SEC = 20 * 365 * 24 * 3600;
+
+// Format Unix timestamp to German date format "DD.MM.YYYY HH:mm Uhr"
+// Returns empty string if timestamp is invalid (> 20 years ago)
+function formatTimestamp(unixTimestamp) {
+  if (!unixTimestamp || unixTimestamp <= 0) return "";
+  var timeSinceSec = Math.floor(Date.now() / 1000) - unixTimestamp;
+  if (timeSinceSec > TWENTY_YEARS_SEC) return "";
+  var date = new Date(unixTimestamp * 1000);
+  var day = String(date.getDate()).padStart(2, "0");
+  var month = String(date.getMonth() + 1).padStart(2, "0");
+  var year = date.getFullYear();
+  var hours = String(date.getHours()).padStart(2, "0");
+  var minutes = String(date.getMinutes()).padStart(2, "0");
+  return day + "." + month + "." + year + " " + hours + ":" + minutes + " Uhr";
+}
+
+// getTimeSinceText expects seconds (not days) for precise time display
+function getTimeSinceText(seconds) {
+  // If timestamp is more than 20 years in the past, show "noch nie"
+  if (seconds > TWENTY_YEARS_SEC) return "noch nie";
+
+  // "gerade eben" only for the last 60 seconds
+  if (seconds < 60) return "gerade eben";
+
+  // minutes (1-59 min)
+  var minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    if (minutes == 1) return "vor einer Minute";
+    return "vor " + minutes + " Minuten";
+  }
+
+  // hours (1-23 h)
+  var hours = Math.floor(seconds / 3600);
+  if (hours < 24) {
+    if (hours == 1) return "vor einer Stunde";
+    return "vor " + hours + " Stunden";
+  }
+
+  // days (1+)
+  var days = Math.floor(seconds / 86400);
+  if (days == 1) return "vor einem Tag";
+  return "vor " + days + " Tagen";
+}
+
+// Parse value with comma or dot as decimal separator
+function parseWqValue(inputValue) {
+  return parseFloat(inputValue.toString().replace(",", "."));
+}
+
+// Called on input change - starts editing state and debounce timer
+function onPhInput() {
+  wqEditingState.ph = true;
+  if (wqDebounceTimers.ph) clearTimeout(wqDebounceTimers.ph);
+  wqDebounceTimers.ph = setTimeout(function () {
+    savePhValue();
+    wqEditingState.ph = false;
+  }, 1000);
+}
+
+function savePhValue() {
+  var val = parseWqValue(document.getElementById("phinput").value);
+  if (val >= 0 && val <= 14) {
+    sendCommandWithValue("setPhValue", Math.round(val * 10));
+    document.getElementById("phtimer").innerHTML = "gerade eben";
+  }
+}
+
+// Called on input change - starts editing state and debounce timer
+function onClInput() {
+  wqEditingState.cl = true;
+  if (wqDebounceTimers.cl) clearTimeout(wqDebounceTimers.cl);
+  wqDebounceTimers.cl = setTimeout(function () {
+    saveClValue();
+    wqEditingState.cl = false;
+  }, 1000);
+}
+
+function saveClValue() {
+  var val = parseWqValue(document.getElementById("clinput").value);
+  if (val >= 0 && val <= 10) {
+    sendCommandWithValue("setClValue", Math.round(val * 10));
+    document.getElementById("cltimer2").innerHTML = "gerade eben";
+  }
+}
+
+// Called on input change - starts editing state and debounce timer
+function onCyaInput() {
+  wqEditingState.cya = true;
+  if (wqDebounceTimers.cya) clearTimeout(wqDebounceTimers.cya);
+  wqDebounceTimers.cya = setTimeout(function () {
+    saveCyaValue();
+    wqEditingState.cya = false;
+  }, 1000);
+}
+
+// Save cyanuric acid value (Cyanursäure) - range 0-200 mg/L
+function saveCyaValue() {
+  var val = parseInt(document.getElementById("cyainput").value);
+  if (val >= 0 && val <= 200) {
+    sendCommandWithValue("setCyaValue", val * 10);
+    document.getElementById("cyatimer").innerHTML = "gerade eben";
+  }
+}
+
+// Called on input change - starts editing state and debounce timer
+function onAlkInput() {
+  wqEditingState.alk = true;
+  if (wqDebounceTimers.alk) clearTimeout(wqDebounceTimers.alk);
+  wqDebounceTimers.alk = setTimeout(function () {
+    saveAlkValue();
+    wqEditingState.alk = false;
+  }, 1000);
+}
+
+// Save alkalinity value (Alkalinität) - range 0-300 mg/L
+function saveAlkValue() {
+  var val = parseInt(document.getElementById("alkinput").value);
+  if (val >= 0 && val <= 300) {
+    sendCommandWithValue("setAlkValue", val);
+    document.getElementById("alktimer").innerHTML = "gerade eben";
+  }
+}
+
+function sendCommandWithValue(cmd, value) {
+  if (typeof cmdMap[cmd] == "undefined") {
+    console.log("invalid command");
+    return;
+  }
+  var obj = {};
+  obj["CMD"] = cmdMap[cmd];
+  obj["VALUE"] = value;
+  obj["XTIME"] = Math.floor(Date.now() / 1000);
+  obj["INTERVAL"] = 0;
+  obj["TXT"] = "";
+  obj["FORCE"] = true; // Frontend commands always force (bypass safety checks)
+  var json = JSON.stringify(obj);
+  // Send via HTTP POST in polling mode, via WebSocket otherwise
+  if (isPollingMode()) {
+    sendCommandHttp(json);
+  } else {
+    connection.send(json);
+  }
+  console.log(json);
+}
+
 function s2dhms(val) {
+  // Handle special states from backend (sent as seconds: -2*3600, -1*3600)
+  if (val == -7200) {
+    // Ready state (-2 * 3600)
+    return "00:00:00";
+  } else if (val == -3600) {
+    // Never ready / calculation not possible (-1 * 3600)
+    return "Berechnung nicht möglich";
+  }
   var day = 3600 * 24;
   var hour = 3600;
   var minute = 60;
@@ -421,7 +745,7 @@ function sendCommand(cmd) {
   if (cmd == "setTarget" || cmd == "setTargetSelector") {
     value = parseInt(
       document.getElementById(cmd == "setTarget" ? "temp" : "selectorTemp")
-        .value
+        .value,
     );
     value = getProperValue(value, unit ? 20 : 68, unit ? 40 : 104);
     document.getElementById("sliderTempVal").innerHTML = value.toString();
@@ -434,7 +758,8 @@ function sendCommand(cmd) {
     value = 0;
   } else if (cmd == "setAmbient" || cmd == "setAmbientSelector") {
     value = parseInt(
-      document.getElementById(cmd == "setAmbient" ? "amb" : "selectorAmb").value
+      document.getElementById(cmd == "setAmbient" ? "amb" : "selectorAmb")
+        .value,
     );
     value = getProperValue(value, unit ? -40 : -40, unit ? 60 : 140);
     document.getElementById("sliderAmbVal").innerHTML = value.toString();
@@ -443,20 +768,20 @@ function sendCommand(cmd) {
     updateAmbState = true;
   } else if (cmd == "setBrightness" || cmd == "setBrightnessSelector") {
     var brtElement = document.getElementById(
-      cmd == "setBrightness" ? "brt" : "selectorBrt"
+      cmd == "setBrightness" ? "brt" : "selectorBrt",
     );
     value = parseInt(brtElement.value);
     value = getProperValue(
       value,
       Number(brtElement.min),
-      Number(brtElement.max)
+      Number(brtElement.max),
     );
     document.getElementById("sliderBrtVal").innerHTML = value.toString();
     document.getElementById("selectorBrt").value = value.toString();
     document.getElementById("display").style.color = rgb(
       255 - dspBrtMultiplier * 8 + dspBrtMultiplier * (value + 1),
       0,
-      0
+      0,
     );
     updateBrtState = true;
   } else if (
@@ -478,8 +803,14 @@ function sendCommand(cmd) {
   obj["XTIME"] = Math.floor(Date.now() / 1000);
   obj["INTERVAL"] = 0;
   obj["TXT"] = "";
+  obj["FORCE"] = true; // Frontend commands always force (bypass safety checks)
   var json = JSON.stringify(obj);
-  connection.send(json);
+  // Send via HTTP POST in polling mode, via WebSocket otherwise
+  if (isPollingMode()) {
+    sendCommandHttp(json);
+  } else {
+    connection.send(json);
+  }
   console.log(json);
 }
 

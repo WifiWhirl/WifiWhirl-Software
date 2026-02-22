@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html ontouchmove>
   <head>
     <title>WifiWhirl | Softwareupdate</title>
@@ -9,14 +9,23 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
     <link
       rel="stylesheet"
       href="update.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
     <script src="function.js" type="text/javascript"></script>
     <script src="index.js" type="text/javascript"></script>
   </head>
@@ -43,12 +52,14 @@
       </header>
 
       <div class="topnav" id="topnav">
-        <a href="./" class="active">Übersicht</a>
-        <a href="hwconfig.html">Hardware-Konfiguration</a>
+        <a href="./" class="active">Dashboard</a>
+        <a href="automation.html">Automatisierung</a>
+        <a href="smartschedule.html">Smart Schedule</a>
         <a href="config.html">SPA-Konfiguration</a>
         <a href="webconfig.html">Web-Konfiguration</a>
-        <a href="wifi.html">Netzwerkkonfiguration</a>
         <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="wifi.html">Netzwerkkonfiguration</a>
+        <a href="hwconfig.html">Pumpenkonfiguration</a>
         <a href="/restart/">WifiWhirl Modul neu starten</a>
       </div>
 
@@ -59,19 +70,6 @@
           id="upload_form"
           method="post"
         >
-          <div id="switch-container">
-            <button
-              class="button-o left selected"
-              id="firmware-button"
-              type="button"
-            >
-              Software
-            </button>
-            <button class="button-o right" id="filesystem-button" type="button">
-              Dateisystem
-            </button>
-          </div>
-
           <input
             accept=".fw.bin"
             class="input-file"
@@ -168,17 +166,8 @@
 
       function uploadFile() {
         const file = document.getElementById("file1").files[0];
-        if (
-          document.getElementById("file1").name == "firmware" &&
-          !file.name.endsWith(".fw.bin")
-        ) {
+        if (!file.name.endsWith(".fw.bin")) {
           alert("Diese Datei ist nicht für das Softwareupdate vorgesehen!");
-          return;
-        } else if (
-          document.getElementById("file1").name == "filesystem" &&
-          !file.name.endsWith(".fs.bin")
-        ) {
-          alert("Diese Datei ist nicht für das Dateisystemupdate vorgesehen!");
           return;
         }
 
@@ -191,11 +180,10 @@
         // listen for `upload.load` event
         xhr.upload.onload = () => {
           document.getElementById("status").innerHTML =
-            "Upload erfolgreich!<br />Das WifiWhirl-Modul startet neu.<br />Es kann bis zu 5 Minuten dauern, bis das WifiWhirl-Modul wieder erreichbar ist.<br /><br />Sollte es nach 5 Minuten nicht erreichbar sein, trenne die Stromversorgung deiner Pumpe für 10 Sekunden und versuche es danach erneut."; //event.target.responseText;
+            "Upload erfolgreich!<br />Das WifiWhirl Modul startet neu.<br />Es kann bis zu 5 Minuten dauern, bis das WifiWhirl Modul wieder erreichbar ist.<br /><br />Sollte es nach 5 Minuten nicht erreichbar sein, trenne die Stromversorgung deiner Pumpe für 10 Sekunden und versuche es danach erneut."; //event.target.responseText;
           document.getElementById("progressBar").value = 0;
           document.getElementById("progressBar").style.display = "none";
           document.getElementById("loaded_n_total").style.display = "none";
-          document.getElementById("switch-container").style.display = "none";
           document.getElementById("file1").style.display = "none";
           document.getElementById("button-send").style.display = "none";
         };
@@ -240,26 +228,6 @@
         uploadFile();
       });
 
-      document
-        .getElementById("firmware-button")
-        .addEventListener("click", function (e) {
-          e.target.classList.add("selected");
-          document
-            .getElementById("filesystem-button")
-            .classList.remove("selected");
-          document.getElementById("file1").name = "firmware";
-          document.getElementById("file1").accept = ".fw.bin";
-        });
-      document
-        .getElementById("filesystem-button")
-        .addEventListener("click", function (e) {
-          e.target.classList.add("selected");
-          document
-            .getElementById("firmware-button")
-            .classList.remove("selected");
-          document.getElementById("file1").name = "filesystem";
-          document.getElementById("file1").accept = ".fs.bin";
-        });
       document.getElementById("file1").addEventListener("change", function (e) {
         var file = document.getElementById("file1").files[0];
         if (file && file.name) {

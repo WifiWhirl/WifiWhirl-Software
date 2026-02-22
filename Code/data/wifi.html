@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <title>WifiWhirl | Netzwerkkonfiguration</title>
@@ -9,11 +9,121 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
     <script src="function.js" type="text/javascript"></script>
     <script src="index.js" type="text/javascript"></script>
+    <style>
+      .wifi-list {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 12px;
+        border-radius: 6px;
+      }
+      .wifi-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+        transition: background 0.15s;
+        gap: 10px;
+      }
+      .wifi-item:last-child {
+        border-bottom: none;
+      }
+      .wifi-item:hover {
+        background: rgba(64, 81, 181, 0.08);
+      }
+      .wifi-item.selected {
+        background: rgba(64, 81, 181, 0.18);
+        font-weight: bold;
+      }
+      .wifi-item .wifi-ssid {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .wifi-item .wifi-icons {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .wifi-item svg {
+        display: block;
+      }
+      .wifi-signal-arc {
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+      .wifi-signal-arc.active {
+        stroke: var(--accent-color, #4051b5);
+      }
+      .wifi-signal-arc.inactive {
+        stroke: rgba(128, 128, 128, 0.25);
+      }
+      .wifi-signal-dot.active {
+        fill: var(--accent-color, #4051b5);
+      }
+      .wifi-signal-dot.inactive {
+        fill: rgba(128, 128, 128, 0.25);
+      }
+      .wifi-manual-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 12px;
+        cursor: pointer;
+        color: var(--accent-color, #4051b5);
+        gap: 6px;
+        font-size: 0.9em;
+      }
+      .wifi-manual-item:hover {
+        background: rgba(64, 81, 181, 0.08);
+      }
+      .wifi-scan-info {
+        text-align: center;
+        padding: 6px;
+        font-size: 0.8em;
+        opacity: 0.6;
+      }
+      .darkmode .wifi-item {
+        border-bottom-color: rgba(255, 255, 255, 0.08);
+      }
+      .darkmode .wifi-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .darkmode .wifi-item.selected {
+        background: rgba(100, 140, 255, 0.2);
+      }
+      .darkmode .wifi-signal-arc.inactive {
+        stroke: rgba(255, 255, 255, 0.18);
+      }
+      .darkmode .wifi-signal-dot.inactive {
+        fill: rgba(255, 255, 255, 0.18);
+      }
+      .darkmode .wifi-signal-arc.active {
+        stroke: #7b9cff;
+      }
+      .darkmode .wifi-signal-dot.active {
+        fill: #7b9cff;
+      }
+      .darkmode .wifi-manual-item {
+        color: #7b9cff;
+      }
+      .darkmode .wifi-manual-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+    </style>
   </head>
 
   <body>
@@ -38,48 +148,51 @@
       </header>
 
       <div class="topnav" id="topnav">
-        <a href="./">Übersicht</a>
-        <a href="hwconfig.html">Hardware-Konfiguration</a>
+        <a href="./">Dashboard</a>
+        <a href="automation.html">Automatisierung</a>
+        <a href="smartschedule.html">Smart Schedule</a>
         <a href="config.html">SPA-Konfiguration</a>
         <a href="webconfig.html">Web-Konfiguration</a>
-        <a href="wifi.html" class="active">Netzwerkkonfiguration</a>
         <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="wifi.html" class="active">Netzwerkkonfiguration</a>
+        <a href="hwconfig.html">Pumpenkonfiguration</a>
         <a href="/restart/">WifiWhirl Modul neu starten</a>
       </div>
 
       <section>
-        <h2>Zugriffspunkt:</h2>
+        <h2>WLAN-Einstellungen:</h2>
+        <input type="checkbox" id="enableAp" style="display: none" />
+
+        <!-- Network list (shown after scan) -->
+        <div id="networkList" style="display: none"></div>
+
         <table>
-          <tr style="display: none">
-            <td>
-              <label for="enableAp">Automatisch mit WLAN verbinden:</label>
-            </td>
-            <td><input type="checkbox" id="enableAp" /></td>
-          </tr>
           <tr>
-            <td>WLAN Name:</td>
+            <td>WLAN Name (SSID):</td>
             <td><input type="text" id="apSsid" /></td>
           </tr>
           <tr>
-            <td>Passwort:</td>
-            <td><input type="password" id="apPwd" /></td>
-          </tr>
-        </table>
-      </section>
-
-      <section>
-        <h2>Fallback WLAN:</h2>
-        <table>
-          <tr style="margin-bottom: 30px">
-            <span
-              >Sollte die automatische WLAN Verbindung scheitern, wird ein
-              eigener WLAN Zugangspunkt eröffnet. Verbinde dich mit diesem WLAN,
-              um die Konfiguration anzupassen (vgl. Anleitung).</span
-            >
+            <td colspan="2" style="text-align: center; padding-top: 6px">
+              <button
+                id="scanBtn"
+                class="button"
+                onclick="scanWifiNetworks()"
+                style="font-size: 0.85em; padding: 6px 14px"
+              >
+                Verfügbare Netzwerke suchen
+              </button>
+            </td>
           </tr>
           <tr>
-            <td><label for="enableWM">Fallback WLAN aktivieren:</label></td>
-            <td><input type="checkbox" id="enableWM" onchange="confirmDisableWM(this)" /></td>
+            <td>Passwort (PSK):</td>
+            <td><input type="password" id="apPwd" /></td>
+          </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button id="saveWlan" class="button" onclick="saveWlanConfig()">
+                WLAN-Verbindung speichern
+              </button>
+            </td>
           </tr>
         </table>
       </section>
@@ -93,9 +206,15 @@
                 Statische IP-Adresse aktivieren:
               </label>
             </td>
-            <td><input type="checkbox" id="enableStaticIp4" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="enableStaticIp4"
+                onchange="toggleStaticIpFields()"
+              />
+            </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>IP-Adresse:</td>
             <td>
               <input
@@ -106,7 +225,7 @@
               />
             </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>Subnetzmaske:</td>
             <td>
               <input
@@ -117,7 +236,7 @@
               />
             </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>Gateway:</td>
             <td>
               <input
@@ -128,7 +247,7 @@
               />
             </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>DNS-Server (primär):</td>
             <td>
               <input
@@ -139,7 +258,7 @@
               />
             </td>
           </tr>
-          <tr>
+          <tr class="staticIpField">
             <td>DNS-Server (sekundär):</td>
             <td>
               <input
@@ -148,6 +267,17 @@
                 maxlength="15"
                 style="width: 185px"
               />
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button
+                id="saveStaticIp"
+                class="button"
+                onclick="saveStaticIpConfig()"
+              >
+                IP-Adresskonfiguration speichern
+              </button>
             </td>
           </tr>
         </table>
@@ -167,15 +297,10 @@
               />
             </td>
           </tr>
-        </table>
-      </section>
-
-      <section>
-        <table>
           <tr>
-            <td colspan="2" style="text-align: center">
-              <button id="save" class="button" onclick="saveNetworkConfig()">
-                Speichern
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button id="saveNtp" class="button" onclick="saveNtpConfig()">
+                Zeitserver Einstellung speichern
               </button>
             </td>
           </tr>
@@ -183,23 +308,79 @@
       </section>
 
       <section>
-        <h2>WLAN-Konfiguration zurücksetzen:</h2>
+        <h2>Fallback WLAN:</h2>
+        <table>
+          <tr style="margin-bottom: 30px">
+            <span
+              >Wenn das WifiWhirl Modul keine Verbindung zu deinem WLAN
+              herstellen kann (z. B. bei falschem Passwort, Routerwechsel oder
+              Netzwerkausfall), öffnet es automatisch einen eigenen
+              WLAN-Zugangspunkt namens <strong id="fallbackApName">...</strong>.
+              Verbinde dich mit diesem Netzwerk und dem Passwort auf dem
+              Aufkleber auf deinem Modul oder der mitgelieferten Anleitung, um
+              die WLAN-Einstellungen neu zu konfigurieren.</span
+            >
+          </tr>
+          <tr>
+            <td><label for="enableWM">Fallback WLAN aktivieren:</label></td>
+            <td>
+              <input
+                type="checkbox"
+                id="enableWM"
+                onchange="confirmDisableWM(this)"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button
+                id="saveFallback"
+                class="button"
+                onclick="saveFallbackConfig()"
+              >
+                Fallback Einstellung speichern
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <section>
+        <h2>Netzwerkeinstellungen auf Werkseinstellungen zurücksetzen:</h2>
         <p>
-          Dieser Button setzt die Zugriffspunkteinstellungen zurück.<br />
-          Das WifiWhirl-Modul wird neu gestartet und startet das Fallback WLAN.
-          Verbinde dich mit dem Zugriffspunkt und konfiguriere deine
-          WLAN-Verbindung erneut (genau wie bei der ersten Konfiguration).
+          Setzt alle Netzwerkeinstellungen auf die Werkseinstellungen zurück.
+          Dabei werden folgende Einstellungen gelöscht:
+        </p>
+        <ul style="margin: 10px 0; padding-left: 20px">
+          <li>Gespeicherter WLAN-Name und Passwort</li>
+          <li>Statische IP-Adresse und DNS-Einstellungen</li>
+          <li>Benutzerdefinierter NTP-Server</li>
+        </ul>
+        <p>
+          Nach dem Zurücksetzen startet das WifiWhirl-Modul neu und öffnet
+          automatisch den Zugangspunkt <strong id="resetApName">...</strong>.
+          Verbinde dich mit diesem Netzwerk und dem Passwort auf dem Aufkleber
+          auf deinem Modul oder der mitgelieferten Anleitung, um die
+          WLAN-Einstellungen neu zu konfigurieren.
+        </p>
+        <p style="text-align: center">
+          <button id="resetwifi" class="button_red" onclick="resetWifi()">
+            Auf Werkseinstellungen zurücksetzen
+          </button>
         </p>
       </section>
 
-      <footer class="center">
-        <button id="resetwifi" class="button_red" onclick="resetWifi()">
-          WLAN zurücksetzen
-        </button>
+      <footer>
+        <p class="center">
+          <span><a href="info.html">Softwareinfo</a></span>
+        </p>
       </footer>
     </div>
 
     <script>
+      // AP name - populated from backend, used by reset dialog
+      var apName = "";
+
       loadNetworkConfig();
 
       function loadNetworkConfig() {
@@ -225,15 +406,237 @@
             document.getElementById("ip4DnsSecondary").value =
               json.ip4DnsSecondary;
             document.getElementById("ip4NTP").value = json.ip4NTP;
+
+            // Store and display fallback AP name
+            apName = json.wmApName || "wifiwhirl";
+            document.getElementById("fallbackApName").textContent = apName;
+            document.getElementById("resetApName").textContent = apName;
+
+            // Set initial visibility of static IP fields
+            toggleStaticIpFields();
           }
         };
+      }
+
+      /**
+       * Scan for available WiFi networks and populate the dropdown
+       */
+      function scanWifiNetworks() {
+        var btn = document.getElementById("scanBtn");
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Suche läuft...";
+
+        var req = new XMLHttpRequest();
+        req.open("GET", "/scanwifi/");
+        req.timeout = 15000;
+
+        req.onload = function () {
+          if (req.status == 200) {
+            try {
+              var data = JSON.parse(req.responseText);
+              populateNetworkList(data.networks);
+            } catch (e) {
+              alert("Fehler beim Verarbeiten der Scan-Ergebnisse.");
+            }
+          } else {
+            alert("Fehler beim Scannen der Netzwerke.");
+          }
+          btn.textContent = "Erneut suchen";
+          btn.disabled = false;
+        };
+
+        req.onerror = function () {
+          alert("Verbindungsfehler beim Scannen.");
+          btn.textContent = originalText;
+          btn.disabled = false;
+        };
+
+        req.ontimeout = function () {
+          alert("Zeitüberschreitung beim Scannen.");
+          btn.textContent = originalText;
+          btn.disabled = false;
+        };
+
+        req.send();
+      }
+
+      /**
+       * Build an SVG WiFi signal icon with arcs lit based on strength
+       * level: 0-3 (0 = weakest, 3 = strongest)
+       */
+      function wifiSignalSvg(level) {
+        var arcs = [
+          { d: "M2 14a1 1 0 0 1 0-1", r: 3 },
+          { d: "M5 11a5.5 5.5 0 0 0-7.5 0", cx: 1.25, r: 6 },
+          { d: "M8.5 7.5a10 10 0 0 0-14 0", cx: 1.5, r: 9 },
+          { d: "M12 4a14.5 14.5 0 0 0-21 0", cx: 1.5, r: 12 },
+        ];
+        // SVG with 3 concentric arcs + dot at bottom center
+        var svg = '<svg viewBox="0 0 24 18" width="22" height="16">';
+        // Dot at bottom center
+        svg +=
+          '<circle cx="12" cy="16" r="1.5" class="wifi-signal-dot ' +
+          (level >= 0 ? "active" : "inactive") +
+          '"/>';
+        // Arc 1 (smallest)
+        svg +=
+          '<path d="M9.5 13a3.5 3.5 0 0 1 5 0" class="wifi-signal-arc ' +
+          (level >= 1 ? "active" : "inactive") +
+          '"/>';
+        // Arc 2
+        svg +=
+          '<path d="M7 10a7.5 7.5 0 0 1 10 0" class="wifi-signal-arc ' +
+          (level >= 2 ? "active" : "inactive") +
+          '"/>';
+        // Arc 3 (largest)
+        svg +=
+          '<path d="M4.5 7a11.5 11.5 0 0 1 15 0" class="wifi-signal-arc ' +
+          (level >= 3 ? "active" : "inactive") +
+          '"/>';
+        svg += "</svg>";
+        return svg;
+      }
+
+      /**
+       * Lock icon SVG
+       */
+      function lockIconSvg() {
+        return (
+          '<svg viewBox="0 0 16 18" width="12" height="14" style="opacity:0.5">' +
+          '<rect x="2" y="8" width="12" height="9" rx="2" fill="currentColor"/>' +
+          '<path d="M5 8V5.5a3 3 0 0 1 6 0V8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
+          "</svg>"
+        );
+      }
+
+      /**
+       * Convert RSSI to signal level (0-3)
+       */
+      function rssiToLevel(rssi) {
+        if (rssi > -50) return 3;
+        if (rssi > -65) return 2;
+        if (rssi > -75) return 1;
+        return 0;
+      }
+
+      /**
+       * Populate the network list with scan results
+       */
+      function populateNetworkList(networks) {
+        var listContainer = document.getElementById("networkList");
+        var textInput = document.getElementById("apSsid");
+        var currentSsid = textInput.value;
+
+        listContainer.innerHTML = "";
+
+        if (networks.length === 0) {
+          listContainer.innerHTML =
+            '<div class="wifi-scan-info">Keine Netzwerke gefunden</div>';
+          listContainer.style.display = "block";
+          return;
+        }
+
+        // Sort by signal strength (strongest first)
+        networks.sort(function (a, b) {
+          return b.rssi - a.rssi;
+        });
+
+        var list = document.createElement("div");
+        list.className = "wifi-list";
+
+        for (var i = 0; i < networks.length; i++) {
+          var ssid = networks[i].ssid;
+          var rssi = networks[i].rssi;
+          var enc = networks[i].enc;
+          var level = rssiToLevel(rssi);
+
+          var item = document.createElement("div");
+          item.className = "wifi-item";
+          if (ssid === currentSsid) item.className += " selected";
+          item.setAttribute("data-ssid", ssid);
+          item.onclick = (function (s) {
+            return function () {
+              selectNetwork(s);
+            };
+          })(ssid);
+
+          item.innerHTML =
+            '<span class="wifi-ssid">' +
+            escapeHtml(ssid) +
+            "</span>" +
+            '<span class="wifi-icons">' +
+            (enc ? lockIconSvg() : "") +
+            wifiSignalSvg(level) +
+            "</span>";
+
+          list.appendChild(item);
+        }
+
+        // Manual entry option at the end
+        var manualItem = document.createElement("div");
+        manualItem.className = "wifi-manual-item";
+        manualItem.onclick = function () {
+          switchToManualSsid();
+        };
+        manualItem.innerHTML = "&#9998; Manuell eingeben...";
+        list.appendChild(manualItem);
+
+        listContainer.appendChild(list);
+        var infoDiv = document.createElement("div");
+        infoDiv.className = "wifi-scan-info";
+        infoDiv.textContent =
+          networks.length +
+          " Netzwerk" +
+          (networks.length > 1 ? "e" : "") +
+          " gefunden";
+        listContainer.appendChild(infoDiv);
+        listContainer.style.display = "block";
+      }
+
+      /**
+       * Select a network from the scan list
+       */
+      function selectNetwork(ssid) {
+        // Update text input with selected SSID
+        document.getElementById("apSsid").value = ssid;
+
+        // Update visual selection
+        var items = document.querySelectorAll(".wifi-item");
+        for (var i = 0; i < items.length; i++) {
+          items[i].className =
+            items[i].getAttribute("data-ssid") === ssid
+              ? "wifi-item selected"
+              : "wifi-item";
+        }
+      }
+
+      /**
+       * Switch back to manual SSID text input (hide network list)
+       */
+      function switchToManualSsid() {
+        document.getElementById("networkList").style.display = "none";
+        var textInput = document.getElementById("apSsid");
+        textInput.value = "";
+        textInput.focus();
+        document.getElementById("scanBtn").textContent =
+          "Verfügbare Netzwerke suchen";
+      }
+
+      /**
+       * Escape HTML to prevent XSS from rogue SSIDs
+       */
+      function escapeHtml(str) {
+        var div = document.createElement("div");
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
       }
 
       function confirmDisableWM(elem) {
         if (elem.checked) return;
         var msg =
           "Achtung!\n\n" +
-          "Mit dem Deaktivieren des Fallback WLAN kannst du dein WifiWhirl-Modul " +
+          "Mit dem Deaktivieren des Fallback WLAN kannst du dein WifiWhirl Modul " +
           "mit keinem neuen WLAN Netz verbinden, ohne das Modul zurückzusetzen.\n\n" +
           "Bist du dir sicher, dass du das Fallback WLAN deaktivieren möchtest?";
         if (!confirm(msg)) {
@@ -241,42 +644,197 @@
         }
       }
 
-      function saveNetworkConfig() {
-        if (!validatePassword("apPwd")) return;
+      /**
+       * Toggle visibility of static IP address fields based on checkbox
+       */
+      function toggleStaticIpFields() {
+        var enabled = document.getElementById("enableStaticIp4").checked;
+        var fields = document.querySelectorAll(".staticIpField");
+        for (var i = 0; i < fields.length; i++) {
+          fields[i].style.display = enabled ? "" : "none";
+        }
+      }
 
-        buttonConfirm(
-          document.getElementById("save"),
-          "gespeichert &check; (Vergiss nicht, das Modul neu zu starten.)",
-          6
+      /**
+       * Show restart page with countdown and auto-redirect
+       */
+      function showRestartPage(reason) {
+        document.open();
+        document.write(
+          "<!DOCTYPE html>" +
+            "<html>" +
+            "<head>" +
+            "<title>WifiWhirl | Neustart</title>" +
+            '<meta charset="utf-8" />' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+            "<style>" +
+            "body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }" +
+            "h1 { color: #4051b5; margin-bottom: 20px; }" +
+            "p { font-size: 18px; margin: 20px; color: #333; }" +
+            ".info { color: #666; font-size: 16px; }" +
+            ".btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #4051b5; color: white; text-decoration: none; border-radius: 5px; }" +
+            ".btn:hover { background: #2c3a8f; }" +
+            "</style>" +
+            "</head>" +
+            "<body>" +
+            "<h1>WifiWhirl startet neu...</h1>" +
+            "<p>" +
+            reason +
+            "</p>" +
+            '<p class="info">Die Netzwerkkonfiguration wird aktualisiert.</p>' +
+            '<p class="info">Bitte warte ca. 30 Sekunden...</p>' +
+            '<a href="/" class="btn">Zurück zur Übersicht</a>' +
+            "<script>" +
+            'setTimeout(function() { window.location.href = "/"; }, 30000);' +
+            "<\/script>" +
+            "</body>" +
+            "</html>",
         );
+        document.close();
+      }
+
+      /**
+       * Helper: send partial config to /setwifi/ and handle restart response
+       */
+      function sendPartialConfig(buttonId, data) {
+        var btn = document.getElementById(buttonId);
+        var originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "Wird gespeichert...";
+
+        function showResult(text, duration) {
+          btn.innerHTML = text;
+          setTimeout(function () {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+          }, duration);
+        }
 
         var req = new XMLHttpRequest();
         req.open("POST", "/setwifi/");
-        var json = {
+
+        req.onload = function () {
+          if (req.status == 200) {
+            try {
+              var response = JSON.parse(req.responseText);
+              if (response.restart === true) {
+                showRestartPage(response.reason);
+                return;
+              }
+              if (response.saved === true) {
+                showResult("gespeichert &check;", 4000);
+                return;
+              }
+            } catch (e) {
+              // Non-JSON response
+            }
+            showResult("Keine Änderung &check;", 4000);
+          } else {
+            showResult("Fehler!", 3000);
+          }
+        };
+
+        req.onerror = function () {
+          showResult("Verbindungsfehler!", 3000);
+        };
+
+        req.send(JSON.stringify(data));
+        console.log(data);
+      }
+
+      /**
+       * Save WLAN settings only (SSID + password)
+       */
+      function saveWlanConfig() {
+        if (!validatePassword("apPwd")) return;
+
+        var ssid = document.getElementById("apSsid").value;
+        if (!ssid || ssid.length === 0) {
+          alert("Bitte wähle ein WLAN-Netzwerk aus oder gib einen Namen ein.");
+          return;
+        }
+
+        sendPartialConfig("saveWlan", {
           enableAp: document.getElementById("enableAp").checked,
-          apSsid: document.getElementById("apSsid").value,
+          apSsid: ssid,
           apPwd: document.getElementById("apPwd").value,
+        });
+
+        document.getElementById("apPwd").value = "<Passwort eingeben>";
+      }
+
+      /**
+       * Save fallback WiFi setting only
+       */
+      function saveFallbackConfig() {
+        sendPartialConfig("saveFallback", {
           enableWM: document.getElementById("enableWM").checked,
+        });
+      }
+
+      /**
+       * Save static IP settings only
+       */
+      function saveStaticIpConfig() {
+        sendPartialConfig("saveStaticIp", {
           enableStaticIp4: document.getElementById("enableStaticIp4").checked,
           ip4Address: document.getElementById("ip4Address").value,
           ip4Gateway: document.getElementById("ip4Gateway").value,
           ip4Subnet: document.getElementById("ip4Subnet").value,
           ip4DnsPrimary: document.getElementById("ip4DnsPrimary").value,
           ip4DnsSecondary: document.getElementById("ip4DnsSecondary").value,
+        });
+      }
+
+      /**
+       * Save NTP server setting only
+       */
+      function saveNtpConfig() {
+        sendPartialConfig("saveNtp", {
           ip4NTP: document.getElementById("ip4NTP").value,
-        };
-        req.send(JSON.stringify(json));
-        document.getElementById("apPwd").value = "<Passwort eingeben>";
-        console.log(json);
+        });
       }
 
       function resetWifi() {
-        if (confirm("Möchtest du die WLAN-Einstellungen wirklich zurücksetzen?")) {
+        var msg =
+          "Achtung!\n\n" +
+          "Alle Netzwerkeinstellungen (WLAN, IP, NTP) werden gelöscht " +
+          "und auf die Werkseinstellungen zurückgesetzt.\n\n" +
+          "Das Modul startet danach neu und öffnet das WLAN " +
+          '"' +
+          apName +
+          '".\n\n' +
+          "Möchtest du wirklich fortfahren?";
+        if (confirm(msg)) {
           var req = new XMLHttpRequest();
           req.open("GET", "/resetwifi/");
           req.send();
-          document.body.innerHTML =
-            "Dein WifiWhirl-Modul wird jetzt neu gestartet. Bitte verbinde dich mit dem Zugriffspunkt und konfiguriere dein WLAN erneut.";
+          document.open();
+          document.write(
+            "<!DOCTYPE html>" +
+              "<html>" +
+              "<head>" +
+              "<title>WifiWhirl | Zurückgesetzt</title>" +
+              '<meta charset="utf-8" />' +
+              '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+              "<style>" +
+              "body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }" +
+              "h1 { color: #e53935; margin-bottom: 20px; }" +
+              "p { font-size: 18px; margin: 20px; color: #333; }" +
+              ".info { color: #666; font-size: 16px; }" +
+              "</style>" +
+              "</head>" +
+              "<body>" +
+              "<h1>Netzwerk zurückgesetzt</h1>" +
+              "<p>Dein WifiWhirl-Modul startet jetzt neu.</p>" +
+              '<p class="info">Verbinde dich mit dem WLAN <strong>' +
+              apName +
+              "</strong> und dem Passwort auf der Rückseite deines Moduls, " +
+              "um deine WLAN-Verbindung erneut einzurichten.</p>" +
+              "</body>" +
+              "</html>",
+          );
+          document.close();
         }
       }
     </script>

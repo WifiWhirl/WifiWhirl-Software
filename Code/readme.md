@@ -1,1 +1,0 @@
-This is the code for WifiWhirl softwareversion 1.1.5 **beta**

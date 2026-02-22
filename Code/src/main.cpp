@@ -1,4 +1,5 @@
 #include "main.h"
+#include "web_files.h"
 
 BWC *bwc;
 
@@ -80,10 +81,46 @@ void loop()
     uint32_t freeheap = ESP.getFreeHeap();
     if (freeheap < heap_water_mark)
         heap_water_mark = freeheap;
-    // We need this self-destructing info several times, so save it locally
-    bool newData = bwc->newData();
-    // Fiddle with the pump computer
-    bwc->loop();
+
+    // Pause pump communication during HA discovery
+    // Pump communication allocates memory (Strings, parsing) that conflicts with discovery
+    extern bool haDiscoveryInProgress;
+    bool newData = false; // Default to false
+
+    static bool lastDiscoveryState = false;
+    if (haDiscoveryInProgress != lastDiscoveryState)
+    {
+        // Discovery state changed - log it
+        if (haDiscoveryInProgress)
+        {
+            Serial.println(">>> MAIN LOOP: Discovery started - bwc->loop() PAUSED");
+            Serial.print(">>> MAIN LOOP: Heap at discovery start: ");
+            Serial.println(ESP.getFreeHeap());
+        }
+        else
+        {
+            Serial.println(">>> MAIN LOOP: Discovery ended - bwc->loop() RESUMED");
+            Serial.print(">>> MAIN LOOP: Heap after discovery: ");
+            Serial.println(ESP.getFreeHeap());
+        }
+        lastDiscoveryState = haDiscoveryInProgress;
+    }
+
+    if (!haDiscoveryInProgress)
+    {
+        // Normal operation: process pump data
+        newData = bwc->newData();
+        if (newData)
+        {
+            // Serial.println(">>> MAIN LOOP: newData=true from pump");
+        }
+        bwc->loop();
+    }
+    else
+    {
+        // During discovery: PAUSE pump communication
+        // newData stays false, bwc->loop() is NOT called
+    }
 
     // run only when a wifi connection is established
     if (WiFi.status() == WL_CONNECTED)
@@ -96,30 +133,57 @@ void loop()
         ArduinoOTA.handle();
 
         // MQTT
-        if (enableMqtt && mqttClient->loop())
+        // Check if client exists (may be deleted after HA discovery for clean reset)
+        if (enableMqtt && mqttClient && mqttClient->loop())
         {
-            String msg;
-            msg.reserve(32);
-            bwc->getButtonName(msg);
-            // publish pretty button name if display button is pressed (or NOBTN if released)
-            if (!msg.equals(prevButtonName))
+            // Block MQTT publishing during HA discovery to prevent memory corruption
+            if (!haDiscoveryInProgress)
             {
-                mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), String(msg).c_str(), true);
-                prevButtonName = msg;
-            }
+                String msg;
+                msg.reserve(32);
+                bwc->getButtonName(msg);
+                // publish pretty button name if display button is pressed (or NOBTN if released)
+                if (!msg.equals(prevButtonName))
+                {
+                    Serial.println(">>> MQTT: Publishing button name change");
+                    mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), String(msg).c_str(), true);
+                    prevButtonName = msg;
+                }
 
-            if (newData || sendMQTTFlag)
+                if (newData || sendMQTTFlag)
+                {
+                    Serial.print(">>> MQTT: sendMQTT() called (newData=");
+                    Serial.print(newData);
+                    Serial.print(", flag=");
+                    Serial.print(sendMQTTFlag);
+                    Serial.println(")");
+                    sendMQTT();
+                    sendMQTTFlag = false;
+                }
+            }
+            else
             {
-                sendMQTT();
-                sendMQTTFlag = false;
+                // During discovery - log if we're blocking
+                if (newData || sendMQTTFlag)
+                {
+                    Serial.println(">>> MQTT: sendMQTT() BLOCKED by discovery");
+                }
             }
         }
 
         // web socket
         if (newData || sendWSFlag)
         {
-            sendWSFlag = false;
-            sendWS();
+            if (!haDiscoveryInProgress)
+            {
+                // Serial.println(">>> WS: sendWS() called");
+                sendWSFlag = false;
+                sendWS();
+            }
+            else
+            {
+                Serial.println(">>> WS: sendWS() BLOCKED by discovery");
+            }
         }
 
         // run once after connection was established
@@ -158,7 +222,7 @@ void loop()
         if (WiFi.status() != WL_CONNECTED)
         {
             bwc->print(F("  no net connection  "));
-            // Serial.println(F("WiFi > Trying to reconnect ..."));
+            WiFi.reconnect();
         }
         if (WiFi.status() == WL_CONNECTED)
         {
@@ -171,15 +235,34 @@ void loop()
                 startNTP();
             }
 
-            if (enableMqtt && !mqttClient->loop())
+            // Check if MQTT client exists (may be deleted after HA discovery for clean reset)
+            if (enableMqtt && (!mqttClient || !mqttClient->loop()))
             {
                 // Serial.println(F("MQTT > Not connected"));
                 mqttConnect();
             }
 
+            // Weather query requires 10-18KB heap - pause MQTT to prevent crashes
             if (bwc->enableWeather && ambExpires < (uint64_t)time(nullptr))
             {
-                queryAmbientTemperature();
+                // Pre-flight memory check - require at least 12KB free
+                uint32_t freeHeapBefore = ESP.getFreeHeap();
+                Serial.print(F("Weather: Free heap before query: "));
+                Serial.println(freeHeapBefore);
+
+                if (freeHeapBefore < 12000)
+                {
+                    Serial.println(F("Weather: SKIPPED - insufficient memory"));
+                }
+                else
+                {
+                    // Execute weather query (function handles MQTT pause/resume internally)
+                    queryAmbientTemperature();
+
+                    uint32_t freeHeapAfter = ESP.getFreeHeap();
+                    Serial.print(F("Weather: Free heap after query: "));
+                    Serial.println(freeHeapAfter);
+                }
             }
         }
         // Keep for later integrations
@@ -222,6 +305,10 @@ void sendWS()
     json.clear();
     getOtherInfo(json);
     webSocket->broadcastTXT(json);
+    // send smart schedule
+    json.clear();
+    bwc->getJSONSmartSchedule(json);
+    webSocket->broadcastTXT(json);
     // json = bwc->getDebugData();
     // webSocket->broadcastTXT(json);
     // time_t now = time(nullptr);
@@ -256,6 +343,87 @@ void getOtherInfo(String &rtn)
     {
         rtn = F("{\"error\": \"Failed to serialize other\"}");
     }
+}
+
+/**
+ * HTTP polling endpoint: returns a JSON array of [STATES, TIMES, OTHER]
+ * Used as a fallback when WebSocket connections are not available (e.g. iOS 26 Safari Browser).
+ * The client polls this endpoint at regular intervals instead of using WebSocket.
+ */
+void handleGetPollData()
+{
+    // Build response as JSON array containing all three data objects
+    String json;
+    json.reserve(1200);
+    json = F("[");
+
+    // Append STATES JSON object
+    String part;
+    part.reserve(320);
+    bwc->getJSONStates(part);
+    json += part;
+    json += F(",");
+
+    // Append TIMES JSON object
+    part.clear();
+    bwc->getJSONTimes(part);
+    json += part;
+    json += F(",");
+
+    // Append OTHER JSON object
+    part.clear();
+    getOtherInfo(part);
+    json += part;
+
+    json += F("]");
+
+    // Send the combined JSON array response
+    server->send(200, F("application/json"), json);
+}
+
+/**
+ * HTTP command endpoint: accepts the same JSON command format as WebSocket.
+ * Used as a fallback when WebSocket connections are not available.
+ * Expects POST body: {"CMD":n,"VALUE":v,"XTIME":t,"INTERVAL":i,"TXT":"","FORCE":bool}
+ */
+void handleSendCommand()
+{
+    // Only accept POST requests
+    if (server->method() != HTTP_POST)
+    {
+        server->send(405, F("text/plain"), F("Method Not Allowed"));
+        return;
+    }
+
+    // Parse the JSON command from the request body
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, server->arg("plain"));
+    if (error)
+    {
+        server->send(400, F("text/plain"), F("Error deserializing command"));
+        return;
+    }
+
+    // Extract command fields (same format as WebSocket text handler)
+    Commands command = doc[F("CMD")];
+    int64_t value = doc[F("VALUE")];
+    int64_t xtime = doc[F("XTIME")] | (int64_t)std::time(0);
+    int64_t interval = doc[F("INTERVAL")] | (int64_t)0;
+    String txt = doc[F("TXT")] | "";
+    bool force = doc[F("FORCE")] | false;
+
+    // Build command queue item and add to the command queue
+    command_que_item item;
+    item.cmd = command;
+    item.val = value;
+    item.xtime = xtime;
+    item.interval = interval;
+    item.text = txt;
+    item.force = force;
+    bwc->add_command(item);
+
+    // Respond with the accepted command summary
+    server->send(200, F("text/plain"), String(item.cmd) + " " + String(item.val) + " " + String(item.xtime));
 }
 
 /**
@@ -355,24 +523,17 @@ void startWiFi()
         while (WiFi.status() != WL_CONNECTED)
         {
             delay(1000);
-            // Serial.print(".");
+            bwc->loop();
             tryCount++;
 
             if (tryCount >= maxTries)
             {
-                // Serial.println("");
-                // Serial.println(F("WiFi > NOT connected!"));
                 if (wifi_info.enableWmApFallback)
                 {
-                    // disable specific WiFi config
-                    wifi_info.enableAp = false;
-                    wifi_info.enableStaticIp4 = false;
-                    // fallback to WiFi config portal
-                    startWiFiConfigPortal();
+                    startWiFiConfigPortal(wifi_info.apSsid, wifi_info.apPwd);
                 }
                 break;
             }
-            // Serial.println("");
         }
     }
     else
@@ -402,26 +563,55 @@ void startWiFi()
 /**
  * start WiFiManager configuration portal
  */
-void startWiFiConfigPortal()
+void startWiFiConfigPortal(const String &storedSsid, const String &storedPwd)
 {
     Serial.println(F("WiFi > Using WiFiManager Config Portal"));
     ESP_WiFiManager wm;
 
     WiFiManagerParameter custom_text("<p><strong>Willkommen zur Einrichtung deines WifiWhirl WLAN-Moduls!</strong></p><p>Verbinde dich hier mit deinem WLAN, um mit der Einrichtung zu beginnen.</p>");
 
-    wm.setClass("invert");         // WM Dark Mode
-    wm.setShowInfoErase(false);    // WM Disable Erase Button
-    wm.addParameter(&custom_text); // WM Show WifiWhirl Text
-    // wm.setConfigPortalBlocking(false);      // WM Disable Config Portal Blocking (trys to reconnect to known network automatically)
-    wm.autoConnect(wmApName, wmApPassword); // WM start Config Portal AP
+    wm.setClass("invert");             // WM Dark Mode
+    wm.setShowInfoErase(false);        // WM Disable Erase Button
+    wm.addParameter(&custom_text);     // WM Show WifiWhirl Text
+    wm.setConfigPortalBlocking(false); // WM non-blocking mode so we can update display
 
-    // Serial.print(F("WiFi > Trying to connect ..."));
+    // Display "net" on pump while in AP mode
+    bwc->printStatic("net");
+
+    wm.autoConnect(wmApName, wmApPassword);
+
+    unsigned long lastReconnectAttempt = 0;
+    const unsigned long reconnectInterval = 10000;
+    bool hasStoredCredentials = (storedSsid.length() > 0);
+
     while (WiFi.status() != WL_CONNECTED)
     {
-        delay(500);
-        // Serial.print(".");
+        wm.process();
+        bwc->loop();
+        delay(100);
+
+        if (hasStoredCredentials && (millis() - lastReconnectAttempt >= reconnectInterval))
+        {
+            lastReconnectAttempt = millis();
+            Serial.println(F("WiFi > Config Portal: Retrying stored network..."));
+            WiFi.begin(storedSsid.c_str(), storedPwd.c_str());
+
+            unsigned long connectStart = millis();
+            while (WiFi.status() != WL_CONNECTED && (millis() - connectStart) < 15000)
+            {
+                wm.process();
+                bwc->loop();
+                delay(100);
+            }
+
+            if (WiFi.status() == WL_CONNECTED)
+            {
+                Serial.println(F("WiFi > Reconnected to stored network"));
+            }
+        }
     }
-    // Serial.println("");
+
+    bwc->clearStatic();
 }
 
 /**
@@ -434,7 +624,11 @@ void startNTP()
     Serial.println(F("start NTP"));
     if (wifi_info.ip4NTP_str.length() > 0)
     {
-        configTime(0, 0, wifi_info.ip4NTP_str.c_str());
+        static char ntpServer[64];
+        strlcpy(ntpServer, wifi_info.ip4NTP_str.c_str(), sizeof(ntpServer));
+        configTime(0, 0, ntpServer);
+        Serial.print(F("NTP server: "));
+        Serial.println(ntpServer);
     }
     else
     {
@@ -592,12 +786,14 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
         int64_t xtime = doc[F("XTIME")];
         int64_t interval = doc[F("INTERVAL")];
         String txt = doc[F("TXT")] | "";
+        bool force = doc[F("FORCE")] | false; // Default false if not provided
         command_que_item item;
         item.cmd = command;
         item.val = value;
         item.xtime = xtime;
         item.interval = interval;
         item.text = txt;
+        item.force = force;
         bwc->add_command(item);
     }
     break;
@@ -625,25 +821,13 @@ void startHttpServer()
     server->on(F("/setwebconfig/"), handleSetWebConfig);
     server->on(F("/getwifi/"), handleGetWifi);
     server->on(F("/setwifi/"), handleSetWifi);
+    server->on(F("/scanwifi/"), handleScanWifi);
     server->on(F("/resetwifi/"), handleResetWifi);
     server->on(F("/getmqtt/"), handleGetMqtt);
     server->on(F("/setmqtt/"), handleSetMqtt);
     server->on(F("/getweather/"), handleGetWeather);
     server->on(F("/getstates/"), handleGetStates);
-    server->on(F("/dir/"), []()
-               {
-            if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); }
-            handleDir(); });
-    server->on(
-        F("/upload.html"), HTTP_POST, []()
-        { server->send(200, F("text/plain"), ""); },
-        handleFileUpload);
-    server->on(F("/remove.html"), HTTP_POST, []()
-               {
-        if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } handleFileRemove(); });
-    server->on(F("/remove/"), HTTP_GET, []()
-               {
-        if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } handleFileRemove(); });
+    server->on(F("/gettemps/"), handleGetTemps);
     server->on(F("/restart/"), handleRestart);
     server->on(F("/metrics"), handlePrometheusMetrics); // prometheus metrics
     server->on(F("/info/"), handleESPInfo);
@@ -655,7 +839,11 @@ void startHttpServer()
                {if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/cmdq_file/"), handle_cmdq_file);
     server->on(F("/hook/"), handleWebhook);
-    server->on(F("/getlatestversion/"), handleGetLatestVersion);
+    server->on(F("/getsmartschedule/"), handleGetSmartSchedule);
+    server->on(F("/setsmartschedule/"), handleSetSmartSchedule);
+    server->on(F("/cancelsmartschedule/"), handleCancelSmartSchedule);
+    server->on(F("/getpolldata/"), handleGetPollData); // Polling fallback for WebSocket data
+    server->on(F("/sendcommand/"), handleSendCommand); // Polling fallback for WebSocket commands
     // server->on(F("/getfiles/"), updateFiles);
 
     server->on(F("/update"), HTTP_GET, []()
@@ -675,120 +863,114 @@ void startHttpServer()
 
 String queryAmbientTemperature()
 {
-    WiFiClientSecure client;
+    // Track heap usage for debugging
+    Serial.print(F("Weather: Starting query, free heap: "));
+    Serial.println(ESP.getFreeHeap());
+
+    // Use standard WiFiClient for HTTP connection
+    WiFiClient client;
     HTTPClient http;
-    BearSSL::X509List x509(x509CA);
-    client.setTrustAnchors(&x509);
-    client.setBufferSizes(16, 16);
     http.setUserAgent(DEVICE_NAME);
-    String json;
-    json.reserve(320);
-    bwc->getJSONSettings(json);
 
-    DynamicJsonDocument doc(1024);
-
-    // Deserialize the JSON document
-    DeserializationError error = deserializeJson(doc, json);
-    if (error)
+    // Extract PLZ from settings
+    String _plz;
     {
-        // Serial.println(F("Failed to read config file"));
-        return "Error reading config";
+        // Scope-limited to ensure immediate cleanup
+        DynamicJsonDocument doc(1024);
+        String json;
+        json.reserve(320);
+        bwc->getJSONSettings(json);
+
+        // Deserialize the JSON document
+        DeserializationError error = deserializeJson(doc, json);
+        json.clear();
+        json = String();
+
+        if (error)
+        {
+            Serial.println(F("Weather: Failed to read config"));
+            return "Error reading config";
+        }
+
+        _plz = doc[F("PLZ")].as<String>();
+        // doc goes out of scope here and is destroyed
     }
 
-    String _plz = doc[F("PLZ")].as<String>();
+    String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/";
+    Serial.print(F("Weather: Connecting to API: "));
+    Serial.println(weatherURL);
 
-    String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/"; // Accepts German and Austrian ZIP Codes in _plz
     if (http.begin(client, weatherURL))
     {
         http.addHeader("X-WW-Firmware", FW_VERSION);
         http.addHeader("X-WW-Apikey", String(cloudApiKey));
         http.addHeader("Accept", "application/json");
+
         int httpResponseCode = http.GET();
+
+        Serial.print(F("Weather: Response code: "));
+        Serial.println(httpResponseCode);
+
         if (httpResponseCode == 200)
         {
             String payload = http.getString();
-            DynamicJsonDocument resp(1024);
+            http.end();
+            client.stop();
+
+            Serial.print(F("Weather: Parsing response, free heap: "));
+            Serial.println(ESP.getFreeHeap());
+
+            StaticJsonDocument<512> resp;
             DeserializationError error = deserializeJson(resp, payload);
+            payload.clear();
+            payload = String();
+
             if (error)
             {
+                Serial.println(F("Weather: Parse error"));
                 return "Error while getting weather data";
             }
 
             ambExpires = resp[F("expires")];
             int64_t _temperature = resp[F("temperature")];
-            char const *_name = resp[F("name")];
-            // Serial.println(payload);
-            // Serial.println(_temperature);
-            // Serial.println(_name);
-            http.end();
-            client.stop();
+            const char *_name = resp[F("name")];
+
+            // Copy name before clearing document
+            String result = String(_name);
+
             bwc->setAmbientTemperature(_temperature, true);
-            return _name;
+
+            Serial.print(F("Weather: Success, free heap: "));
+            Serial.println(ESP.getFreeHeap());
+
+            return result;
         }
         else if (httpResponseCode == 404)
         {
-            Serial.print(F("Error code: "));
+            Serial.print(F("Weather: Error code: "));
             Serial.println(httpResponseCode);
             http.end();
             client.stop();
+
             return "Error: ZIP code not found";
         }
         else
         {
-            Serial.print(F("Error code: "));
+            Serial.print(F("Weather: Error code: "));
             Serial.println(httpResponseCode);
             http.end();
             client.stop();
+
             return "Error while getting weather data";
         }
     }
     else
     {
-        Serial.println(F("Could not connect to server"));
+        Serial.println(F("Weather: Could not connect to server"));
         http.end();
         client.stop();
+
         return "Error while getting weather data";
-    }
-}
-
-void handleGetLatestVersion()
-{
-    WiFiClientSecure client;
-    HTTPClient http;
-    BearSSL::X509List x509(x509CA);
-    client.setTrustAnchors(&x509);
-    client.setBufferSizes(16, 16);
-    http.setUserAgent(DEVICE_NAME);
-    String const versionURL = String(cloudApi) + "/v1/software/version/current/";
-
-    if (http.begin(client, versionURL))
-    {
-        http.addHeader("X-WW-Firmware", FW_VERSION);
-        http.addHeader("X-WW-Apikey", String(cloudApiKey));
-        http.addHeader("Accept", "application/json");
-        int httpResponseCode = http.GET();
-        if (httpResponseCode == 200)
-        {
-            String payload = http.getString();
-            http.end();
-            client.stop();
-            server->send(200, F("text/plain"), payload);
-        }
-        else
-        {
-            Serial.print(F("Error code: "));
-            Serial.println(httpResponseCode);
-            http.end();
-            client.stop();
-            server->send(500, F("text/plain"), F("Error"));
-        }
-    }
-    else
-    {
-        Serial.println(F("Could not connect to server"));
-        http.end();
-        client.stop();
-        server->send(500, F("text/plain"), F("Error"));
     }
 }
 
@@ -824,18 +1006,75 @@ void handleSetHardware()
 {
     if (!checkHttpPost(server->method()))
         return;
+
     String message = server->arg(0);
-    // Serial.printf("Set hw message; %s\n", message.c_str());
+
+    // Check if MODEL changed - requires restart for proper reinitialization
+    String oldModel = bwc->getModel();
+
+    // Parse new config to get new model
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, message);
+    String newModel = "";
+    if (!error && doc.containsKey(F("MODEL")))
+    {
+        newModel = String(doc[F("MODEL")].as<int>());
+    }
+
+    // Save hardware config
     File file = LittleFS.open("hwcfg.json", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save hwcfg.json"));
+        Serial.println(F("HW: Failed to save hwcfg.json"));
+        server->send(500, F("text/plain"), F("Fehler beim Speichern"));
         return;
     }
     file.print(message);
     file.close();
-    server->send(200, F("text/plain"), "ok");
-    // Serial.println("sethardware done");
+
+    // Check if model changed
+    bool modelChanged = (newModel.length() > 0 && newModel != oldModel);
+
+    if (modelChanged)
+    {
+        Serial.println("========================================");
+        Serial.print("HW: Model changed: ");
+        Serial.print(oldModel);
+        Serial.print(" -> ");
+        Serial.println(newModel);
+        Serial.println("HW: WifiWhirl restarting for hardware initialization...");
+        Serial.println("========================================");
+
+        // Send response with restart notification
+        String response = "{\"restart\": true, \"reason\": \"Hardware-Modell geändert. WifiWhirl startet neu um das neue Modell zu initialisieren.\"}";
+        server->send(200, F("application/json"), response);
+
+        // Give server time to send response
+        delay(500);
+
+        // Save all settings
+        bwc->saveSettings();
+
+        // Stop all services gracefully
+        periodicTimer.detach();
+        updateMqttTimer.detach();
+        updateWSTimer.detach();
+        if (mqttClient)
+        {
+            mqttClient->disconnect();
+        }
+
+        delay(1000);
+
+        // Restart ESP - after restart, new model will be loaded
+        ESP.restart();
+    }
+    else
+    {
+        // No model change, just normal save
+        Serial.println("HW: Hardware config saved (no restart needed)");
+        server->send(200, F("text/plain"), "ok");
+    }
 }
 
 void handleNotFound()
@@ -873,7 +1112,64 @@ String getContentType(const String &filename)
 }
 
 /**
+ * Serve an embedded file from PROGMEM
+ * Handles gzip content-encoding and chunked transfer to avoid watchdog resets
+ * @param file Pointer to EmbeddedFile structure
+ * @return true if file was served successfully
+ */
+bool serveEmbeddedFile(const EmbeddedFile *file)
+{
+    // Read file metadata from PROGMEM
+    char contentTypeBuf[48];
+    strncpy_P(contentTypeBuf, (PGM_P)pgm_read_ptr(&file->contentType), sizeof(contentTypeBuf) - 1);
+    contentTypeBuf[sizeof(contentTypeBuf) - 1] = '\0';
+
+    size_t fileSize = pgm_read_dword(&file->size);
+    bool isGzipped = pgm_read_byte(&file->isGzipped);
+    const uint8_t *data = (const uint8_t *)pgm_read_ptr(&file->data);
+
+    // Set cache header for static assets
+    server->sendHeader(F("Cache-Control"), F("max-age=3600"));
+
+    // Set gzip content-encoding if file is compressed
+    if (isGzipped)
+    {
+        server->sendHeader(F("Content-Encoding"), F("gzip"));
+    }
+
+    // Send response with chunked transfer to avoid memory issues
+    // For large files, we send in chunks to feed watchdog
+    const size_t CHUNK_SIZE = 1024;
+
+    server->setContentLength(fileSize);
+    server->send(200, (const char *)contentTypeBuf, (const char *)"");
+
+    size_t bytesSent = 0;
+    while (bytesSent < fileSize)
+    {
+        size_t chunkLen = min(CHUNK_SIZE, fileSize - bytesSent);
+
+        // Copy chunk from PROGMEM to RAM buffer
+        uint8_t buffer[CHUNK_SIZE];
+        memcpy_P(buffer, data + bytesSent, chunkLen);
+
+        server->sendContent_P((const char *)buffer, chunkLen);
+        bytesSent += chunkLen;
+
+        // Feed watchdog during large transfers
+        yield();
+    }
+
+    Serial.print(F("HTTP > embedded file sent: "));
+    Serial.print(fileSize);
+    Serial.println(F(" bytes"));
+
+    return true;
+}
+
+/**
  * send the right file to the client (if it exists)
+ * First checks embedded files in PROGMEM, then falls back to LittleFS
  */
 bool handleFileRead(String path)
 {
@@ -890,6 +1186,15 @@ bool handleFileRead(String path)
         // Serial.println(F("HTTP > file reading denied (credentials)."));
         return false;
     }
+
+    // First, check if file is embedded in firmware (PROGMEM)
+    const EmbeddedFile *embeddedFile = findEmbeddedFile(path);
+    if (embeddedFile != nullptr)
+    {
+        return serveEmbeddedFile(embeddedFile);
+    }
+
+    // Fall back to LittleFS for config files and user uploads
     String contentType = getContentType(path); // Get the MIME type
     String pathWithGz = path + ".gz";
     if (LittleFS.exists(pathWithGz) || LittleFS.exists(path))
@@ -901,14 +1206,13 @@ bool handleFileRead(String path)
 
         // send cache header for static files
         if (path.endsWith(".css.gz") || path.endsWith(".css") || path.endsWith(".png.gz") || path.endsWith(".ico.gz") || path.endsWith(".js.gz") || path.endsWith(".eot.gz") || path.endsWith(".woff.gz") || path.endsWith(".html.gz"))
-            if (!path.endsWith("restart.html.gz")) // do not cache restart page, otherwise restart fuction will not work!
-                server->sendHeader(F("Cache-Control"), F("max-age=3600"));
+            server->sendHeader(F("Cache-Control"), F("max-age=3600"));
 
         size_t sent = server->streamFile(file, contentType); // Send it to the client
 
         file.close(); // Close the file again
         Serial.println(F("File size: ") + String(fsize));
-        Serial.println(F("HTTP > file sent: ") + path + F(" (") + sent + F(" bytes)"));
+        Serial.println(F("HTTP > LittleFS file sent: ") + path + F(" (") + sent + F(" bytes)"));
         return true;
     }
     // Serial.println("HTTP > file not found: " + path);   // If the file doesn't exist, return false
@@ -1090,7 +1394,147 @@ void handle_cmdq_file()
     if (!checkHttpPost(server->method()))
         return;
 
-    // DynamicJsonDocument doc(256);
+    // Check for upload action via query parameter
+    String action = server->arg(F("action"));
+
+    if (action.equals("upload"))
+    {
+        // Upload: body contains raw JSON file content
+        String data = server->arg("plain");
+        if (data.length() == 0)
+        {
+            data = server->arg(0);
+        }
+        if (data.length() == 0)
+        {
+            server->send(400, F("text/plain"), F("Keine Daten empfangen"));
+            return;
+        }
+
+        // Validate JSON format - cmdq.json structure:
+        // {"LEN":n,"CMD":[...],"VALUE":[...],"XTIME":[...],"INTERVAL":[...],"TXT":[...]}
+        DynamicJsonDocument validateDoc(data.length() + 256);
+        DeserializationError validateError = deserializeJson(validateDoc, data);
+        if (validateError)
+        {
+            server->send(400, F("text/plain"), F("Ungültiges JSON-Format"));
+            return;
+        }
+
+        // Check if root is an object
+        if (!validateDoc.is<JsonObject>())
+        {
+            server->send(400, F("text/plain"), F("Datei muss ein JSON-Objekt enthalten"));
+            return;
+        }
+
+        JsonObject root = validateDoc.as<JsonObject>();
+
+        // Check for required fields
+        if (!root.containsKey(F("LEN")) || !root.containsKey(F("CMD")) ||
+            !root.containsKey(F("VALUE")) || !root.containsKey(F("XTIME")) ||
+            !root.containsKey(F("INTERVAL")))
+        {
+            server->send(400, F("text/plain"), F("Datei fehlt erforderliche Felder (LEN, CMD, VALUE, XTIME, INTERVAL)"));
+            return;
+        }
+
+        // Verify arrays have consistent length
+        size_t len = root[F("LEN")].as<size_t>();
+        if (!root[F("CMD")].is<JsonArray>() || !root[F("VALUE")].is<JsonArray>() ||
+            !root[F("XTIME")].is<JsonArray>() || !root[F("INTERVAL")].is<JsonArray>())
+        {
+            server->send(400, F("text/plain"), F("CMD, VALUE, XTIME, INTERVAL müssen Arrays sein"));
+            return;
+        }
+
+        JsonArray cmdArr = root[F("CMD")].as<JsonArray>();
+        JsonArray valArr = root[F("VALUE")].as<JsonArray>();
+        JsonArray timeArr = root[F("XTIME")].as<JsonArray>();
+        JsonArray intArr = root[F("INTERVAL")].as<JsonArray>();
+
+        if (cmdArr.size() != len || valArr.size() != len ||
+            timeArr.size() != len || intArr.size() != len)
+        {
+            server->send(400, F("text/plain"), F("Array-Längen stimmen nicht mit LEN überein"));
+            return;
+        }
+
+        // Validation passed - save the file
+        File file = LittleFS.open(F("/cmdq.json"), "w");
+        if (!file)
+        {
+            server->send(500, F("text/plain"), F("Fehler beim Speichern der Datei"));
+            return;
+        }
+        file.print(data);
+        file.close();
+
+        // Reload command queue in BWC
+        bwc->reloadCommandQueue();
+
+        server->send(200, F("text/plain"), F("OK"));
+        return;
+    }
+
+    // Download: parse JSON body for action
+    String message = server->arg(0);
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, message);
+    if (error)
+    {
+        server->send(400, F("text/plain"), F("Fehler beim Verarbeiten der Anfrage"));
+        return;
+    }
+
+    action = doc[F("ACT")].as<String>();
+
+    if (action.equals("download"))
+    {
+        // Send cmdq.json content to client for download
+        if (LittleFS.exists(F("/cmdq.json")))
+        {
+            File file = LittleFS.open(F("/cmdq.json"), "r");
+            if (file)
+            {
+                String content = file.readString();
+                file.close();
+                server->send(200, F("application/json"), content);
+                return;
+            }
+        }
+        // Return empty array if file doesn't exist
+        server->send(200, F("application/json"), F("[]"));
+        return;
+    }
+
+    server->send(400, F("text/plain"), F("Unbekannte Aktion"));
+}
+
+/**
+ * response for /getsmartschedule/
+ * web server prints smart schedule status as JSON
+ */
+void handleGetSmartSchedule()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+
+    String json;
+    json.reserve(512);
+    bwc->getJSONSmartSchedule(json);
+    server->send(200, F("application/json"), json);
+}
+
+/**
+ * response for /setsmartschedule/
+ * set a new smart schedule
+ */
+void handleSetSmartSchedule()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+
     StaticJsonDocument<256> doc;
     String message = server->arg(0);
     DeserializationError error = deserializeJson(doc, message);
@@ -1100,22 +1544,33 @@ void handle_cmdq_file()
         return;
     }
 
-    String action = doc[F("ACT")].as<String>();
-    String filename = "/";
-    filename += doc[F("NAME")].as<String>();
+    // Extract parameters
+    uint64_t target_time = doc[F("TARGETTIME")];
+    uint8_t target_temp = doc[F("TARGETTEMP")];
+    bool keep_heater_on = doc[F("KEEPON")];
 
-    if (action.equals("load"))
+    // Validate and set schedule
+    if (bwc->setSmartSchedule(target_time, target_temp, keep_heater_on))
     {
-        copyFile("/cmdq.json", "/cmdq.backup");
-        copyFile(filename, "/cmdq.json");
-        bwc->reloadCommandQueue();
+        server->send(200, F("text/plain"), F("Schedule set successfully"));
     }
-    if (action.equals("save"))
+    else
     {
-        copyFile("/cmdq.json", filename);
+        server->send(400, F("text/plain"), F("Invalid schedule parameters or NTP not synced"));
     }
+}
 
-    server->send(200, F("text/plain"), "");
+/**
+ * response for /cancelsmartschedule/
+ * cancel active smart schedule
+ */
+void handleCancelSmartSchedule()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+
+    bwc->cancelSmartSchedule();
+    server->send(200, F("text/plain"), F("Schedule cancelled"));
 }
 
 void copyFile(String source, String dest)
@@ -1174,6 +1629,10 @@ void loadWebConfig()
     showSectionButtons = (doc.containsKey("SSB") ? doc[F("SSB")] : true);
     showSectionTimer = (doc.containsKey("SSTIM") ? doc[F("SSTIM")] : true);
     showSectionTotals = (doc.containsKey("SSTOT") ? doc[F("SSTOT")] : true);
+    showSectionEnergy = (doc.containsKey("SSEN") ? doc[F("SSEN")] : true);
+    showSectionWaterQuality = (doc.containsKey("SSWQ") ? doc[F("SSWQ")] : true);
+    showWQCyanuric = (doc.containsKey("SWQCYA") ? doc[F("SWQCYA")] : false);
+    showWQAlkalinity = (doc.containsKey("SWQALK") ? doc[F("SWQALK")] : false);
     useControlSelector = (doc.containsKey("UCS") ? doc[F("UCS")] : false);
 }
 
@@ -1198,6 +1657,10 @@ void saveWebConfig()
     doc[F("SSB")] = showSectionButtons;
     doc[F("SSTIM")] = showSectionTimer;
     doc[F("SSTOT")] = showSectionTotals;
+    doc[F("SSEN")] = showSectionEnergy;
+    doc[F("SSWQ")] = showSectionWaterQuality;
+    doc[F("SWQCYA")] = showWQCyanuric;
+    doc[F("SWQALK")] = showWQAlkalinity;
     doc[F("UCS")] = useControlSelector;
 
     if (serializeJson(doc, file) == 0)
@@ -1225,6 +1688,10 @@ void handleGetWebConfig()
     doc[F("SSB")] = showSectionButtons;
     doc[F("SSTIM")] = showSectionTimer;
     doc[F("SSTOT")] = showSectionTotals;
+    doc[F("SSEN")] = showSectionEnergy;
+    doc[F("SSWQ")] = showSectionWaterQuality;
+    doc[F("SWQCYA")] = showWQCyanuric;
+    doc[F("SWQALK")] = showWQAlkalinity;
     doc[F("UCS")] = useControlSelector;
 
     String json;
@@ -1261,13 +1728,16 @@ void handleSetWebConfig()
     showSectionButtons = doc[F("SSB")];
     showSectionTimer = doc[F("SSTIM")];
     showSectionTotals = doc[F("SSTOT")];
+    showSectionEnergy = doc[F("SSEN")];
+    showSectionWaterQuality = doc.containsKey("SSWQ") ? doc[F("SSWQ")] : true;
+    showWQCyanuric = doc.containsKey("SWQCYA") ? doc[F("SWQCYA")] : false;
+    showWQAlkalinity = doc.containsKey("SWQALK") ? doc[F("SWQALK")] : false;
     useControlSelector = doc[F("UCS")];
 
     saveWebConfig();
 
     server->send(200, F("text/plain"), "");
 }
-
 
 /**
  * load WiFi json configuration from "wifi.json"
@@ -1344,6 +1814,53 @@ void saveWifi(const sWifi_info &wifi_info)
 }
 
 /**
+ * response for /scanwifi/
+ * Scans for available WiFi networks and returns them as JSON
+ */
+void handleScanWifi()
+{
+    // Synchronous scan; typically completes in 2-5 seconds
+    int n = WiFi.scanNetworks(false, false);
+
+    DynamicJsonDocument doc(2048);
+    JsonArray networks = doc.createNestedArray(F("networks"));
+
+    for (int i = 0; i < n && i < 20; i++)
+    {
+        // Skip empty SSIDs (hidden networks)
+        if (WiFi.SSID(i).length() == 0)
+            continue;
+
+        // Skip duplicate SSIDs (keep the one with stronger signal)
+        bool duplicate = false;
+        for (size_t j = 0; j < networks.size(); j++)
+        {
+            if (networks[j]["ssid"].as<String>() == WiFi.SSID(i))
+            {
+                duplicate = true;
+                break;
+            }
+        }
+        if (duplicate)
+            continue;
+
+        JsonObject net = networks.createNestedObject();
+        net[F("ssid")] = WiFi.SSID(i);
+        net[F("rssi")] = WiFi.RSSI(i);
+        net[F("enc")] = (WiFi.encryptionType(i) != ENC_TYPE_NONE);
+    }
+
+    WiFi.scanDelete();
+
+    String json;
+    if (serializeJson(doc, json) == 0)
+    {
+        json = F("{\"networks\":[]}");
+    }
+    server->send(200, F("application/json"), json);
+}
+
+/**
  * response for /getwifi/
  * web server prints a json document
  */
@@ -1373,6 +1890,7 @@ void handleGetWifi()
     doc[F("ip4DnsPrimary")] = wifi_info.ip4DnsPrimary_str;
     doc[F("ip4DnsSecondary")] = wifi_info.ip4DnsSecondary_str;
     doc[F("ip4NTP")] = wifi_info.ip4NTP_str;
+    doc[F("wmApName")] = wmApName;
     String json;
     if (serializeJson(doc, json) == 0)
     {
@@ -1400,25 +1918,93 @@ void handleSetWifi()
         return;
     }
 
-    sWifi_info wifi_info;
+    // Load existing settings first to support partial updates.
+    // Each section on the frontend sends only its own fields,
+    // so missing fields must retain their previous values.
+    sWifi_info old_info = loadWifi();
+    sWifi_info wifi_info = old_info;
 
-    wifi_info.enableAp = doc[F("enableAp")];
-    if (doc.containsKey("enableWM"))
+    if (doc.containsKey(F("enableAp")))
+        wifi_info.enableAp = doc[F("enableAp")];
+    if (doc.containsKey(F("enableWM")))
         wifi_info.enableWmApFallback = doc[F("enableWM")];
-    wifi_info.apSsid = doc[F("apSsid")].as<String>();
-    wifi_info.apPwd = doc[F("apPwd")].as<String>();
+    if (doc.containsKey(F("apSsid")))
+        wifi_info.apSsid = doc[F("apSsid")].as<String>();
+    if (doc.containsKey(F("apPwd")))
+        wifi_info.apPwd = doc[F("apPwd")].as<String>();
 
-    wifi_info.enableStaticIp4 = doc[F("enableStaticIp4")];
-    wifi_info.ip4Address_str = doc[F("ip4Address")].as<String>();
-    wifi_info.ip4Gateway_str = doc[F("ip4Gateway")].as<String>();
-    wifi_info.ip4Subnet_str = doc[F("ip4Subnet")].as<String>();
-    wifi_info.ip4DnsPrimary_str = doc[F("ip4DnsPrimary")].as<String>();
-    wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
-    wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
+    if (doc.containsKey(F("enableStaticIp4")))
+        wifi_info.enableStaticIp4 = doc[F("enableStaticIp4")];
+    if (doc.containsKey(F("ip4Address")))
+        wifi_info.ip4Address_str = doc[F("ip4Address")].as<String>();
+    if (doc.containsKey(F("ip4Gateway")))
+        wifi_info.ip4Gateway_str = doc[F("ip4Gateway")].as<String>();
+    if (doc.containsKey(F("ip4Subnet")))
+        wifi_info.ip4Subnet_str = doc[F("ip4Subnet")].as<String>();
+    if (doc.containsKey(F("ip4DnsPrimary")))
+        wifi_info.ip4DnsPrimary_str = doc[F("ip4DnsPrimary")].as<String>();
+    if (doc.containsKey(F("ip4DnsSecondary")))
+        wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
+    if (doc.containsKey(F("ip4NTP")))
+        wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
+
+    // Detect what changed: NTP can be applied live, everything else needs a reboot
+    bool ntpChanged = (wifi_info.ip4NTP_str != old_info.ip4NTP_str);
+    bool networkChanged = (wifi_info.enableAp != old_info.enableAp) ||
+                          (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
+                          (wifi_info.apSsid != old_info.apSsid) ||
+                          (wifi_info.apPwd != old_info.apPwd) ||
+                          (wifi_info.enableStaticIp4 != old_info.enableStaticIp4) ||
+                          (wifi_info.ip4Address_str != old_info.ip4Address_str) ||
+                          (wifi_info.ip4Gateway_str != old_info.ip4Gateway_str) ||
+                          (wifi_info.ip4Subnet_str != old_info.ip4Subnet_str) ||
+                          (wifi_info.ip4DnsPrimary_str != old_info.ip4DnsPrimary_str) ||
+                          (wifi_info.ip4DnsSecondary_str != old_info.ip4DnsSecondary_str);
+
+    if (!ntpChanged && !networkChanged)
+    {
+        // Nothing changed, no need to save or restart
+        Serial.println(F("WiFi: No changes detected"));
+        server->send(200, F("application/json"), F("{\"restart\":false}"));
+        return;
+    }
 
     saveWifi(wifi_info);
 
-    server->send(200, F("text/plain"), "");
+    if (ntpChanged && !networkChanged)
+    {
+        // Only NTP changed - apply live without reboot
+        Serial.println(F("WiFi: NTP server changed, applying live"));
+        startNTP();
+        server->send(200, F("application/json"), F("{\"restart\":false,\"saved\":true}"));
+        return;
+    }
+
+    // Network settings changed - restart required to apply
+    Serial.println(F("WiFi: Network config changed, restarting..."));
+
+    String response = F("{\"restart\":true,\"reason\":\"Netzwerkeinstellungen geändert. WifiWhirl startet neu.\"}");
+    server->send(200, F("application/json"), response);
+
+    // Give server time to send response
+    delay(500);
+
+    // Save all settings
+    bwc->saveSettings();
+
+    // Stop all services gracefully
+    periodicTimer.detach();
+    updateMqttTimer.detach();
+    updateWSTimer.detach();
+    if (mqttClient)
+    {
+        mqttClient->disconnect();
+    }
+
+    delay(1000);
+
+    // Restart ESP to apply new network configuration
+    ESP.restart();
 }
 
 /*
@@ -1445,25 +2031,22 @@ void handleResetWifi()
 void resetWiFi()
 {
     sWifi_info wifi_info;
-    wifi_info.enableAp = true;
+    wifi_info.enableAp = false;
     wifi_info.enableWmApFallback = true;
-    wifi_info.apSsid = F("wifiwhirl");
-    wifi_info.apPwd = F("wifiwhirl");
+    wifi_info.apSsid = "";
+    wifi_info.apPwd = "";
     saveWifi(wifi_info);
-    delay(3000);
+
+    WiFi.disconnect(true);
+    WiFi.softAPdisconnect(true);
+    delay(500);
+
     periodicTimer.detach();
     updateMqttTimer.detach();
     updateWSTimer.detach();
     bwc->stop();
     bwc->saveSettings();
     delay(1000);
-    // #if defined(ESP8266)
-    //     ESP.eraseConfig();
-    // #endif
-    //     delay(1000);
-    //     wm.resetSettings();
-    //     startWiFiConfigPortal();
-    //     // WiFi.disconnect();
     //     delay(1000);
 }
 
@@ -1489,13 +2072,13 @@ void loadMqtt()
 
     bool needsMigration = false;
     useMqtt = doc[F("enableMqtt")];
-    
+
     if (doc.containsKey(F("mqttServer")))
     {
         mqttServer = doc[F("mqttServer")].as<String>();
     }
     // Backwards compatibility for old IPAddress format
-    else if (doc.containsKey(F("mqttIpAddress"))) 
+    else if (doc.containsKey(F("mqttIpAddress")))
     {
         IPAddress ip;
         ip[0] = doc[F("mqttIpAddress")][0];
@@ -1505,7 +2088,7 @@ void loadMqtt()
         mqttServer = ip.toString();
         needsMigration = true; // Mark for migration
     }
-    
+
     mqttPort = doc[F("mqttPort")];
     mqttUsername = doc[F("mqttUsername")].as<String>();
     mqttPassword = doc[F("mqttPassword")].as<String>();
@@ -1598,158 +2181,204 @@ void handleSetMqtt()
         return;
     }
 
+    // Store old values to detect changes that require HA discovery re-run
+    bool oldUseMqtt = useMqtt; // Store old MQTT enabled state
+    String oldMqttServer = mqttServer;
+    int oldMqttPort = mqttPort;
+    String oldMqttUsername = mqttUsername;
+    String oldMqttPassword = mqttPassword;
+    String oldMqttClientId = mqttClientId;
+    String oldMqttBaseTopic = mqttBaseTopic;
+
     useMqtt = doc[F("enableMqtt")];
     enableMqtt = useMqtt;
-    
-    if (doc.containsKey(F("mqttServer"))) {
+
+    if (doc.containsKey(F("mqttServer")))
+    {
         mqttServer = doc[F("mqttServer")].as<String>();
     }
 
     mqttPort = doc[F("mqttPort")];
     mqttUsername = doc[F("mqttUsername")].as<String>();
-    mqttPassword = doc[F("mqttPassword")].as<String>();
+
+    // Only update password if a new one is provided (not empty or placeholder)
+    String newPassword = doc[F("mqttPassword")].as<String>();
+    if (newPassword.length() > 0 && newPassword != "<Passwort eingeben>")
+    {
+        mqttPassword = newPassword;
+    }
+    else
+    {
+        // Load existing password from file to ensure we don't save empty password
+        File file = LittleFS.open("mqtt.json", "r");
+        if (file)
+        {
+            DynamicJsonDocument existingDoc(1024);
+            DeserializationError error = deserializeJson(existingDoc, file);
+            file.close();
+            if (!error && existingDoc.containsKey(F("mqttPassword")))
+            {
+                mqttPassword = existingDoc[F("mqttPassword")].as<String>();
+            }
+        }
+    }
+
     mqttClientId = doc[F("mqttClientId")].as<String>();
     mqttBaseTopic = doc[F("mqttBaseTopic")].as<String>();
     mqttTelemetryInterval = doc[F("mqttTelemetryInterval")];
 
-    server->send(200, F("text/plain"), "");
+    // These settings affect how entities are registered in Home Assistant
+    bool haRelevantChanged = false;
+    String changeReason = "";
 
+    if (oldMqttServer != mqttServer)
+    {
+        haRelevantChanged = true;
+        changeReason = "MQTT Server geändert";
+        Serial.print("MQTT: Server changed: ");
+        Serial.print(oldMqttServer);
+        Serial.print(" -> ");
+        Serial.println(mqttServer);
+    }
+
+    if (oldMqttPort != mqttPort)
+    {
+        haRelevantChanged = true;
+        changeReason = "MQTT Port geändert";
+        Serial.print("MQTT: Port changed: ");
+        Serial.print(oldMqttPort);
+        Serial.print(" -> ");
+        Serial.println(mqttPort);
+    }
+
+    if (oldMqttUsername != mqttUsername)
+    {
+        haRelevantChanged = true;
+        changeReason = "MQTT Benutzername geändert";
+        Serial.println("MQTT: Username changed");
+    }
+
+    if (oldMqttPassword != mqttPassword)
+    {
+        haRelevantChanged = true;
+        changeReason = "MQTT Passwort geändert";
+        Serial.println("MQTT: Password changed");
+    }
+
+    if (oldMqttClientId != mqttClientId)
+    {
+        haRelevantChanged = true;
+        changeReason = "MQTT Client ID geändert";
+        Serial.print("MQTT: Client ID changed: ");
+        Serial.print(oldMqttClientId);
+        Serial.print(" -> ");
+        Serial.println(mqttClientId);
+    }
+
+    if (oldMqttBaseTopic != mqttBaseTopic)
+    {
+        haRelevantChanged = true;
+        changeReason = "MQTT Base Topic geändert";
+        Serial.print("MQTT: Base topic changed: ");
+        Serial.print(oldMqttBaseTopic);
+        Serial.print(" -> ");
+        Serial.println(mqttBaseTopic);
+    }
+
+    // Save settings before responding
     saveMqtt();
-    startMqtt();
-}
 
-/**
- * response for /dir/
- * web server prints a list of files
- */
-void handleDir()
-{
-    HeapSelectIram ephemeral;
-    Serial.printf("dir IRamheap %d\n", ESP.getFreeHeap());
+    // Restart ESP if:
+    // 1. MQTT is being enabled (disabled -> enabled): Clean boot ensures proper discovery
+    // 2. MQTT was enabled, still enabled, and HA-relevant settings changed: Re-run discovery
+    //
+    // DO NOT restart if:
+    // - MQTT is being disabled (enabled -> disabled): Stop MQTT
+    // - MQTT stays disabled and settings changed: Save for future use
+    // - Only non-HA-relevant settings changed (telemetry interval): Reconnect
 
-    String mydir;
-    Dir root = LittleFS.openDir("/");
-    while (root.next())
+    bool mqttBeingEnabled = (!oldUseMqtt && useMqtt);
+    bool mqttBeingDisabled = (oldUseMqtt && !useMqtt);
+
+    if (mqttBeingEnabled)
     {
-        // Serial.println(root.fileName());
-        String href = root.fileName();
-        if (href.endsWith(".gz"))
-            href.remove(href.length() - 3);
-        mydir += F("<a href=\"/") + href + "\">" + root.fileName() + "</a>";
-        mydir += F("   Size: ") + String(root.fileSize()) + F(" Bytes ");
-        mydir += F("   <a href=\"/remove/?FileToRemove=") + root.fileName() + F("\">remove</a><br>");
+        // MQTT disabled -> enabled: Restart for clean discovery
+        Serial.println("========================================");
+        Serial.println("MQTT: Enabling MQTT");
+        Serial.println("MQTT: WifiWhirl restarting for clean initialization...");
+        Serial.println("========================================");
+
+        // Send response with restart notification
+        String response = "{\"restart\": true, \"reason\": \"MQTT wird aktiviert. WifiWhirl startet neu um Home Assistant Discovery durchzuführen.\"}";
+        server->send(200, F("application/json"), response);
+
+        // Give server time to send response
+        delay(500);
+
+        // Stop all services gracefully
+        periodicTimer.detach();
+        updateMqttTimer.detach();
+        updateWSTimer.detach();
+
+        // Restart ESP - after restart, discovery will run once with new settings
+        ESP.restart();
     }
-    server->send(200, F("text/html"), mydir);
-}
-
-/**
- * response for /upload.html
- * upload a new file to the LittleFS
- */
-void handleFileUpload()
-{
-    HTTPUpload &upload = server->upload();
-    String path;
-    if (upload.status == UPLOAD_FILE_START)
+    else if (haRelevantChanged && oldUseMqtt && useMqtt)
     {
-        path = upload.filename;
-        if (!path.startsWith("/"))
+        // MQTT was enabled and still is, settings changed -> restart for re-discovery
+        Serial.println("========================================");
+        Serial.println("MQTT: HA-relevant settings changed!");
+        Serial.print("MQTT: Reason: ");
+        Serial.println(changeReason);
+        Serial.println("MQTT: Restarting to re-run discovery...");
+        Serial.println("========================================");
+
+        // Send response with restart notification
+        String response = "{\"restart\": true, \"reason\": \"" + changeReason + ". WifiWhirl startet neu um MQTT Konfiguration zu aktualisieren.\"}";
+        server->send(200, F("application/json"), response);
+
+        // Give server time to send response
+        delay(500);
+
+        // Stop all services gracefully
+        periodicTimer.detach();
+        updateMqttTimer.detach();
+        updateWSTimer.detach();
+        if (mqttClient)
         {
-            path = "/" + path;
+            mqttClient->disconnect();
         }
 
-        // The file server always prefers a compressed version of a file
-        if (!path.endsWith(".gz"))
-        {
-            // So if an uploaded file is not compressed, the existing compressed
-            String pathWithGz = path + ".gz";
-            // version of that file must be deleted (if it exists)
-            if (LittleFS.exists(pathWithGz))
-            {
-                LittleFS.remove(pathWithGz);
-            }
-        }
-
-        Serial.print(F("handleFileUpload Name: "));
-        Serial.println(path);
-
-        // Open the file for writing in LittleFS (create if it doesn't exist)
-        fsUploadFile = LittleFS.open(path, "w");
-        path = String();
+        // Restart ESP - after restart, discovery will run once with new settings
+        ESP.restart();
     }
-    else if (upload.status == UPLOAD_FILE_WRITE)
+    else if (mqttBeingDisabled)
     {
-        if (fsUploadFile)
+        // MQTT enabled -> disabled: No restart needed, stop MQTT
+        Serial.println("MQTT: Disabling MQTT");
+        Serial.println("MQTT: Settings saved");
+        server->send(200, F("text/plain"), "");
+        if (mqttClient)
         {
-            // Write the received bytes to the file
-            fsUploadFile.write(upload.buf, upload.currentSize);
-            // Serial.print("file write ");
-            // Serial.println(path);
+            mqttClient->disconnect();
         }
     }
-    else if (upload.status == UPLOAD_FILE_END)
+    else if (haRelevantChanged && !useMqtt)
     {
-        if (fsUploadFile)
-        {
-            fsUploadFile.close();
-            Serial.print(F("handleFileUpload Size: "));
-            Serial.println(upload.totalSize);
-            server->sendHeader(F("location"), F("success.html"));
-            server->send(303);
-            if (upload.filename == "cmdq.json")
-            {
-                bwc->reloadCommandQueue();
-            }
-            if (upload.filename == "settings.json")
-            {
-                bwc->reloadSettings();
-            }
-        }
-        else
-        {
-            Serial.println(F("err: 500"));
-            server->send(500, F("text/plain"), F("500: couldn't create file"));
-        }
+        // MQTT disabled, settings changed: Save for future use
+        Serial.println("MQTT: HA-relevant settings changed but MQTT is disabled");
+        Serial.println("MQTT: Settings saved for future use");
+        server->send(200, F("text/plain"), "");
     }
     else
     {
-        Serial.print(F("upload status"));
-        Serial.println(upload.status);
-        server->send(500, F("text/plain"), F("500: upload aborted"));
-    }
-}
-
-/**
- * response for /remove.html
- * delete a file from the LittleFS
- */
-void handleFileRemove()
-{
-    String path;
-    path = server->arg(F("FileToRemove"));
-    if (!path.startsWith("/"))
-    {
-        path = "/" + path;
-    }
-
-    // Serial.print(F("handleFileRemove Name: "));
-    // Serial.println(path);
-
-    if (LittleFS.exists(path) && LittleFS.remove(path))
-    {
-        // Serial.print(F("handleFileRemove success: "));
-        // Serial.println(path);
-        if (server->method() == HTTP_GET)
-            server->sendHeader(F("Location"), F("/dir/"));
-        else
-            server->sendHeader(F("Location"), F("/success.html"));
-        server->send(303);
-    }
-    else
-    {
-        // Serial.print(F("handleFileRemove error: "));
-        // Serial.println(path);
-        server->send(500, F("text/plain"), F("500: couldn't delete file"));
+        // No HA-relevant changes, restart MQTT connection if enabled
+        Serial.println("MQTT: Settings updated (no discovery required)");
+        server->send(200, F("text/plain"), "");
+        if (useMqtt)
+        {
+            startMqtt();
+        }
     }
 }
 
@@ -1758,8 +2387,35 @@ void handleFileRemove()
  */
 void handleRestart()
 {
-    // send restart page
-    handleFileRead(F("/restart.html"));
+    // Send styled restart page
+    String html =
+        F("<!DOCTYPE html>"
+          "<html>"
+          "<head>"
+          "<title>WifiWhirl | Neustart</title>"
+          "<meta charset='utf-8' />"
+          "<meta name='viewport' content='width=device-width, initial-scale=1' />"
+          "<style>"
+          "body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }"
+          "h1 { color: #4051b5; margin-bottom: 20px; }"
+          "p { font-size: 18px; margin: 20px; color: #333; }"
+          ".info { color: #666; font-size: 16px; }"
+          ".btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #4051b5; color: white; text-decoration: none; border-radius: 5px; }"
+          ".btn:hover { background: #2c3a8f; }"
+          "</style>"
+          "</head>"
+          "<body>"
+          "<h1>WifiWhirl startet neu...</h1>"
+          "<p>Das Modul wird neu gestartet.</p>"
+          "<p class='info'>Bitte warte ca. 30 Sekunden...</p>"
+          "<a href='/' class='btn'>Zurück zur Übersicht</a>"
+          "<script>"
+          "setTimeout(function() { window.location.href = '/'; }, 30000);"
+          "</script>"
+          "</body>"
+          "</html>");
+
+    server->send(200, F("text/html"), html);
 
     // save all settings
     bwc->saveSettings();
@@ -1807,10 +2463,11 @@ void startMqtt()
 
     // setup MQTT broker information as defined earlier
     mqttClient->setServer(mqttServer.c_str(), mqttPort);
-    // set buffer for larger messages, new to library 2.8.0
-    if (mqttClient->setBufferSize(1536))
+    // MEMORY OPTIMIZATION: Reduced buffer from 1536 to 768 bytes to save heap
+    // Home Assistant discovery still works with smaller buffers due to streaming publish
+    if (mqttClient->setBufferSize(768))
     {
-        // Serial.println(F("MQTT > Buffer size successfully increased"));
+        Serial.println(F("MQTT > Buffer size set to 768 bytes"));
     }
     mqttClient->setKeepAlive(60);
     mqttClient->setSocketTimeout(30);
@@ -1848,8 +2505,8 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
         Commands command = doc[F("CMD")];
         int64_t value = doc[F("VALUE")];
-        int64_t xtime = doc[F("XTIME")];
-        int64_t interval = doc[F("INTERVAL")];
+        int64_t xtime = doc[F("XTIME")] | 0;
+        int64_t interval = doc[F("INTERVAL")] | 0;
         String txt = doc[F("TXT")] | "";
         command_que_item item;
         item.cmd = command;
@@ -1877,9 +2534,9 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
         {
             Commands command = commandItem[F("CMD")];
             int64_t value = commandItem[F("VALUE")];
-            int64_t xtime = commandItem[F("XTIME")];
-            int64_t interval = commandItem[F("INTERVAL")];
-            String txt = doc[F("TXT")] | "";
+            int64_t xtime = commandItem[F("XTIME")] | 0;
+            int64_t interval = commandItem[F("INTERVAL")] | 0;
+            String txt = commandItem[F("TXT")] | "";
             command_que_item item;
             item.cmd = command;
             item.val = value;
@@ -1943,9 +2600,21 @@ void mqttConnect()
         mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), buttonname.c_str(), true);
         mqttClient->loop();
         sendMQTT();
-        Serial.println("HA");
-        setupHA();
-        Serial.println("done");
+
+        // Only run HA discovery on FIRST connection after boot
+        // NOT on every reconnect (would waste memory and cause instability)
+        extern bool haDiscoveryHasRunOnce;
+        if (!haDiscoveryHasRunOnce)
+        {
+            Serial.println("HA");
+            setupHA();
+            Serial.println("done");
+            haDiscoveryHasRunOnce = true;
+        }
+        else
+        {
+            Serial.println("HA: Skipping discovery (already ran after boot)");
+        }
 #endif
     }
     else

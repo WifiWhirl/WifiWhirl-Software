@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <title>WifiWhirl | Smart Schedule</title>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" sizes="180x180" href="logo.png" />
+    <meta name="theme-color" content="#4051b5" />
+    <link rel="manifest" href="manifest.json" />
+    <link
+      rel="stylesheet"
+      href="main.css"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
+    />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+
+    <script src="function.js" type="text/javascript"></script>
+    <script src="index.js" type="text/javascript"></script>
+  </head>
+
+  <body onload="loadSmartSchedule()">
+    <div id="site">
+      <header>
+        <form id="darkModeForm">
+          <label class="switch">
+            <input
+              type="checkbox"
+              id="darkModeToggle"
+              onchange="toggleDarkMode()"
+            />
+            <span class="slider round"></span>
+          </label>
+        </form>
+        <a href="./"
+          ><div id="header">
+            <span>Smart Schedule</span><span id="fw">WifiWhirl</span>
+          </div></a
+        >
+        <a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
+      </header>
+
+      <div class="topnav" id="topnav">
+        <a href="./">Dashboard</a>
+        <a href="automation.html">Automatisierung</a>
+        <a href="smartschedule.html" class="active">Smart Schedule</a>
+        <a href="config.html">SPA-Konfiguration</a>
+        <a href="webconfig.html">Web-Konfiguration</a>
+        <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="wifi.html">Netzwerkkonfiguration</a>
+        <a href="hwconfig.html">Pumpenkonfiguration</a>
+        <a href="/restart/">WifiWhirl Modul neu starten</a>
+      </div>
+
+      <!-- Current Schedule Status -->
+      <section>
+        <h2>Aktueller Status</h2>
+        <div id="statusActive" style="display: none">
+          <table>
+            <tr>
+              <td><strong>Status:</strong></td>
+              <td>
+                <strong><span id="statusLabel">Aktiv</span></strong>
+              </td>
+            </tr>
+            <tr>
+              <td>Zieltemperatur:</td>
+              <td><span id="statusTargetTemp">--</span> °C</td>
+            </tr>
+            <tr>
+              <td>Zielzeit:</td>
+              <td><span id="statusTargetTime">--</span></td>
+            </tr>
+            <tr>
+              <td>Verbleibende Zeit:</td>
+              <td><span id="statusTimeRemaining">--</span></td>
+            </tr>
+            <tr>
+              <td>Heizstart:</td>
+              <td><span id="statusStartTime">--</span></td>
+            </tr>
+            <tr>
+              <td>Zeit bis Start:</td>
+              <td><span id="statusTimeUntilStart">--</span></td>
+            </tr>
+            <tr>
+              <td>Geschätzte Heizdauer:</td>
+              <td><span id="statusEstimate">--</span></td>
+            </tr>
+            <tr>
+              <td>Sicherheitspuffer:</td>
+              <td><span id="statusBuffer">--</span></td>
+            </tr>
+            <tr id="statusRemainingRow" style="display: none">
+              <td><strong>Verbleibende Heizdauer:</strong></td>
+              <td>
+                <strong><span id="statusRemaining">--</span></strong>
+              </td>
+            </tr>
+            <tr style="background-color: rgba(76, 175, 80, 0.1)">
+              <td><strong>Heizung Status:</strong></td>
+              <td>
+                <strong><span id="statusHeater">--</span></strong>
+              </td>
+            </tr>
+            <tr
+              id="statusReadingState"
+              style="display: none; background-color: rgba(33, 150, 243, 0.1)"
+            >
+              <td colspan="2" class="center">
+                <span id="statusReadingStateText">--</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Aktuelle Temperatur:</td>
+              <td><span id="statusCurrentTemp">--</span> °C</td>
+            </tr>
+            <tr>
+              <td>Gemessene Temperatur:</td>
+              <td><span id="statusAccurateTemp">--</span></td>
+            </tr>
+            <tr>
+              <td>Nächste Prüfung:</td>
+              <td><span id="statusNextCheck">--</span></td>
+            </tr>
+          </table>
+          <table>
+            <tr>
+              <td class="center">
+                <button
+                  id="cancelBtn"
+                  class="button_red"
+                  onclick="
+                    buttonConfirm(this);
+                    cancelSchedule();
+                  "
+                >
+                  Zeitplan abbrechen
+                </button>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div id="statusInactive">
+          <table>
+            <tr>
+              <td colspan="2" class="center">
+                <strong>Kein aktiver Zeitplan</strong><br />
+                Erstelle unten einen neuen Smart Schedule.
+              </td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <!-- Create New Schedule -->
+      <section>
+        <h2>Neuen Zeitplan erstellen</h2>
+        <table>
+          <tr>
+            <td colspan="2">
+              Smart Schedule plant automatisch, wann die Heizung gestartet
+              werden muss, damit dein Pool zur gewünschten Zeit die
+              Zieltemperatur erreicht hat.
+            </td>
+          </tr>
+          <tr>
+            <td><label for="targetDateTime">Datum & Uhrzeit:</label></td>
+            <td>
+              <input type="datetime-local" id="targetDateTime" required />
+            </td>
+          </tr>
+          <tr>
+            <td><label for="targetTemp">Zieltemperatur:</label></td>
+            <td>
+              <input
+                type="number"
+                id="targetTemp"
+                value="37"
+                min="20"
+                max="40"
+                required
+              /><span class="inputunit" style="margin-left: 5px">°C</span>
+            </td>
+          </tr>
+          <tr>
+            <td><label for="keepHeaterOn">Heizung nach Erreichen:</label></td>
+            <td>
+              <select id="keepHeaterOn">
+                <option value="false">Ausschalten</option>
+                <option value="true">Eingeschaltet lassen</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td class="center" colspan="2">
+              <button
+                id="setScheduleBtn"
+                class="button"
+                onclick="
+                  buttonConfirm(this);
+                  setSchedule();
+                "
+              >
+                Zeitplan aktivieren
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <!-- Info Section -->
+      <section>
+        <h2>Wie funktioniert Smart Schedule?</h2>
+        <table>
+          <tr>
+            <td>
+              <strong>Automatische Berechnung:</strong><br />
+              Das System berechnet basierend auf aktueller Wassertemperatur,
+              Umgebungstemperatur und Poolkapazität, wann die Heizung gestartet
+              werden muss.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Präzise Temperaturmessung:</strong><br />
+              Für genaue Messungen wird die Pumpe 20 Sekunden eingeschaltet,
+              dann 20 Sekunden gewartet, bevor die Temperatur gemessen wird.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Adaptive Prüfintervalle:</strong><br />
+              Bei mehr als 24h bis zum Heizstart: Prüfung alle 12h. Danach wird
+              in der halben verbleibenden Zeit erneut geprüft.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Sicherheitspuffer:</strong><br />
+              Es wird ein Puffer von 10% (mindestens 1 Stunde) eingeplant, damit
+              dein Pool garantiert rechtzeitig warm ist.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Persistent:</strong><br />
+              Der Zeitplan bleibt auch nach einem Neustart aktiv.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Manuelle Steuerung:</strong><br />
+              Wenn du während eines aktiven Zeitplans die Heizung manuell
+              ausschaltest (über die Übersichtsseite oder das Bedienpanel), wird
+              der Zeitplan automatisch abgebrochen. So behältst du jederzeit die
+              volle Kontrolle.
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <footer>
+        <p class="center">
+          <span><a href="info.html">Softwareinfo</a></span>
+        </p>
+      </footer>
+    </div>
+
+    <script src="smartschedule.js"></script>
+    <script src="darkmode.js"></script>
+  </body>
+</html>

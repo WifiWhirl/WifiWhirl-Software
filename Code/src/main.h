@@ -56,8 +56,6 @@ ESP8266WebServer *server;
 #elif defined(ESP32)
 WebServer server(80);
 #endif
-/** a file variable to temporarily store the received file */
-File fsUploadFile;
 
 /** a websocket object that listens on port 81 */
 WebSocketsServer *webSocket;
@@ -84,6 +82,12 @@ Ticker updateMqttTimer;
 bool sendMQTTFlag = false;
 bool enableMqtt = false;
 bool enableWeather = false;
+/** Flag to block MQTT publishing during Home Assistant discovery to prevent memory corruption */
+bool haDiscoveryInProgress = false;
+/** Timestamp of last HA discovery completion - prevents immediate re-discovery after disconnect */
+unsigned long haDiscoveryLastCompleted = 0;
+/** Flag to track if this is first discovery after boot - don't restart after first one */
+bool haDiscoveryHasRunOnce = false;
 
 /** used for handleAUX() */
 bool runonce = true;
@@ -93,7 +97,7 @@ void sendWS();
 void getOtherInfo(String &rtn);
 void sendMQTT();
 void startWiFi();
-void startWiFiConfigPortal();
+void startWiFiConfigPortal(const String &storedSsid = "", const String &storedPwd = "");
 void startNTP();
 void startOTA();
 void stopall();
@@ -108,7 +112,6 @@ String getContentType(const String &filename);
 bool handleFileRead(String path);
 bool checkHttpPost(HTTPMethod method);
 String queryAmbientTemperature();
-void handleGetLatestVersion();
 void handleGetWeather();
 void handleGetConfig();
 void handleSetConfig();
@@ -126,19 +129,21 @@ sWifi_info loadWifi();
 void saveWifi(const sWifi_info &wifi_info);
 void handleGetWifi();
 void handleSetWifi();
+void handleScanWifi();
 void handleResetWifi();
 void resetWiFi();
 void loadMqtt();
 void saveMqtt();
 void handleGetMqtt();
 void handleSetMqtt();
-void handleDir();
-void handleFileUpload();
-void handleFileRemove();
 void handleRestart();
 void handleWebhook();
 void handleGetStates();
+void handleGetTemps();
 void handleUpdate();
+void handleGetSmartSchedule();
+void handleSetSmartSchedule();
+void handleCancelSmartSchedule();
 void startMqtt();
 void mqttCallback(char *topic, byte *payload, unsigned int length);
 void mqttConnect();

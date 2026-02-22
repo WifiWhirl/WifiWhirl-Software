@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html ontouchmove>
+<!doctype html>
+<html lang="de" ontouchmove>
   <head>
     <title>WifiWhirl</title>
     <meta charset="utf-8" />
@@ -9,7 +9,10 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
     <meta
       name="viewport"
@@ -41,12 +44,14 @@
       </header>
 
       <div class="topnav" id="topnav">
-        <a href="./" class="active">Übersicht</a>
-        <a href="hwconfig.html">Hardware-Konfiguration</a>
+        <a href="./" class="active">Dashboard</a>
+        <a href="automation.html">Automatisierung</a>
+        <a href="smartschedule.html">Smart Schedule</a>
         <a href="config.html">SPA-Konfiguration</a>
         <a href="webconfig.html">Web-Konfiguration</a>
-        <a href="wifi.html">Netzwerkkonfiguration</a>
         <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="wifi.html">Netzwerkkonfiguration</a>
+        <a href="hwconfig.html">Pumpenkonfiguration</a>
         <a href="/restart/">WifiWhirl Modul neu starten</a>
       </div>
 
@@ -169,7 +174,10 @@
             <td class="center">
               <div class="selector">
                 <button
-                  onclick="increaseNumber('selectorTemp');sendCommand('setTargetSelector')"
+                  onclick="
+                    increaseNumber('selectorTemp');
+                    sendCommand('setTargetSelector');
+                  "
                   class="selectorbutton selectortop"
                 >
                   ᐱ
@@ -189,7 +197,10 @@
                   <span class="numDisplay"></span>
                 </div>
                 <button
-                  onclick="decreaseNumber('selectorTemp');sendCommand('setTargetSelector')"
+                  onclick="
+                    decreaseNumber('selectorTemp');
+                    sendCommand('setTargetSelector');
+                  "
                   class="selectorbutton selectorbottom"
                 >
                   ᐯ
@@ -199,7 +210,10 @@
             <td class="center">
               <div class="selector">
                 <button
-                  onclick="increaseNumber('selectorAmb');sendCommand('setAmbientSelector')"
+                  onclick="
+                    increaseNumber('selectorAmb');
+                    sendCommand('setAmbientSelector');
+                  "
                   class="selectorbutton selectortop"
                 >
                   ᐱ
@@ -219,7 +233,10 @@
                   <span class="numDisplay"></span>
                 </div>
                 <button
-                  onclick="decreaseNumber('selectorAmb');sendCommand('setAmbientSelector')"
+                  onclick="
+                    decreaseNumber('selectorAmb');
+                    sendCommand('setAmbientSelector');
+                  "
                   class="selectorbutton selectorbottom"
                 >
                   ᐯ
@@ -229,7 +246,10 @@
             <td class="center">
               <div class="selector">
                 <button
-                  onclick="increaseNumber('selectorBrt');sendCommand('setBrightnessSelector')"
+                  onclick="
+                    increaseNumber('selectorBrt');
+                    sendCommand('setBrightnessSelector');
+                  "
                   class="selectorbutton selectortop"
                 >
                   ᐱ
@@ -246,10 +266,13 @@
                   onchange="sendCommand('setBrightnessSelector')"
                 />
                 <div class="wrapper">
-                  <span class="numDisplay"></span>
+                  <span class="numDisplay noleft"></span>
                 </div>
                 <button
-                  onclick="decreaseNumber('selectorBrt');sendCommand('setBrightnessSelector')"
+                  onclick="
+                    decreaseNumber('selectorBrt');
+                    sendCommand('setBrightnessSelector');
+                  "
                   class="selectorbutton selectorbottom"
                 >
                   ᐯ
@@ -262,7 +285,13 @@
 
       <section id="sectionButtons">
         <h2>Tasten</h2>
-        <table class="fixed">
+        <table>
+          <colgroup>
+            <col />
+            <col style="width: 25%" />
+            <col />
+            <col style="width: 25%" />
+          </colgroup>
           <tr>
             <td class="right">Aus/Ein</td>
             <td>
@@ -323,7 +352,7 @@
                 <span class="slider round"></span>
               </label>
             </td>
-            <td class="right">Einheit °F/°C</td>
+            <td class="right" style="white-space: nowrap">Einheit °F/°C</td>
             <td>
               <label class="switch">
                 <input
@@ -355,51 +384,214 @@
         <h2>Timer</h2>
         <table>
           <tr>
-            <td>Zugabe von Chlor<br />vor <span id="cltimer">unbek.</span></td>
+            <td>
+              Zugabe von Chlor<br /><span class="label-subtle"
+                >Zuletzt: <span id="cltimer">unbek.</span></span
+              >
+            </td>
             <td>
               <button
                 id="cltimerbtn"
                 class="button"
-                onclick="if(confirm('Möchtest du den Timer für die Chlorzugabe wirklich zurücksetzen?')) { buttonConfirm(this); sendCommand('resetTimerChlorine'); }"
+                onclick="
+                  if (
+                    confirm(
+                      'Möchtest du den Timer für die Chlorzugabe wirklich zurücksetzen?',
+                    )
+                  ) {
+                    buttonConfirm(this);
+                    sendCommand('resetTimerChlorine');
+                  }
+                "
               >
                 zurücksetzen
               </button>
             </td>
           </tr>
           <tr>
-            <td>Filterreinigung<br />vor <span id="fctimer">unbek.</span></td>
+            <td>
+              Filterreinigung<br /><span class="label-subtle"
+                >Zuletzt: <span id="fctimer">unbek.</span></span
+              >
+            </td>
             <td>
               <button
                 id="fctimerbtn"
                 class="button"
-                onclick="if(confirm('Möchtest du den Timer für die Filterreinigung wirklich zurücksetzen?')) { buttonConfirm(this); sendCommand('resetTimerCleanFilter'); }"
+                onclick="
+                  if (
+                    confirm(
+                      'Möchtest du den Timer für die Filterreinigung wirklich zurücksetzen?',
+                    )
+                  ) {
+                    buttonConfirm(this);
+                    sendCommand('resetTimerCleanFilter');
+                  }
+                "
               >
                 zurücksetzen
               </button>
             </td>
           </tr>
           <tr>
-            <td>Filterwechsel<br />vor <span id="ftimer">unbek.</span></td>
+            <td>
+              Filterwechsel<br /><span class="label-subtle"
+                >Zuletzt: <span id="ftimer">unbek.</span></span
+              >
+            </td>
             <td>
               <button
                 id="ftimerbtn"
                 class="button"
-                onclick="if(confirm('Möchtest du den Timer für den Filterwechsel wirklich zurücksetzen?')) { buttonConfirm(this); sendCommand('resetTimerFilter'); }"
+                onclick="
+                  if (
+                    confirm(
+                      'Möchtest du den Timer für den Filterwechsel wirklich zurücksetzen?',
+                    )
+                  ) {
+                    buttonConfirm(this);
+                    sendCommand('resetTimerFilter');
+                  }
+                "
               >
                 zurücksetzen
               </button>
             </td>
           </tr>
           <tr>
-            <td>Wasserwechsel<br />vor <span id="wctimer">unbek.</span></td>
+            <td>
+              Wasserwechsel<br /><span class="label-subtle"
+                >Zuletzt: <span id="wctimer">unbek.</span></span
+              >
+            </td>
             <td>
               <button
                 id="wctimerbtn"
                 class="button"
-                onclick="if(confirm('Möchtest du den Timer für den Wasserwechsel wirklich zurücksetzen?')) { buttonConfirm(this); sendCommand('resetTimerWaterChange'); }"
+                onclick="
+                  if (
+                    confirm(
+                      'Möchtest du den Timer für den Wasserwechsel wirklich zurücksetzen?',
+                    )
+                  ) {
+                    buttonConfirm(this);
+                    sendCommand('resetTimerWaterChange');
+                  }
+                "
               >
                 zurücksetzen
               </button>
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="sectionWaterQuality">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <h2 style="margin: 0">Wasserqualität</h2>
+          <span
+            class="tooltip"
+            data-text="In der Web-Konfiguration können zusätzliche Messungen für Alkalinität und Cyanursäure aktiviert werden."
+            >?</span
+          >
+        </div>
+        <table class="fixed">
+          <tr>
+            <td>pH-Wert</td>
+            <td>
+              <input
+                type="number"
+                id="phinput"
+                class="wq-input"
+                lang="de"
+                min="0"
+                max="14"
+                step="0.1"
+                value="7.2"
+                inputmode="decimal"
+                oninput="onPhInput()"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="wq-info-row">
+              Idealwert: 7,2 - 7,6 ·
+              <span class="label-subtle"
+                >Zuletzt: <span id="phtimer">unbek.</span></span
+              >
+            </td>
+          </tr>
+          <tr>
+            <td>Chlor (mg/L)</td>
+            <td>
+              <input
+                type="number"
+                id="clinput"
+                class="wq-input"
+                lang="de"
+                min="0"
+                max="10"
+                step="0.1"
+                value="1.0"
+                inputmode="decimal"
+                oninput="onClInput()"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="wq-info-row">
+              Idealwert: 1,0 - 3,0 ·
+              <span class="label-subtle"
+                >Zuletzt: <span id="cltimer2">unbek.</span></span
+              >
+            </td>
+          </tr>
+          <tr id="rowCyaValue">
+            <td>Cyanursäure (mg/L)</td>
+            <td>
+              <input
+                type="number"
+                id="cyainput"
+                class="wq-input"
+                min="0"
+                max="200"
+                step="1"
+                value="30"
+                inputmode="numeric"
+                oninput="onCyaInput()"
+              />
+            </td>
+          </tr>
+          <tr id="rowCyaInfo">
+            <td colspan="2" class="wq-info-row">
+              Idealwert: 30 - 50 ·
+              <span class="label-subtle"
+                >Zuletzt: <span id="cyatimer">unbek.</span></span
+              >
+            </td>
+          </tr>
+          <tr id="rowAlkValue">
+            <td>Alkalinität (mg/L)</td>
+            <td>
+              <input
+                type="number"
+                id="alkinput"
+                class="wq-input"
+                min="0"
+                max="300"
+                step="1"
+                value="100"
+                inputmode="numeric"
+                oninput="onAlkInput()"
+              />
+            </td>
+          </tr>
+          <tr id="rowAlkInfo">
+            <td colspan="2" class="wq-info-row">
+              Idealwert: 80 - 120 ·
+              <span class="label-subtle"
+                >Zuletzt: <span id="alktimer">unbek.</span></span
+              >
             </td>
           </tr>
         </table>
@@ -416,7 +608,7 @@
             <td>
               Bereit in:
               <span
-                data-text="Funktioniert am besten, wenn die Umgebungstemperatur automatisch ermittelt wird (SPA-Konfiguration)."
+                data-text="Funktioniert am besten, wenn die Umgebungstemperatur automatisch ermittelt wird und der Wasserinhalt angegeben ist (SPA-Konfiguration)."
                 class="tooltip"
                 >?</span
               >
@@ -451,15 +643,33 @@
             <td><span id="jettime">unbek.</span></td>
           </tr>
           <tr>
-            <td>Geschätzte Kosten:</td>
-            <td><span id="cost">unbek.</span> €</td>
-          </tr>
-          <tr>
             <td colspan="2" class="center">
               <button id="reset" class="button" onclick="resetTotals()">
                 zurücksetzen
               </button>
             </td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="sectionEnergy">
+        <h2>Energie & Kosten</h2>
+        <table>
+          <tr>
+            <td>Aktuelle Leistung:</td>
+            <td><span id="energy_power">unbek.</span> W</td>
+          </tr>
+          <tr>
+            <td>Energieverbrauch heute:</td>
+            <td><span id="energy_today">unbek.</span> kWh</td>
+          </tr>
+          <tr>
+            <td>Gesamtenergieverbrauch:</td>
+            <td><span id="energy_total">unbek.</span> kWh</td>
+          </tr>
+          <tr>
+            <td>Geschätzte Kosten:</td>
+            <td><span id="cost">unbek.</span> €</td>
           </tr>
         </table>
       </section>
@@ -498,6 +708,9 @@
       function initApplication() {
         if (localStorage.getItem("showSectionTemperature")) {
           setWebConfig();
+        } else {
+          // Apply alternating backgrounds even if no config exists yet
+          updateSectionBackgrounds();
         }
         loadWebConfig();
         connect();
@@ -528,6 +741,30 @@
           localStorage.getItem("showSectionTotals") !== "false"
             ? "block"
             : "none";
+        document.getElementById("sectionEnergy").style.display =
+          localStorage.getItem("showSectionEnergy") !== "false"
+            ? "block"
+            : "none";
+        document.getElementById("sectionWaterQuality").style.display =
+          localStorage.getItem("showSectionWaterQuality") !== "false"
+            ? "block"
+            : "none";
+        // Cyanursäure visibility (default: hidden)
+        var showCya = localStorage.getItem("showWQCyanuric") === "true";
+        document.getElementById("rowCyaValue").style.display = showCya
+          ? ""
+          : "none";
+        document.getElementById("rowCyaInfo").style.display = showCya
+          ? ""
+          : "none";
+        // Alkalinität visibility (default: hidden)
+        var showAlk = localStorage.getItem("showWQAlkalinity") === "true";
+        document.getElementById("rowAlkValue").style.display = showAlk
+          ? ""
+          : "none";
+        document.getElementById("rowAlkInfo").style.display = showAlk
+          ? ""
+          : "none";
         document.getElementById("tableSlider").style.display =
           localStorage.getItem("useControlSelector") !== "false"
             ? "none"
@@ -536,6 +773,24 @@
           localStorage.getItem("useControlSelector") !== "false"
             ? "table"
             : "none";
+        // Update alternating section backgrounds for visible sections
+        updateSectionBackgrounds();
+      }
+
+      function updateSectionBackgrounds() {
+        var sections = document.querySelectorAll("#site > section");
+        var visibleIndex = 0;
+        sections.forEach(function (section) {
+          section.classList.remove("odd-section");
+          // Check computed style since display might not be set inline initially
+          var isVisible = window.getComputedStyle(section).display !== "none";
+          if (isVisible) {
+            if (visibleIndex % 2 === 0) {
+              section.classList.add("odd-section");
+            }
+            visibleIndex++;
+          }
+        });
       }
 
       function loadWebConfig() {
@@ -552,6 +807,12 @@
             localStorage.setItem("showSectionButtons", json.SSB);
             localStorage.setItem("showSectionTimer", json.SSTIM);
             localStorage.setItem("showSectionTotals", json.SSTOT);
+            localStorage.setItem(
+              "showSectionWaterQuality",
+              json.SSWQ !== false,
+            );
+            localStorage.setItem("showWQCyanuric", json.SWQCYA === true);
+            localStorage.setItem("showWQAlkalinity", json.SWQALK === true);
             localStorage.setItem("useControlSelector", json.UCS);
             setWebConfig();
           }
@@ -559,7 +820,11 @@
       }
 
       function resetTotals() {
-        if (confirm("Möchtest du wirklich alle Zähler zurücksetzen?")) {
+        if (
+          confirm(
+            "Möchtest du wirklich alle Zähler zurücksetzen? Dies setzt auch alle Zähler der Energiekosten zurück.",
+          )
+        ) {
           buttonConfirm(document.getElementById("reset"));
           sendCommand("resetTotals");
         }

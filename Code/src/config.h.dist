@@ -32,10 +32,8 @@ const char *update_path = "/update";
  */
 /** Cloud API URL */
 const char *cloudApi = "";
-/** Cloud API URL */
+/** Cloud API Key */
 const char *cloudApiKey PROGMEM = "";
-/** Cloud API SSL Certificate */
-const char *x509CA PROGMEM = "";
 
 /*
  * Web UI Configuration
@@ -54,6 +52,14 @@ bool showSectionButtons = true;
 bool showSectionTimer = true;
 /** get or set the state of displaying the "Totals" section */
 bool showSectionTotals = true;
+/** get or set the state of displaying the "Energy" section */
+bool showSectionEnergy = true;
+/** get or set the state of displaying the "Water Quality" section */
+bool showSectionWaterQuality = true;
+/** get or set the state of displaying "Cyanuric Acid" in Water Quality section (default: hidden) */
+bool showWQCyanuric = false;
+/** get or set the state of displaying "Alkalinity" in Water Quality section (default: hidden) */
+bool showWQAlkalinity = false;
 /** get or set the state of displaying slider or selector */
 bool useControlSelector = false;
 /** get the state of password visibility */

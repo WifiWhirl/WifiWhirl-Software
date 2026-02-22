@@ -12,18 +12,27 @@ BWC::BWC()
     _filter_timestamp_s = time(nullptr);
     _fc_timestamp_s = time(nullptr);
     _wc_timestamp_s = time(nullptr);
+    _ph_timestamp_s = time(nullptr);
+    _clv_timestamp_s = time(nullptr);
     _uptime = 0;
     _pumptime = 0;
     _heatingtime = 0;
     _airtime = 0;
     _jettime = 0;
     _price = 0.35;
-    _cl_interval = 14;
+    _cl_interval = 7;
     _filter_interval = 30;
     _fc_interval = 60;
     _wc_interval = 90;
+    _ph_interval = 3;              // Check pH every 3 days by default
     _audio_enabled = true;
     _ambient_temp = 20;
+    _last_ph_value = 72;           // Default pH 7.2 (stored as 72)
+    _last_cl_value = 10;           // Default 1.0 mg/L (stored as 10)
+    _last_cya_value = 300;         // Default 30.0 mg/L (stored as 300)
+    _last_alk_value = 100;         // Default 100 mg/L
+    _cya_timestamp_s = 0;
+    _alk_timestamp_s = 0;
 }
 
 BWC::~BWC()
@@ -121,8 +130,6 @@ void BWC::begin()
     // dsp->LEDshow();
     _save_settings_ticker.attach(600.0f, save_settings_cb, this);
     _scroll_text_ticker.attach(0.25f, scroll_text_cb, this);
-
-    _next_notification_time = _notification_time;
 }
 
 void BWC::loop()
@@ -142,6 +149,15 @@ void BWC::loop()
     dsp->dsp_states = cio->cio_states;
 
     /*Modify and use dsp->dsp_states here if we want to show text or something*/
+    // Apply static text override if active
+    if (_static_text_active)
+    {
+        dsp->dsp_states.char1 = _static_char1;
+        dsp->dsp_states.char2 = _static_char2;
+        dsp->dsp_states.char3 = _static_char3;
+        dsp->dsp_states.power = 1; // Force display on for static text
+    }
+    
     dsp->setRawPayload(cio->getRawPayload());
     /*Increase screen brightness when pressing buttons*/
     adjust_brightness();
@@ -164,6 +180,10 @@ void BWC::loop()
 
     /*following method will change target temp and set _dsp_tgt_used to false if target temp is changed*/
     _handleCommandQ();
+    /*Handle smart schedule before processing toggles so pump/heater changes are applied*/
+    _handleSmartSchedule();
+    /*Check if jets have exceeded their configured timeout*/
+    _checkJetTimeouts();
     /*If new target was not set above, use whatever the cio says*/
     cio->setRawPayload(dsp->getRawPayload());
     cio->handleToggles();
@@ -174,7 +194,8 @@ void BWC::loop()
         _saveCommandQueue();
     if (_save_states_needed)
         _saveStates();
-    _handleNotification();
+    if (_save_smartschedule_needed)
+        _saveSmartSchedule();
     _handleStateChanges();
     // logstates();
     if (BWC_DEBUG)
@@ -193,7 +214,7 @@ void BWC::_log()
     prev_fromcio = fromcio;
     prev_fromdsp = fromdsp;
 
-    File file = LittleFS.open("log.txt", "a");
+    File file = LittleFS.open("/log.txt", "a");
     if (!file)
     {
         // Serial.println(F("Failed to save states.txt"));
@@ -313,34 +334,6 @@ bool BWC::_compare_command(const command_que_item &i1, const command_que_item &i
     return i1.xtime < i2.xtime;
 }
 
-void BWC::_handleNotification()
-{
-    /* user don't want a notification*/
-    if (!_notify)
-        return;
-    /* there is no upcoming command*/
-    if (_command_que.size() == 0)
-    {
-        _next_notification_time = _notification_time;
-        return;
-    }
-    /* not the time yet*/
-    if ((int64_t)_command_que[0].xtime - (int64_t)_timestamp_secs > (int64_t)_next_notification_time)
-        return;
-    /* only _notify for these commands*/
-    if (!(_command_que[0].cmd == SETBUBBLES || _command_que[0].cmd == SETHEATER || _command_que[0].cmd == SETJETS || _command_que[0].cmd == SETPUMP))
-        return;
-
-    if (_audio_enabled)
-        _sweepup();
-    dsp->text += "  --" + String(_next_notification_time) + "--";
-    // dsp->dsp_states.text = "i-i-";
-    if (_next_notification_time <= 2)
-        _next_notification_time = -10; // postpone "alarm" until after the command xtime (will be reset on command execution)
-    else
-        _next_notification_time /= 2;
-}
-
 void BWC::_handleCommandQ()
 {
     if (_command_que.size() < 1)
@@ -356,14 +349,34 @@ void BWC::_handleCommandQ()
         _command_que.push_back(_command_que[0]);
     }
 
-    // Do not turn off pump if Heater is running
+    // Do not turn off pump if Heater is running (unless forced)
     // Fixes situations when you want to heat your pool but your daily pump cycle is running and turning off your heater
-    if (_command_que[0].cmd == SETPUMP && cio->cio_states.heat)
+    if (_command_que[0].cmd == SETPUMP && 
+        _command_que[0].val == 0 &&           // Only block turn-off commands
+        cio->cio_states.heat && 
+        !_command_que[0].force)               // Allow if force=true
     {
         _command_que.erase(_command_que.begin());
-        _next_notification_time = _notification_time; // reset alarm time
         _save_cmdq_needed = true;
         return;
+    }
+
+    // Force pump off while heater is running: turn off heater first
+    // The hot tub hardware prevents pump-off while the heater is active.
+    // Insert a heater-off command before the pump-off so it is processed first.
+    if (_command_que[0].cmd == SETPUMP &&
+        _command_que[0].val == 0 &&
+        cio->cio_states.heat &&
+        _command_que[0].force)
+    {
+        command_que_item heater_off;
+        heater_off.cmd = SETHEATER;
+        heater_off.val = 0;
+        heater_off.xtime = 0;
+        heater_off.interval = 0;
+        heater_off.force = false;
+        _command_que.insert(_command_que.begin(), heater_off);
+        // heater-off is now at [0], pump-off shifted to [1]; heater-off is processed this cycle
     }
 
     _handlecommand(_command_que[0].cmd, _command_que[0].val, _command_que[0].text);
@@ -401,6 +414,20 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         /*Send this value to cio instead of results from button presses on the display*/
         _dsp_tgt_used = false;
         _web_target = cio->cio_toggles.target;
+        
+        // Update smart schedule target temp if active (store in Celsius)
+        if (_smart_schedule.active)
+        {
+            uint8_t temp_celsius = implied_unit_is_celsius ? val : round(F2C(val));
+            if (temp_celsius != _smart_schedule.target_temp)
+            {
+                _smart_schedule.target_temp = temp_celsius;
+                _save_smartschedule_needed = true;
+                _new_data_available = true;
+                Serial.print(F("SmartSchedule: Target temp updated to "));
+                Serial.println(temp_celsius);
+            }
+        }
         break;
     }
     case SETUNIT:
@@ -421,7 +448,21 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         break;
     case SETHEATER:
         if (val != cio->cio_states.heat)
+        {
             cio->cio_toggles.heat_change = 1;
+            // If user manually turns off heater while smart schedule is active and heating,
+            // cancel the schedule to prevent it from overriding the user's decision
+            if (val == 0 && _smart_schedule.active && _smart_schedule.calculated_start_time > 0 &&
+                _timestamp_secs >= _smart_schedule.calculated_start_time)
+            {
+                Serial.println(F("SmartSchedule: Cancelled due to manual heater off"));
+                _smart_schedule.active = false;
+                _smart_schedule.temp_reading_state = 0;
+                _smart_schedule.check_completed = false;
+                _save_smartschedule_needed = true;
+                _new_data_available = true;
+            }
+        }
         break;
     case SETPUMP:
         if (val != cio->cio_states.pump)
@@ -430,7 +471,6 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
     case RESETQ:
         _command_que.clear();
         _save_cmdq_needed = true;
-        _next_notification_time = _notification_time; // reset alarm time
         return false;
         break;
     case REBOOTESP:
@@ -473,6 +513,46 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         _wc_timestamp_s = _timestamp_secs;
         _save_settings_needed = true;
         _new_data_available = true;
+        break;
+    case SETPHVALUE:
+        // pH value * 10 (e.g. 72 = 7.2 pH), valid range 0-140 (0.0-14.0)
+        if (val >= 0 && val <= 140)
+        {
+            _last_ph_value = (uint16_t)val;
+            _ph_timestamp_s = _timestamp_secs; // Also update timestamp when value is set
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
+        break;
+    case SETCLVALUE:
+        // Chlorine value * 10 (e.g. 15 = 1.5 mg/L), valid range 0-100 (0.0-10.0 mg/L)
+        if (val >= 0 && val <= 100)
+        {
+            _last_cl_value = (uint16_t)val;
+            _clv_timestamp_s = _timestamp_secs; // Update chlorine value check timestamp
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
+        break;
+    case SETCYAVALUE:
+        // Cyanuric acid value * 10 (e.g. 300 = 30.0 mg/L), valid range 0-1000 (0.0-100.0 mg/L)
+        if (val >= 0 && val <= 1000)
+        {
+            _last_cya_value = (uint16_t)val;
+            _cya_timestamp_s = _timestamp_secs;
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
+        break;
+    case SETALKVALUE:
+        // Alkalinity value in mg/L, valid range 0-300
+        if (val >= 0 && val <= 300)
+        {
+            _last_alk_value = (uint16_t)val;
+            _alk_timestamp_s = _timestamp_secs;
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
         break;
     case SETJETS:
         if (val != cio->cio_states.jets)
@@ -537,12 +617,25 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         }
     }
     break;
+    case SETENABLEBUTTONS:
+    {
+        // Enable or disable all physical buttons at once
+        // val > 0 = enable all, val == 0 = disable all
+        uint8_t enable_state = (val > 0) ? 1 : 0;
+        // Iterate through all button indices from LOCK to HYDROJETS
+        for (int btn = LOCK; btn <= HYDROJETS; btn++)
+        {
+            dsp->EnabledButtons[btn] = enable_state;
+        }
+        _save_settings_needed = true;
+        _new_data_available = true;
+        break;
+    }
     default:
         break;
     }
     // remove from commandQ
     _command_que.erase(_command_que.begin());
-    _next_notification_time = _notification_time; // reset alarm time
     _save_cmdq_needed = true;
     if (restartESP)
     {
@@ -583,6 +676,11 @@ void BWC::_handleStateChanges()
         _bubbles_change_timestamp_ms = millis();
     }
 
+    if (cio->cio_states.jets != _prev_cio_states.jets)
+    {
+        _jets_change_timestamp_ms = millis();
+    }
+
     if ((cio->cio_states.locked != _prev_cio_states.locked) && dsp->EnabledButtons[LOCK] && _audio_enabled && (dsp->dsp_toggles.pressed_button == LOCK))
     {
         _beep();
@@ -613,11 +711,11 @@ void BWC::_handleStateChanges()
 // return how many hours until pool is ready. (provided the heater is on)
 float BWC::_estHeatingTime()
 {
-    int tgtTemp = cio->cio_states.target; // Target temperature (set by user)
+    int tgtTemp = cio->cio_states.target;        // Target temperature (set by user)
     if (!cio->cio_states.unit)
-        tgtTemp = F2C(tgtTemp); // Check if unit is set to fahrenheit and convert to c for calculation
+        tgtTemp = F2C(tgtTemp);                  // Check if unit is set to fahrenheit and convert to C for calculation
     if (cio->cio_states.temperature > tgtTemp)
-        return -2; // Pool is ready, target is reached
+        return -2;                               // Pool is ready, target is reached
 
     const int heaterPwr = 2000;                  // Heater power in watts
     const float heatLoss = 4.85f;                // Heat loss per Kelvin per hour
@@ -653,6 +751,23 @@ void BWC::print(const String &txt)
     dsp->text += txt;
 }
 
+void BWC::printStatic(const String &txt)
+{
+    // Clear any scrolling text to show static characters
+    dsp->text = "";
+    
+    // Store static text characters - these will be applied in loop()
+    _static_char1 = txt.length() > 0 ? txt[0] : ' ';
+    _static_char2 = txt.length() > 1 ? txt[1] : ' ';
+    _static_char3 = txt.length() > 2 ? txt[2] : ' ';
+    _static_text_active = true;
+}
+
+void BWC::clearStatic()
+{
+    _static_text_active = false;
+}
+
 // String BWC::getDebugData()
 // {
 //     String res = "from cio ";
@@ -673,6 +788,11 @@ void BWC::setAmbientTemperature(int64_t amb, bool unit)
     _ambient_temp = (int)amb;
     if (!unit)
         _ambient_temp = F2C(_ambient_temp);
+}
+
+int BWC::getAmbientTemperature()
+{
+    return _ambient_temp;
 }
 
 String BWC::getModel()
@@ -825,14 +945,23 @@ void BWC::getJSONTimes(String &rtn)
     doc[F("FINT")] = _filter_interval;
     doc[F("FCINT")] = _fc_interval;
     doc[F("WCINT")] = _wc_interval;
+    doc[F("PHTIME")] = _ph_timestamp_s;
+    doc[F("PHINT")] = _ph_interval;
+    doc[F("PHVAL")] = _last_ph_value;
+    doc[F("CLVTIME")] = _clv_timestamp_s;
+    doc[F("CLVAL")] = _last_cl_value;
+    doc[F("CYATIME")] = _cya_timestamp_s;
+    doc[F("CYAVAL")] = _last_cya_value;
+    doc[F("ALKTIME")] = _alk_timestamp_s;
+    doc[F("ALKVAL")] = _last_alk_value;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws / 3600000.0; // Ws -> kWh
     doc[F("WATT")] = _energy_power_W;
     float t2r = _estHeatingTime();
     String t2r_string = F("Not ready");
-    if (t2r == -2)
+    if (t2r == -2.0f)
         t2r_string = F("Ready");
-    if (t2r == -1)
+    if (t2r == -1.0f)
         t2r_string = F("Never");
     doc[F("T2R")] = t2r;
     doc[F("RS")] = t2r_string;
@@ -849,14 +978,13 @@ void BWC::getJSONTimes(String &rtn)
 
 void BWC::getJSONSettings(String &rtn)
 {
-// Allocate a temporary JsonDocument
-// Don't forget to change the capacity to match your requirements.
-// Use arduinojson.org/assistant to compute the capacity.
 // feed the dog
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    DynamicJsonDocument doc(1024);
+    _loadSettings();
+
+    DynamicJsonDocument doc(2048);
 
     // Set the values in the document
     doc[F("CONTENT")] = F("SETTINGS");
@@ -865,18 +993,19 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("FINT")] = _filter_interval;
     doc[F("FCINT")] = _fc_interval;
     doc[F("WCINT")] = _wc_interval;
+    doc[F("PHINT")] = _ph_interval;
     doc[F("AUDIO")] = _audio_enabled;
 #ifdef ESP8266
     doc[F("REBOOTINFO")] = ESP.getResetReason();
 #endif
     doc[F("REBOOTTIME")] = reboot_time_t;
     doc[F("MODEL")] = cio->getModel();
-    doc[F("NOTIFY")] = _notify;
-    doc[F("NOTIFTIME")] = _notification_time;
     doc[F("PLZ")] = _plz;
     doc[F("WEATHER")] = _weather;
     doc[F("HASJETS")] = cio->getHasjets();
     doc[F("POOLCAP")] = _pool_capacity;
+    doc[F("AIRTO")] = _airjet_timeout_minutes;
+    doc[F("HJTO")] = _hydrojet_timeout_minutes;
     doc[F("LCK")] = dsp->EnabledButtons[LOCK];
     doc[F("TMR")] = dsp->EnabledButtons[TIMER];
     doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];
@@ -943,7 +1072,7 @@ void BWC::setJSONSettings(const String &message)
 {
     // feed the dog
     //  ESP.wdtFeed();
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
 
     // Deserialize the JSON document
     DeserializationError error = deserializeJson(doc, message);
@@ -959,12 +1088,24 @@ void BWC::setJSONSettings(const String &message)
     _filter_interval = doc[F("FINT")];
     _fc_interval = doc[F("FCINT")];
     _wc_interval = doc[F("WCINT")];
+    if (doc.containsKey(F("PHINT")))
+        _ph_interval = doc[F("PHINT")];
     _audio_enabled = doc[F("AUDIO")];
-    _notify = doc[F("NOTIFY")];
-    _notification_time = doc[F("NOTIFTIME")];
     _plz = doc[F("PLZ")].as<String>();
     _weather = doc[F("WEATHER")];
     _pool_capacity = doc[F("POOLCAP")];
+    // Airjet timeout: 5-30 minutes, default 30
+    if (doc.containsKey(F("AIRTO")))
+    {
+        uint8_t val = doc[F("AIRTO")];
+        _airjet_timeout_minutes = (val >= 5 && val <= 30) ? val : 30;
+    }
+    // Hydrojet timeout: 5-60 minutes, default 60
+    if (doc.containsKey(F("HJTO")))
+    {
+        uint8_t val = doc[F("HJTO")];
+        _hydrojet_timeout_minutes = (val >= 5 && val <= 60) ? val : 60;
+    }
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
     dsp->EnabledButtons[TIMER] = doc[F("TMR")];
     dsp->EnabledButtons[BUBBLES] = doc[F("AIR")];
@@ -976,6 +1117,7 @@ void BWC::setJSONSettings(const String &message)
     dsp->EnabledButtons[POWER] = doc[F("PWR")];
     dsp->EnabledButtons[HYDROJETS] = doc[F("HJT")];
     saveSettings();
+    _loadSettings();
 }
 
 bool BWC::newData()
@@ -983,6 +1125,53 @@ bool BWC::newData()
     bool result = _new_data_available;
     _new_data_available = false;
     return result;
+}
+
+/**
+ * Check if airjets or hydrojets have exceeded their configured timeout
+ * and turn them off if necessary
+ */
+void BWC::_checkJetTimeouts()
+{
+    uint32_t now = millis();
+    
+    // Check airjet timeout (only if configured below hardware default of 30 min)
+    if (cio->cio_states.bubbles && _airjet_timeout_minutes < 30)
+    {
+        uint32_t elapsed_ms = now - _bubbles_change_timestamp_ms;
+        uint32_t timeout_ms = (uint32_t)_airjet_timeout_minutes * 60UL * 1000UL;
+        if (elapsed_ms >= timeout_ms)
+        {
+            // Queue command to turn off airjets
+            command_que_item item;
+            item.cmd = SETBUBBLES;
+            item.val = 0;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            add_command(item);
+            Serial.println(F("Airjet timeout - turning off"));
+        }
+    }
+    
+    // Check hydrojet timeout (only if configured below hardware default of 60 min)
+    if (cio->cio_states.jets && _hydrojet_timeout_minutes < 60)
+    {
+        uint32_t elapsed_ms = now - _jets_change_timestamp_ms;
+        uint32_t timeout_ms = (uint32_t)_hydrojet_timeout_minutes * 60UL * 1000UL;
+        if (elapsed_ms >= timeout_ms)
+        {
+            // Queue command to turn off hydrojets
+            command_que_item item;
+            item.cmd = SETJETS;
+            item.val = 0;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            add_command(item);
+            Serial.println(F("Hydrojet timeout - turning off"));
+        }
+    }
 }
 
 void BWC::_updateTimes()
@@ -1122,25 +1311,29 @@ void BWC::_loadSettings()
     File file = LittleFS.open("/settings.json", "r");
     if (!file)
     {
-        // Serial.println(F("Failed to load settings.json"));
+        Serial.println(F("Failed to open settings.json"));
         return;
     }
-    DynamicJsonDocument doc(1024);
+    Serial.printf("settings.json size: %d bytes\n", file.size());
+    DynamicJsonDocument doc(2048);
 
     // Deserialize the JSON document
     DeserializationError error = deserializeJson(doc, file);
     if (error)
     {
-        // Serial.println(F("Failed to deser. settings.json"));
+        Serial.printf("Failed to deserialize settings.json: %s\n", error.c_str());
         file.close();
         return;
     }
+    Serial.println(F("settings.json loaded successfully"));
 
     // Copy values from the JsonDocument to the variables
     _cl_timestamp_s = doc[F("CLTIME")];
     _filter_timestamp_s = doc[F("FTIME")];
     _fc_timestamp_s = doc[F("FCTIME")];
     _wc_timestamp_s = doc[F("WCIME")];
+    _ph_timestamp_s = doc[F("PHTIME")] | _ph_timestamp_s;
+    _clv_timestamp_s = doc[F("CLVTIME")] | _clv_timestamp_s;
     _uptime = doc[F("UPTIME")];
     _pumptime = doc[F("PUMPTIME")];
     _heatingtime = doc[F("HEATINGTIME")];
@@ -1151,9 +1344,14 @@ void BWC::_loadSettings()
     _filter_interval = doc[F("FINT")];
     _fc_interval = doc[F("FCINT")];
     _wc_interval = doc[F("WCINT")];
+    _ph_interval = doc[F("PHINT")] | 3;
+    _last_ph_value = doc[F("PHVAL")] | 72;
+    _last_cl_value = doc[F("CLVAL")] | 10;
+    _last_cya_value = doc[F("CYAVAL")] | 300;
+    _last_alk_value = doc[F("ALKVAL")] | 100;
+    _cya_timestamp_s = doc[F("CYATIME")] | 0;
+    _alk_timestamp_s = doc[F("ALKTIME")] | 0;
     _audio_enabled = doc[F("AUDIO")];
-    _notify = doc[F("NOTIFY")];
-    _notification_time = doc[F("NOTIFTIME")];
     _energy_total_kWh = doc[F("KWH")];
     _energy_daily_Ws = doc[F("KWHD")];
     _ambient_temp = doc[F("AMB")] | 20;
@@ -1161,6 +1359,8 @@ void BWC::_loadSettings()
     _plz = doc[F("PLZ")].as<String>();
     _weather = doc[F("WEATHER")];
     _pool_capacity = doc[F("POOLCAP")];
+    _airjet_timeout_minutes = doc[F("AIRTO")] | 30;
+    _hydrojet_timeout_minutes = doc[F("HJTO")] | 60;
     enableWeather = _weather;
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
     dsp->EnabledButtons[TIMER] = doc[F("TMR")];
@@ -1173,12 +1373,13 @@ void BWC::_loadSettings()
     dsp->EnabledButtons[POWER] = doc[F("PWR")];
     dsp->EnabledButtons[HYDROJETS] = doc[F("HJT")];
 
+    Serial.printf("Loaded: PRICE=%.2f, PLZ=%s, WEATHER=%d\n", _price, _plz.c_str(), _weather);
     file.close();
 }
 
 void BWC::_restoreStates()
 {
-    File file = LittleFS.open("states.txt", "r");
+    File file = LittleFS.open("/states.txt", "r");
     if (!file)
     {
         // Serial.println(F("Failed to read states.txt"));
@@ -1276,8 +1477,12 @@ void BWC::loadCommandQueue()
     }
     file.close();
     std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+    Serial.println(F("Calling _loadSettings()..."));
     _loadSettings();
+    Serial.println(F("Calling _restoreStates()..."));
     _restoreStates();
+    Serial.println(F("Calling _loadSmartSchedule()..."));
+    _loadSmartSchedule();
 }
 
 /*          */
@@ -1286,7 +1491,7 @@ void BWC::loadCommandQueue()
 
 void BWC::saveRebootInfo()
 {
-    File file = LittleFS.open("bootlog.txt", "a");
+    File file = LittleFS.open("/bootlog.txt", "a");
     if (!file)
     {
         // Serial.println(F("Failed to save bootlog.txt"));
@@ -1318,7 +1523,7 @@ void BWC::_saveStates()
     ESP.wdtFeed();
 #endif
     _save_states_needed = false;
-    File file = LittleFS.open("states.txt", "w");
+    File file = LittleFS.open("/states.txt", "w");
     if (!file)
     {
         // Serial.println(F("Failed to save states.txt"));
@@ -1353,7 +1558,7 @@ void BWC::_saveCommandQueue()
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    File file = LittleFS.open("cmdq.json", "w");
+    File file = LittleFS.open("/cmdq.json", "w");
     if (!file)
     {
         // Serial.println(F("Failed to save cmdq.json"));
@@ -1404,14 +1609,14 @@ void BWC::saveSettings()
     ESP.wdtFeed();
 #endif
     _save_settings_needed = false;
-    File file = LittleFS.open("settings.json", "w");
+    File file = LittleFS.open("/settings.json", "w");
     if (!file)
     {
         // Serial.println(F("Failed to save settings.json"));
         return;
     }
 
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
     _heatingtime += _heatingtime_ms / 1000;
     _pumptime += _pumptime_ms / 1000;
     _airtime += _airtime_ms / 1000;
@@ -1429,6 +1634,8 @@ void BWC::saveSettings()
     doc[F("WCIME")] = _wc_timestamp_s;
     doc[F("FCTIME")] = _fc_timestamp_s;
     doc[F("WCTIME")] = _wc_timestamp_s;
+    doc[F("PHTIME")] = _ph_timestamp_s;
+    doc[F("CLVTIME")] = _clv_timestamp_s;
     doc[F("UPTIME")] = _uptime;
     doc[F("PUMPTIME")] = _pumptime;
     doc[F("HEATINGTIME")] = _heatingtime;
@@ -1439,18 +1646,25 @@ void BWC::saveSettings()
     doc[F("FINT")] = _filter_interval;
     doc[F("FCINT")] = _fc_interval;
     doc[F("WCINT")] = _wc_interval;
+    doc[F("PHINT")] = _ph_interval;
+    doc[F("PHVAL")] = _last_ph_value;
+    doc[F("CLVAL")] = _last_cl_value;
+    doc[F("CYAVAL")] = _last_cya_value;
+    doc[F("ALKVAL")] = _last_alk_value;
+    doc[F("CYATIME")] = _cya_timestamp_s;
+    doc[F("ALKTIME")] = _alk_timestamp_s;
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;
     // doc[F("SAVETIME")] = DateTime.format(DateFormatter::SIMPLE);
     doc[F("AMB")] = _ambient_temp;
     doc[F("BRT")] = _dsp_brightness;
-    doc[F("NOTIFY")] = _notify;
-    doc[F("NOTIFTIME")] = _notification_time;
     doc[F("PLZ")] = _plz;
     doc[F("WEATHER")] = _weather;
     enableWeather = _weather;
     doc[F("POOLCAP")] = _pool_capacity;
+    doc[F("AIRTO")] = _airjet_timeout_minutes;
+    doc[F("HJTO")] = _hydrojet_timeout_minutes;
     doc[F("LCK")] = dsp->EnabledButtons[LOCK];
     doc[F("TMR")] = dsp->EnabledButtons[TIMER];
     doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];
@@ -1475,7 +1689,7 @@ void BWC::saveSettings()
 // save out debug text to file "debug.txt" on littleFS
 void BWC::saveDebugInfo(const String &s)
 {
-    File file = LittleFS.open("debug.txt", "a");
+    File file = LittleFS.open("/debug.txt", "a");
     if (!file)
     {
         // Serial.println(F("Failed to save debug.txt"));
@@ -1627,4 +1841,596 @@ void BWC::_accord()
         n.frequency_hz = NOTE_E6;
         _notes.push_back(n);
     }
+}
+
+/*                  */
+/* SMART SCHEDULE   */
+/*                  */
+
+/**
+ * Set a smart schedule for pool heating
+ * @param target_time Unix timestamp when pool should be ready
+ * @param target_temp Desired temperature in Celsius
+ * @param keep_heater_on Keep heater on after target is reached
+ * @return true if schedule was set successfully
+ */
+bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on)
+{
+    // Validate time is in future and NTP is synced
+    if (time(nullptr) < 57600)
+    {
+        // NTP not synced yet
+        return false;
+    }
+    
+    if (target_time <= _timestamp_secs)
+    {
+        // Target time is in the past
+        return false;
+    }
+    
+    // Validate temperature range (20-40°C)
+    if (target_temp < 20 || target_temp > 40)
+    {
+        return false;
+    }
+    
+    // Initialize smart schedule
+    _smart_schedule.active = true;
+    _smart_schedule.target_time = target_time;
+    _smart_schedule.target_temp = target_temp;
+    _smart_schedule.keep_heater_on = keep_heater_on;
+    _smart_schedule.next_check_time = 0; // Check immediately on next loop
+    _smart_schedule.calculated_start_time = 0;
+    _smart_schedule.temp_reading_state = 0;
+    _smart_schedule.temp_reading_timer = 0;
+    _smart_schedule.accurate_temperature = 0; // Will be read during first temp check cycle
+    _smart_schedule.check_completed = false;  // Reset completion status
+    
+    // Calculate initial heating estimate immediately using current sensor temperature.
+    // This provides instant UI feedback; the pump measurement cycle will refine it.
+    _smart_schedule.last_heating_estimate = _calculateHeatingTime(
+        cio->cio_states.temperature, target_temp);
+    
+    _save_smartschedule_needed = true;
+    _new_data_available = true;
+    
+    Serial.print(F("SmartSchedule: Schedule activated, initial estimate: "));
+    Serial.print(_smart_schedule.last_heating_estimate);
+    Serial.println(F(" hours"));
+    
+    return true;
+}
+
+/**
+ * Cancel active smart schedule
+ * SAFETY: If heater is currently on due to this schedule, turn it off immediately
+ * SAFETY: If pump was turned on for temp reading, restore original state
+ */
+void BWC::cancelSmartSchedule()
+{
+    command_que_item item;
+    item.xtime = 0;
+    item.interval = 0;
+    item.text = "";
+    
+    // Turn off heater if it was started by this schedule
+    // Check if heater is on AND we had a calculated start time (meaning schedule started it)
+    if (cio->cio_states.heat && _smart_schedule.calculated_start_time > 0 && 
+        _timestamp_secs >= _smart_schedule.calculated_start_time)
+    {
+        item.cmd = SETHEATER;
+        item.val = 0;
+        item.force = false;
+        add_command(item);
+        Serial.println(F("SmartSchedule: Cancel - Queued heater off"));
+    }
+    
+    // Turn off pump if it's running (either from temp reading or heating phase)
+    if (cio->cio_states.pump)
+    {
+        item.cmd = SETPUMP;
+        item.val = 0;
+        item.force = true;  // Force pump off even if heater command is pending
+        add_command(item);
+        Serial.println(F("SmartSchedule: Cancel - Queued pump off (forced)"));
+    }
+    
+    _resetSmartScheduleState();
+    Serial.println(F("SmartSchedule: Cancelled and deleted"));
+}
+
+/**
+ * Reset all smart schedule state to defaults
+ * Used by cancelSmartSchedule() and when schedule completes at target_time
+ */
+void BWC::_resetSmartScheduleState()
+{
+    _smart_schedule.active = false;
+    _smart_schedule.target_time = 0;
+    _smart_schedule.target_temp = 0;
+    _smart_schedule.keep_heater_on = false;
+    _smart_schedule.calculated_start_time = 0;
+    _smart_schedule.next_check_time = 0;
+    _smart_schedule.last_heating_estimate = 0;
+    _smart_schedule.accurate_temperature = 0;
+    _smart_schedule.temp_reading_state = 0;
+    _smart_schedule.temp_reading_timer = 0;
+    _smart_schedule.original_pump_state = false;
+    _smart_schedule.check_completed = false;
+    
+    _save_smartschedule_needed = true;
+    _new_data_available = true;
+}
+
+/**
+ * Get smart schedule status as JSON
+ */
+void BWC::getJSONSmartSchedule(String &rtn)
+{
+#ifdef ESP8266
+    ESP.wdtFeed();
+#endif
+    StaticJsonDocument<640> doc;
+    
+    doc[F("CONTENT")] = F("SMARTSCHEDULE");
+    doc[F("ACTIVE")] = _smart_schedule.active;
+    doc[F("TARGETTIME")] = _smart_schedule.target_time;
+    doc[F("TARGETTEMP")] = _smart_schedule.target_temp;
+    doc[F("KEEPON")] = _smart_schedule.keep_heater_on;
+    doc[F("STARTTIME")] = _smart_schedule.calculated_start_time;
+    doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
+    doc[F("ESTIMATE")] = _smart_schedule.last_heating_estimate;
+    // Calculate safety buffer (10% of estimate, minimum 1 hour)
+    float buffer_hours = 0;
+    if (_smart_schedule.last_heating_estimate > 0 && _smart_schedule.last_heating_estimate < 999)
+    {
+        buffer_hours = _smart_schedule.last_heating_estimate * 0.10f;
+        if (buffer_hours < 1.0f) buffer_hours = 1.0f;
+    }
+    doc[F("BUFFER")] = buffer_hours;
+    doc[F("CHECKCOMPLETED")] = _smart_schedule.check_completed;
+    doc[F("CURRENTTIME")] = _timestamp_secs;
+    doc[F("CURRENTTEMP")] = cio->cio_states.temperature;
+    doc[F("GLOBALTARGET")] = cio->cio_states.target; // Current global target temperature
+    // If pump is running, the live sensor reading is accurate (water is circulating).
+    // Otherwise, use the last stored reading from when the pump was last running.
+    // Fallback to current sensor reading if no measurement has been taken yet.
+    uint8_t display_temp;
+    if (cio->cio_states.pump)
+    {
+        display_temp = cio->cio_states.temperature;
+    }
+    else if (_smart_schedule.accurate_temperature > 0)
+    {
+        display_temp = _smart_schedule.accurate_temperature;
+    }
+    else
+    {
+        display_temp = cio->cio_states.temperature;
+    }
+    doc[F("ACCURATETEMP")] = display_temp;
+    doc[F("HEATER")] = cio->cio_states.heat;
+    doc[F("PUMP")] = cio->cio_states.pump;
+    doc[F("READING_STATE")] = _smart_schedule.temp_reading_state; // 0=idle, 1=pump_on, 2=reading
+    
+    // Calculate dynamic remaining heating time (same calculation as dashboard T2R)
+    // Only calculate if heater is running and we have valid temperatures
+    float remaining_heating_hours = -1.0f; // -1 = not applicable/not heating
+    if (cio->cio_states.heat && display_temp > 0 && _smart_schedule.target_temp > display_temp)
+    {
+        remaining_heating_hours = _calculateHeatingTime(display_temp, _smart_schedule.target_temp);
+    }
+    else if (cio->cio_states.heat && display_temp >= _smart_schedule.target_temp)
+    {
+        remaining_heating_hours = 0.0f; // Already at or above target
+    }
+    doc[F("REMAINING_HEATING_TIME")] = remaining_heating_hours;
+    
+    // Calculate time remaining
+    int64_t time_remaining = (int64_t)_smart_schedule.target_time - (int64_t)_timestamp_secs;
+    doc[F("TIMEREMAINING")] = time_remaining;
+    
+    // Calculate time until start
+    int64_t time_until_start = (int64_t)_smart_schedule.calculated_start_time - (int64_t)_timestamp_secs;
+    doc[F("TIMEUNTILSTART")] = time_until_start;
+    
+    // Format estimate as HH:mm string for display
+    if (_smart_schedule.last_heating_estimate > 0 && _smart_schedule.last_heating_estimate < 999)
+    {
+        int total_minutes = (int)(_smart_schedule.last_heating_estimate * 60.0f);
+        int hours = total_minutes / 60;
+        int minutes = total_minutes % 60;
+        // Bounds check to prevent buffer overflow (max 999:59)
+        if (hours > 999) hours = 999;
+        if (minutes < 0) minutes = 0;
+        if (minutes > 59) minutes = 59;
+        char estimate_str[16];
+        snprintf(estimate_str, sizeof(estimate_str), "%02d:%02d", hours, minutes);
+        doc[F("ESTIMATE_FMT")] = estimate_str;
+    }
+    else
+    {
+        doc[F("ESTIMATE_FMT")] = "";
+    }
+    
+    if (serializeJson(doc, rtn) == 0)
+    {
+        rtn = F("{\"error\": \"Failed to serialize smartschedule\"}");
+    }
+}
+
+/**
+ * Handle smart schedule logic - called from main loop
+ */
+void BWC::_handleSmartSchedule()
+{
+    if (!_smart_schedule.active)
+        return;
+    
+    // Check if target time has passed FIRST (before temp reading)
+    // This ensures schedule is completed even if temp reading is in progress
+    if (_timestamp_secs >= _smart_schedule.target_time)
+    {
+        Serial.println(F("SmartSchedule: Target time reached"));
+        
+        // If keep_heater_on is false, turn off heater and pump
+        if (!_smart_schedule.keep_heater_on)
+        {
+            command_que_item item;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            
+            if (cio->cio_states.heat)
+            {
+                item.cmd = SETHEATER;
+                item.val = 0;
+                item.force = false;
+                add_command(item);
+                Serial.println(F("SmartSchedule: Queued heater off"));
+            }
+            
+            if (cio->cio_states.pump)
+            {
+                item.cmd = SETPUMP;
+                item.val = 0;
+                item.force = true;  // Force pump off even if heater command is pending
+                add_command(item);
+                Serial.println(F("SmartSchedule: Queued pump off (forced)"));
+            }
+        }
+        
+        // Delete/reset the schedule completely
+        _resetSmartScheduleState();
+        Serial.println(F("SmartSchedule: Schedule completed and deleted"));
+        return;
+    }
+    
+    // Process temperature reading sequence if active
+    if (_smart_schedule.temp_reading_state > 0)
+    {
+        _processAccurateTempReading();
+        return;
+    }
+    
+    // If we have a calculated start time and it has arrived, start heating
+    if (_smart_schedule.calculated_start_time > 0 && 
+        _timestamp_secs >= _smart_schedule.calculated_start_time)
+    {
+        if (!cio->cio_states.heat)
+        {
+            command_que_item item;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            item.force = false;
+            
+            // Set target temperature from schedule
+            item.cmd = SETTARGET;
+            item.val = _smart_schedule.target_temp;
+            add_command(item);
+            
+            // Turn on heater
+            item.cmd = SETHEATER;
+            item.val = 1;
+            add_command(item);
+            
+            Serial.print(F("SmartSchedule: Start time reached - target: "));
+            Serial.print(_smart_schedule.target_temp);
+            Serial.println(F("C, heater on"));
+        }
+    }
+    
+    // Check if it's time for next temperature check and recalculation
+    // IMPORTANT: Once check_completed is true (heating has started), don't do more recalculations
+    // The schedule should maintain heating until target_time, not recalculate start time
+    if (_smart_schedule.check_completed)
+        return;
+    
+    if (_timestamp_secs < _smart_schedule.next_check_time)
+        return;
+    
+    // Start accurate temperature reading sequence for recalculation
+    _startAccurateTempReading();
+}
+
+/**
+ * Start accurate temperature reading by turning on pump
+ */
+void BWC::_startAccurateTempReading()
+{
+    // Store original pump state
+    _smart_schedule.original_pump_state = cio->cio_states.pump;
+    
+    // Turn on pump if not already on
+    if (!cio->cio_states.pump)
+    {
+        cio->cio_toggles.pump_change = 1;
+    }
+    
+    // Set state to pump_on and start timer
+    _smart_schedule.temp_reading_state = 1;
+    _smart_schedule.temp_reading_timer = _timestamp_secs + 20; // Run pump for 20 seconds
+    
+    Serial.println(F("SmartSchedule: Starting temp reading - pump on"));
+}
+
+/**
+ * Process temperature reading state machine
+ */
+void BWC::_processAccurateTempReading()
+{
+    switch (_smart_schedule.temp_reading_state)
+    {
+    case 1: // Pump running
+        if (_timestamp_secs >= _smart_schedule.temp_reading_timer)
+        {
+            // 20 seconds passed, read temperature immediately
+            _smart_schedule.accurate_temperature = cio->cio_states.temperature;
+            _smart_schedule.temp_reading_state = 2; // Move to reading complete
+            Serial.print(F("SmartSchedule: Pump run complete - temp reading: "));
+            Serial.println(_smart_schedule.accurate_temperature);
+        }
+        break;
+        
+    case 2: // Reading complete
+        {
+            // Restore pump state if we changed it
+            if (!_smart_schedule.original_pump_state && cio->cio_states.pump)
+            {
+                cio->cio_toggles.pump_change = 1; // Turn pump back off
+                Serial.println(F("SmartSchedule: Restoring pump state"));
+            }
+            
+            // Calculate heating time with accurate temperature
+            float heating_time_hours = _calculateHeatingTime(
+                _smart_schedule.accurate_temperature,
+                _smart_schedule.target_temp
+            );
+            
+            _smart_schedule.last_heating_estimate = heating_time_hours;
+            
+            Serial.print(F("SmartSchedule: Heating estimate: "));
+            Serial.print(heating_time_hours);
+            Serial.println(F(" hours"));
+            
+            // Calculate when to start heating (with 10% buffer, minimum 1 hour)
+            float buffer_hours = heating_time_hours * 0.10f; // 10% buffer
+            if (buffer_hours < 1.0f) buffer_hours = 1.0f;    // Minimum 1 hour buffer
+            
+            uint64_t total_time_needed = (uint64_t)((heating_time_hours + buffer_hours) * 3600.0f);
+            
+            if (total_time_needed >= (_smart_schedule.target_time - _timestamp_secs))
+            {
+                // Time to start heating NOW!
+                _smart_schedule.calculated_start_time = _timestamp_secs;
+                _smart_schedule.check_completed = true; // No more checks needed
+                
+                if (!cio->cio_states.heat)
+                {
+                    command_que_item item;
+                    item.xtime = 0;
+                    item.interval = 0;
+                    item.text = "";
+                    item.force = false;
+                    
+                    // Set target temperature from schedule
+                    item.cmd = SETTARGET;
+                    item.val = _smart_schedule.target_temp;
+                    add_command(item);
+                    
+                    // Turn on heater
+                    item.cmd = SETHEATER;
+                    item.val = 1;
+                    add_command(item);
+                    
+                    Serial.print(F("SmartSchedule: Starting heater NOW - target: "));
+                    Serial.print(_smart_schedule.target_temp);
+                    Serial.println(F("C"));
+                }
+            }
+            else
+            {
+                // Calculate exact start time
+                _smart_schedule.calculated_start_time = _smart_schedule.target_time - total_time_needed;
+                Serial.print(F("SmartSchedule: Heater starts at: "));
+                Serial.println(_smart_schedule.calculated_start_time);
+                
+                // Calculate time until heating should start (in seconds)
+                int64_t time_until_start = (int64_t)_smart_schedule.calculated_start_time - (int64_t)_timestamp_secs;
+                
+                // Adaptive check interval logic:
+                // - If more than 24 hours until start: check again in 12 hours
+                // - Otherwise: check again in half the remaining time
+                uint64_t next_check_interval;
+                const uint64_t SECS_24H = 24 * 60 * 60;
+                const uint64_t SECS_12H = 12 * 60 * 60;
+                const uint64_t MIN_CHECK_INTERVAL = 5 * 60; // Minimum 5 minutes between checks
+                
+                if (time_until_start > (int64_t)SECS_24H)
+                {
+                    // More than 24 hours away: next check in 12 hours
+                    next_check_interval = SECS_12H;
+                    Serial.println(F("SmartSchedule: >24h until start, next check in 12h"));
+                }
+                else
+                {
+                    // Less than 24 hours: check in half the remaining time
+                    next_check_interval = (uint64_t)(time_until_start / 2);
+                    if (next_check_interval < MIN_CHECK_INTERVAL)
+                    {
+                        next_check_interval = MIN_CHECK_INTERVAL;
+                    }
+                    Serial.print(F("SmartSchedule: next check in "));
+                    Serial.print(next_check_interval / 60);
+                    Serial.println(F(" minutes"));
+                }
+                
+                uint64_t proposed_next_check = _timestamp_secs + next_check_interval;
+                
+                // Completion logic: If next check would be after heating start time,
+                // mark as completed and don't schedule further checks
+                if (proposed_next_check >= _smart_schedule.calculated_start_time)
+                {
+                    _smart_schedule.check_completed = true;
+                    _smart_schedule.next_check_time = _smart_schedule.calculated_start_time;
+                    Serial.println(F("SmartSchedule: Check completed - waiting"));
+                }
+                else
+                {
+                    _smart_schedule.check_completed = false;
+                    _smart_schedule.next_check_time = proposed_next_check;
+                }
+            }
+            
+            // Reset temp reading state
+            _smart_schedule.temp_reading_state = 0;
+            
+            _save_smartschedule_needed = true;
+            _new_data_available = true;
+        }
+        break;
+    }
+}
+
+/**
+ * Calculate heating time with current and target temperatures
+ * @param current_temp Current temperature in Celsius
+ * @param target_temp Target temperature in Celsius
+ * @return Estimated heating time in hours
+ */
+float BWC::_calculateHeatingTime(uint8_t current_temp, uint8_t target_temp)
+{
+    if (current_temp >= target_temp)
+        return 0.0f; // Already at or above target
+    
+    const int heaterPwr = 2000;                  // Heater power in watts
+    const float heatLoss = 4.85f;                // Heat loss per Kelvin per hour
+    const float tcpH2O = 1.163f;                 // Specific heat capacity of water in Wh/(kg*K)
+    int ambTemp = _ambient_temp;                 // Ambient temperature
+    float curTemp = (float)current_temp;         // Current temperature
+    int poolCapacity = _pool_capacity;           // Water capacity in liters
+    
+    // Calculate efficiency
+    float avgTemp = ((float)target_temp + curTemp) / 2.0f;
+    float heaterEfficiency = 0.99f - ((avgTemp - (float)ambTemp) * 0.005f);
+    heaterEfficiency = std::max(heaterEfficiency, 0.1f);
+    
+    // Net heating power calculation
+    float netHeatingPower = ((float)heaterPwr * heaterEfficiency) - (heatLoss * (avgTemp - (float)ambTemp));
+    
+    if (netHeatingPower <= 0)
+    {
+        return 999.0f; // Impossible to heat (return large number)
+    }
+    
+    // Calculate remaining hours
+    float totalEnergy = (float)poolCapacity * tcpH2O * ((float)target_temp - curTemp);
+    float hoursRemaining = totalEnergy / netHeatingPower;
+    
+    return hoursRemaining;
+}
+
+/**
+ * Load smart schedule from persistent storage
+ */
+void BWC::_loadSmartSchedule()
+{
+    File file = LittleFS.open("/smartschedule.json", "r");
+    if (!file)
+    {
+        // File doesn't exist, use defaults
+        return;
+    }
+    
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    
+    if (error)
+    {
+        Serial.println(F("SmartSchedule: Failed to deserialize"));
+        return;
+    }
+    
+    _smart_schedule.active = doc[F("ACTIVE")] | false;
+    _smart_schedule.target_time = doc[F("TARGETTIME")] | 0;
+    _smart_schedule.target_temp = doc[F("TARGETTEMP")] | 37;
+    _smart_schedule.keep_heater_on = doc[F("KEEPON")] | false;
+    _smart_schedule.calculated_start_time = doc[F("STARTTIME")] | 0;
+    _smart_schedule.next_check_time = doc[F("NEXTCHECK")] | 0;
+    _smart_schedule.last_heating_estimate = doc[F("ESTIMATE")] | 0.0f;
+    _smart_schedule.accurate_temperature = doc[F("ACCURATETEMP")] | 20;
+    _smart_schedule.check_completed = doc[F("CHECKCOMPLETED")] | false;
+    
+    // Reset temp reading state (don't persist this)
+    _smart_schedule.temp_reading_state = 0;
+    
+    // If target time has passed, deactivate
+    if (_smart_schedule.active && _smart_schedule.target_time <= _timestamp_secs)
+    {
+        _smart_schedule.active = false;
+    }
+    
+    Serial.println(F("SmartSchedule: Loaded from file"));
+}
+
+/**
+ * Save smart schedule to persistent storage
+ */
+void BWC::_saveSmartSchedule()
+{
+#ifdef ESP8266
+    ESP.wdtFeed();
+#endif
+    
+    _save_smartschedule_needed = false;
+    
+    File file = LittleFS.open("/smartschedule.json", "w");
+    if (!file)
+    {
+        Serial.println(F("SmartSchedule: Failed to save"));
+        return;
+    }
+    
+    StaticJsonDocument<512> doc;
+    
+    doc[F("ACTIVE")] = _smart_schedule.active;
+    doc[F("TARGETTIME")] = _smart_schedule.target_time;
+    doc[F("TARGETTEMP")] = _smart_schedule.target_temp;
+    doc[F("KEEPON")] = _smart_schedule.keep_heater_on;
+    doc[F("STARTTIME")] = _smart_schedule.calculated_start_time;
+    doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
+    doc[F("ESTIMATE")] = _smart_schedule.last_heating_estimate;
+    doc[F("ACCURATETEMP")] = _smart_schedule.accurate_temperature;
+    doc[F("CHECKCOMPLETED")] = _smart_schedule.check_completed;
+    
+    if (serializeJson(doc, file) == 0)
+    {
+        Serial.println(F("SmartSchedule: Failed to serialize"));
+    }
+    
+    file.close();
+    Serial.println(F("SmartSchedule: Saved to file"));
 }

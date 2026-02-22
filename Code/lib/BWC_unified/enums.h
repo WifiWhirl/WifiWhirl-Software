@@ -82,7 +82,12 @@ enum Commands : byte
     TOGGLEPWR,
     TOGGLELCK,
     RESETFCTIMER,
-    RESETWCTIMER
+    RESETWCTIMER,
+    SETENABLEBUTTONS,
+    SETPHVALUE,        // Set last measured pH value (val = pH * 10, e.g. 72 = 7.2)
+    SETCLVALUE,        // Set last measured chlorine value (val = Cl * 10, e.g. 15 = 1.5 mg/L)
+    SETCYAVALUE,       // Set last measured cyanuric acid value (val = CYA * 10, e.g. 300 = 30.0 mg/L)
+    SETALKVALUE        // Set last measured alkalinity value in mg/L (e.g. 100 = 100 mg/L)
 };
 
 enum ToggleButtons : byte

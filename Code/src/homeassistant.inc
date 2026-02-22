@@ -36,6 +36,38 @@ const char _max_key[] PROGMEM = "max";
 const char _mode_key[] PROGMEM = "mode";
 const char _assumed_state[] PROGMEM = "assumed_state";
 const char _object_id[] PROGMEM = "object_id";
+const char _step_key[] PROGMEM = "step";
+
+// Climate entity specific keys
+const char _max_temp[] PROGMEM = "max_temp";
+const char _min_temp[] PROGMEM = "min_temp";
+const char _precision[] PROGMEM = "precision";
+const char _temp_unit[] PROGMEM = "temp_unit";
+const char _modes[] PROGMEM = "modes";
+const char _mode_cmd_t[] PROGMEM = "mode_cmd_t";
+const char _mode_cmd_tpl[] PROGMEM = "mode_cmd_tpl";
+const char _mode_stat_t[] PROGMEM = "mode_stat_t";
+const char _mode_stat_tpl[] PROGMEM = "mode_stat_tpl";
+const char _act_t[] PROGMEM = "act_t";
+const char _act_tpl[] PROGMEM = "act_tpl";
+const char _temp_stat_t[] PROGMEM = "temp_stat_t";
+const char _temp_stat_tpl[] PROGMEM = "temp_stat_tpl";
+const char _curr_temp_t[] PROGMEM = "curr_temp_t";
+const char _curr_temp_tpl[] PROGMEM = "curr_temp_tpl";
+const char _temp_cmd_t[] PROGMEM = "temp_cmd_t";
+const char _temp_cmd_tpl[] PROGMEM = "temp_cmd_tpl";
+
+// Climate templates stored in PROGMEM
+const char _climate_mode_cmd_tpl[] PROGMEM = "[{CMD:3,VALUE:{% if value == \"heat\" %}1{% else %}0{% endif %}},{CMD:4,VALUE:{% if value == \"fan_only\" %}1{% elif value == \"heat\" %}1{% else %}0{% endif %}}]";
+const char _climate_mode_stat_tpl[] PROGMEM = "{% if value_json.RED == 1 %}heat{% elif value_json.GRN == 1 %}heat{% else %}off{% endif %}";
+const char _climate_act_tpl[] PROGMEM = "{% if value_json.RED == 1 %}heating{% elif value_json.GRN == 1 %}idle{% elif value_json.FLT == 1 %}fan{% else %}off{% endif %}";
+const char _climate_temp_stat_tpl[] PROGMEM = "{{ value_json.TGTC }}";
+const char _climate_curr_temp_tpl[] PROGMEM = "{{ value_json.TMPC }}";
+const char _climate_temp_cmd_tpl[] PROGMEM = "{CMD:0,VALUE:{{ value|int }}}";
+const char _climate_mode_off[] PROGMEM = "off";
+const char _climate_mode_heat[] PROGMEM = "heat";
+const char _climate_mode_fan[] PROGMEM = "fan_only";
+const char _climate_temp_unit[] PROGMEM = "C";
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -95,8 +127,7 @@ static const HaEntityConfig entities[] PROGMEM = {
     {"sensor", "_ip", "IP-Adresse", "sensor.", "/other", "{{ value_json.IP }}", nullptr, nullptr, "mdi:ip", nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_connect_count", "MQTT-Verbindungszähler", "sensor.", "/MQTT_Connect_Count", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_error", "Fehler", "sensor.", "/message", "{{ value_json.ERR }}", nullptr, nullptr, "mdi:alert-circle-outline", nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_time_to_ready", "Bereit in", "sensor.", "/times", "{{ value_json.T2R }}", nullptr, nullptr, "mdi:clock", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    // {"sensor", "_rs", "Bereitschaftsstatus", "sensor.", "/times", "{{ value_json.RS }}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_time_to_ready", "Bereit in", "sensor.", "/times", "{% if value_json.T2R == -2 %}0{% elif value_json.T2R == -1 %}999{% else %}{{ value_json.T2R }}{% endif %}", nullptr, nullptr, "mdi:clock", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
 
     // Energy monitoring sensors
     {"sensor", "_energy", "Gesamtenergieverbrauch", "sensor.", "/times", "{{ value_json.KWH | round(2) }}", nullptr, nullptr, "mdi:flash", "kWh", "energy", "total_increasing", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -108,6 +139,12 @@ static const HaEntityConfig entities[] PROGMEM = {
     {"sensor", "_filter_age", "Letzter Filterwechsel", "sensor.", "/times", "{{ as_datetime(value_json.FTIME | int) }}", nullptr, nullptr, "hass:air-filter", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_filter_clean_age", "Letzte Filterreinigung", "sensor.", "/times", "{{ as_datetime(value_json.FCTIME | int) }}", nullptr, nullptr, "mdi:filter-check-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_water_change_age", "Letzter Wasserwechsel", "sensor.", "/times", "{{ as_datetime(value_json.WCTIME | int) }}", nullptr, nullptr, "mdi:water-sync", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+
+    // Maintenance interval configuration sensors (read-only)
+    {"sensor", "_chlorine_interval", "Chlorintervall", "sensor.", "/times", "{{ value_json.CLINT }}", nullptr, nullptr, "hass:hand-coin-outline", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_filter_interval", "Filterwechselintervall", "sensor.", "/times", "{{ value_json.FINT }}", nullptr, nullptr, "hass:air-filter", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_filter_clean_interval", "Filterreinigungsintervall", "sensor.", "/times", "{{ value_json.FCINT }}", nullptr, nullptr, "mdi:filter-check-outline", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_water_change_interval", "Wasserwechselintervall", "sensor.", "/times", "{{ value_json.WCINT }}", nullptr, nullptr, "mdi:water-sync", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
 
     // Runtime tracking sensors
     {"sensor", "_uptime", "Betriebszeit", "sensor.", "/times", "{{ ( (value_json.UPTIME|int)/3600) }}", nullptr, nullptr, "mdi:clock-outline", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -146,10 +183,23 @@ static const HaEntityConfig entities[] PROGMEM = {
     {"button", "_reset_filter", "Timer Filterwechsel zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:10,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
     {"button", "_reset_clean_filter", "Timer Filterreinigung zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:filter-variant", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:24,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
     {"button", "_reset_water_change", "Timer Wasserwechsel zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:water-sync", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:25,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_restart_esp", "WifiWhirl-Modul neustarten", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, "restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:6,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
+    {"button", "_restart_esp", "WifiWhirl Modul neustarten", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, "restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:6,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
 
     // Temperature control
     {"number", "_target_temp_c_set", "Zieltemperatur einstellen", "number.", "/message", "{{ value_json.TGTC }}", "/command", "{CMD:0,VALUE:{{ value | int }}}", "mdi:thermometer", "°C", "temperature", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "20", "40", "slider", nullptr},
+
+    // Water quality - settable number entities
+    {"number", "_ph_value", "pH-Wert", "number.", "/times", "{{ value_json.PHVAL / 10 }}", "/command", "{CMD:27,VALUE:{{ (value * 10) | int }}}", "mdi:beaker-outline", "pH", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "14", "box", nullptr},
+    {"number", "_cl_value", "Chlorgehalt", "number.", "/times", "{{ value_json.CLVAL / 10 }}", "/command", "{CMD:28,VALUE:{{ (value * 10) | int }}}", "mdi:flask-outline", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "10", "box", nullptr},
+    {"number", "_cya_value", "Cyanursäure", "number.", "/times", "{{ value_json.CYAVAL / 10 }}", "/command", "{CMD:29,VALUE:{{ (value * 10) | int }}}", "mdi:shield-sun-outline", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "100", "box", nullptr},
+    {"number", "_alk_value", "Alkalität", "number.", "/times", "{{ value_json.ALKVAL }}", "/command", "{CMD:30,VALUE:{{ value | int }}}", "mdi:water", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "300", "box", nullptr},
+
+    // Water quality - timestamp sensors
+    {"sensor", "_ph_time", "pH zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.PHTIME | int) }}", nullptr, nullptr, "mdi:beaker-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_cl_time", "Chlor zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.CLVTIME | int) }}", nullptr, nullptr, "mdi:flask-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_cya_time", "Cyanursäure zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.CYATIME | int) }}", nullptr, nullptr, "mdi:shield-sun-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_alk_time", "Alkalität zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.ALKTIME | int) }}", nullptr, nullptr, "mdi:water", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+
 };
 
 constexpr size_t MQTT_TOPIC_LEN = 256; // MQTT topic must be <=255 per spec + null terminator
@@ -174,18 +224,37 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
     snprintf(topic, sizeof(topic), "%s/%s/%s%s/config", HA_PREFIX, component, mqttBaseTopic.c_str(), entity_id_suffix);
 
     size_t payloadSize = measureJson(doc);
+    
     if (payloadSize == 0)
+    {
         return false;
+    }
+    
+    if (!mqttClient->connected())
+    {
+        Serial.print(" - MQTT not connected");
+        return false;
+    }
 
     if (!mqttClient->beginPublish(topic, payloadSize, true))
     {
+        Serial.print(" - MQTT beginPublish failed");
         return false;
     }
 
     serializeJson(doc, *mqttClient);
 
     bool published = mqttClient->endPublish();
-    mqttClient->loop(); // Allow network stack to process
+    if (!published)
+    {
+        Serial.print(" - MQTT endPublish failed");
+    }
+    
+    // Ensure data is sent to network stack
+    mqttClient->loop();
+    delay(10); // Brief delay to allow transmission to start
+    mqttClient->loop();
+    
     return published;
 }
 
@@ -204,6 +273,23 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
 //--------------------------------------------------------------------------------------------------
 void setupHA()
 {
+    // Set flag to prevent MQTT publishing and pump communication during discovery
+    extern bool haDiscoveryInProgress;
+    haDiscoveryInProgress = true;
+    
+    Serial.println("========================================");
+    Serial.println("HA: HOME ASSISTANT DISCOVERY STARTING");
+    Serial.println("========================================");
+    Serial.print("HA: Free heap: ");
+    Serial.print(ESP.getFreeHeap());
+    Serial.println(" bytes");
+    
+    // Disable WiFi sleep mode during discovery for better stability
+    #ifdef ESP8266
+    WiFi.setSleepMode(WIFI_NONE_SLEEP);
+    Serial.println("HA: WiFi sleep mode disabled during discovery");
+    #endif
+    
     // Generate unique chip ID for device identification
     char mychipid_str[16];
 #if defined(ESP8266)
@@ -214,9 +300,11 @@ void setupHA()
     snprintf(mychipid_str, sizeof(mychipid_str), "%04X%08X", (uint16_t)(chipid_mac >> 32), (uint32_t)chipid_mac);
 #endif
 
-    // Device metadata - sized for HA discovery requirements (512 bytes)
-    static StaticJsonDocument<512> devicedoc;
-    char config_url[128];
+    // Device metadata - reusable across all entities
+    // NOTE: Using static allocation to avoid heap fragmentation
+    static StaticJsonDocument<500> devicedoc;
+    devicedoc.clear(); // Ensure clean state on re-entry
+    char config_url[64]; // Optimized for IP-based URLs
     snprintf(config_url, sizeof(config_url), "http://%s", WiFi.localIP().toString().c_str());
     devicedoc[FPSTR(_dev)]["configuration_url"] = config_url;
 
@@ -235,16 +323,88 @@ void setupHA()
 
     devicedoc[FPSTR(_dev)]["sw_version"] = F(FW_VERSION);
 
-    // Scratch buffer for reading PROGMEM strings (64 bytes)
-    char ram_buffer[64];
+    // Scratch buffer for reading PROGMEM strings (48 bytes)
+    char ram_buffer[48];
     // Compile-time sanity: ensure ram_buffer is sufficient for longest field
     static_assert(sizeof(ram_buffer) > 32, "ram_buffer too small for field copies");
 
-    // Entity payload - sized for largest expected entity config (1024 bytes)
-    static StaticJsonDocument<1024> doc;
+    // Topic construction buffer (220 bytes)
+    char topic_buf[220];
 
-    for (size_t i = 0; i < (sizeof(entities) / sizeof(entities[0])); i++)
+    // Entity payload
+    static StaticJsonDocument<1000> doc;
+
+    const size_t totalEntities = sizeof(entities) / sizeof(entities[0]);
+    size_t successCount = 0;
+    size_t failureCount = 0;
+    const size_t BATCH_SIZE = 5; // OPTIMIZED: Increased from 3 to 5 due to reduced MQTT buffer (768 bytes)
+    
+    Serial.print("HA: Processing ");
+    Serial.print(totalEntities);
+    Serial.print(" entities in batches of ");
+    Serial.print(BATCH_SIZE);
+    Serial.println("...");
+    
+    delay(100); // Safe watchdog feeding before starting entity processing
+
+    for (size_t i = 0; i < totalEntities; i++)
     {
+        // AGGRESSIVE memory cleanup every batch to prevent fragmentation and crashes
+        if (i % BATCH_SIZE == 0 && i > 0) {
+            Serial.print("HA: Batch ");
+            Serial.print(i / BATCH_SIZE);
+            Serial.print(" completed. Free heap: ");
+            Serial.print(ESP.getFreeHeap());
+            Serial.print(" bytes, Max block: ");
+            Serial.print(ESP.getMaxFreeBlockSize());
+            Serial.println(" bytes");
+            
+            // Force MQTT client to flush all pending data and clear internal buffers
+            mqttClient->loop();
+            delay(50);
+            mqttClient->loop(); // Double loop to ensure complete flush
+            delay(500); // INCREASED: Allow more time for network stack to fully process
+            
+            // Check fragmentation, not just total memory
+            // Need at least 3KB contiguous for remaining entities + climate (1.7KB)
+            if (ESP.getMaxFreeBlockSize() < 3000) {
+                Serial.print("HA: CRITICAL - Heap fragmented! Max block: ");
+                Serial.print(ESP.getMaxFreeBlockSize());
+                Serial.println(" bytes. Restarting for clean heap...");
+                extern bool haDiscoveryInProgress;
+                haDiscoveryInProgress = false;
+                delay(1000);
+                ESP.restart();
+                return;
+            }
+        }
+        
+        // Check memory before EVERY entity to catch corruption early
+        // Log detailed memory state for debugging
+        Serial.print(">>> Entity #");
+        Serial.print(i + 1);
+        Serial.print(": Heap=");
+        Serial.print(ESP.getFreeHeap());
+        Serial.print(", MaxBlock=");
+        Serial.print(ESP.getMaxFreeBlockSize());
+        Serial.print(", Frag=");
+        Serial.print(100 - (ESP.getMaxFreeBlockSize() * 100 / ESP.getFreeHeap()));
+        Serial.println("%");
+        
+        // Need 3500+ bytes for: MQTT buffer (768) + JSON (~600) + topic (220) + safety (1912)
+        if (ESP.getMaxFreeBlockSize() < 3500) {
+            Serial.print("HA: WARNING - Low contiguous memory before entity #");
+            Serial.print(i + 1);
+            Serial.print(". Max block: ");
+            Serial.print(ESP.getMaxFreeBlockSize());
+            Serial.println(" bytes. Restarting...");
+            extern bool haDiscoveryInProgress;
+            haDiscoveryInProgress = false;
+            delay(1000);
+            ESP.restart();
+            return;
+        }
+        
         // Iterate over every entity definition and publish its Home-Assistant
         // auto-discovery payload
         doc.clear();
@@ -284,7 +444,7 @@ void setupHA()
 
         doc[FPSTR(_dev)] = devicedoc[FPSTR(_dev)];
 
-        char uniq_id_buf[256];
+        char uniq_id_buf[160];
         //--------------------------------------------------------------------------------------------------
         /**
          * Compose the globally-unique entity ID that Home Assistant will use
@@ -326,11 +486,10 @@ void setupHA()
         strcpy_P(suffix_ram, suffix_p);
         // Strip leading underscore from entity suffix for object_id generation
         const char *suffix_ptr = (suffix_ram[0] == '_') ? suffix_ram + 1 : suffix_ram;
-        char object_id_buf[256];
+        char object_id_buf[160];
         snprintf(object_id_buf, sizeof(object_id_buf), "%s_%s", mqttBaseTopic.c_str(), suffix_ptr);
         doc[FPSTR(_object_id)] = object_id_buf;
 
-        char topic_buf[256];
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].stat_t_suffix);
         if (pgm_p)
         {
@@ -423,6 +582,18 @@ void setupHA()
             doc[FPSTR(_assumed_state)] = atoi(ram_buffer);
         }
 
+        // Add step attribute for water quality number entities (pH and chlorine need 0.1 step)
+        pgm_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
+        strcpy_P(ram_buffer, pgm_p);
+        if (strcmp(ram_buffer, "_ph_value") == 0 || strcmp(ram_buffer, "_cl_value") == 0)
+        {
+            doc[FPSTR(_step_key)] = 0.1;
+        }
+        else if (strcmp(ram_buffer, "_cya_value") == 0 || strcmp(ram_buffer, "_alk_value") == 0)
+        {
+            doc[FPSTR(_step_key)] = 1;
+        }
+
         // Set up availability topic for connection status monitoring
         snprintf(topic_buf, sizeof(topic_buf), "%s/Status", mqttBaseTopic.c_str());
         doc[FPSTR(_avty_t)] = topic_buf;
@@ -436,19 +607,148 @@ void setupHA()
         char component_ram[32];
         strcpy_P(component_ram, component_p);
 
+        // Publish the entity
+        bool publishResult = false;
+        
         if (strcmp(ram_buffer, "_amb_temp_c_manual") == 0)
         {
-            if (!publishHaEntity(component_ram, "_amb_temp_c", doc))
-            {
-                return;
-            }
+            Serial.print("HA: Publishing entity ");
+            Serial.print(component_ram);
+            Serial.print(" -> _amb_temp_c");
+            publishResult = publishHaEntity(component_ram, "_amb_temp_c", doc);
         }
         else
         {
-            if (!publishHaEntity(component_ram, ram_buffer, doc))
-            {
-                return;
-            }
+            Serial.print("HA: Publishing entity ");
+            Serial.print(component_ram);
+            Serial.print(" -> ");
+            Serial.print(ram_buffer);
+            publishResult = publishHaEntity(component_ram, ram_buffer, doc);
+        }
+        
+        // Log the result
+        if (publishResult)
+        {
+            Serial.println(" ✓");
+            successCount++;
+            mqttClient->loop();
+        }
+        else
+        {
+            Serial.println(" ✗ FAILED");
+            failureCount++;
+            mqttClient->loop();
+            continue;
+        }
+        
+        // Small delay between entities
+        delay(50);
+        
+        // Process MQTT messages every 5 entities
+        if ((i + 1) % 5 == 0) {
+            mqttClient->loop();
         }
     }
+
+    Serial.print("HA: Entity summary - Success: ");
+    Serial.print(successCount);
+    Serial.print(", Failed: ");
+    Serial.println(failureCount);
+
+    // Climate entity configuration
+    {
+        static StaticJsonDocument<1700> climate_doc;
+        climate_doc.clear();
+        
+        // Basic entity setup
+        climate_doc[FPSTR(_dev)] = devicedoc[FPSTR(_dev)];
+
+        // Build climate entity name
+        snprintf(ram_buffer, sizeof(ram_buffer), "Temperatursteuerung");
+        climate_doc[FPSTR(_name)] = ram_buffer;
+
+        // Build unique ID - consistent with other entities
+        snprintf(topic_buf, sizeof(topic_buf), "climate.%s_climate", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_uniq_id)] = topic_buf;
+
+        // Build object_id
+        snprintf(ram_buffer, sizeof(ram_buffer), "%s_climate", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_object_id)] = ram_buffer;
+
+        // Temperature settings
+        climate_doc[FPSTR(_max_temp)] = 40;
+        climate_doc[FPSTR(_min_temp)] = 20;
+        climate_doc[FPSTR(_precision)] = 1.0;
+        climate_doc[FPSTR(_temp_unit)] = F("C");
+
+        // Climate modes
+        climate_doc[FPSTR(_modes)].add(F("off"));
+        climate_doc[FPSTR(_modes)].add(F("heat"));
+        climate_doc[FPSTR(_modes)].add(F("fan_only"));
+
+        // Climate entity buffers
+        char mode_cmd_topic[100];
+        char message_topic[100];
+        char temp_cmd_topic[100];
+        char status_topic[100];
+        
+        // Mode command topic
+        snprintf(mode_cmd_topic, sizeof(mode_cmd_topic), "%s/command_batch", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_mode_cmd_t)] = mode_cmd_topic;
+        
+        // Mode command template - simplified to avoid Flash string issues
+        climate_doc[FPSTR(_mode_cmd_tpl)] = F("[{\"CMD\":3,\"VALUE\":{% if value == \"heat\" %}1{% else %}0{% endif %}},{\"CMD\":4,\"VALUE\":{% if value == \"fan_only\" %}1{% elif value == \"heat\" %}1{% else %}0{% endif %}}]");
+
+        // Status topics - use dedicated buffer for message topic
+        snprintf(message_topic, sizeof(message_topic), "%s/message", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_mode_stat_t)] = message_topic;
+        climate_doc[FPSTR(_act_t)] = message_topic;
+        climate_doc[FPSTR(_temp_stat_t)] = message_topic;
+        climate_doc[FPSTR(_curr_temp_t)] = message_topic;
+
+        // Templates - add all at once without interruption
+        climate_doc[FPSTR(_mode_stat_tpl)] = F("{% if value_json.RED == 1 %}heat{% elif value_json.GRN == 1 %}heat{% else %}off{% endif %}");
+        climate_doc[FPSTR(_act_tpl)] = F("{% if value_json.RED == 1 %}heating{% elif value_json.GRN == 1 %}idle{% elif value_json.FLT == 1 %}fan{% else %}off{% endif %}");
+        climate_doc[FPSTR(_temp_stat_tpl)] = F("{{ value_json.TGTC }}");
+        climate_doc[FPSTR(_curr_temp_tpl)] = F("{{ value_json.TMPC }}");
+
+        // Temperature command - use dedicated buffer
+        snprintf(temp_cmd_topic, sizeof(temp_cmd_topic), "%s/command", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_temp_cmd_t)] = temp_cmd_topic;
+        climate_doc[FPSTR(_temp_cmd_tpl)] = F("{CMD:0,VALUE:{{ value|int }}}");
+
+        // Availability setup - use dedicated buffer
+        snprintf(status_topic, sizeof(status_topic), "%s/Status", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_avty_t)] = status_topic;
+        climate_doc[FPSTR(_pl_avail)] = F("Alive");
+        climate_doc[FPSTR(_pl_not_avail)] = F("Dead");
+
+        // Publish climate entity
+        Serial.print("HA: Publishing climate entity -> _climate");
+        
+        bool climateResult = publishHaEntity("climate", "_climate", climate_doc);
+        if (climateResult)
+        {
+            Serial.println(" ✓");
+        }
+        else
+        {
+            Serial.println(" ✗ FAILED");
+        }
+    }
+    
+    // Re-enable WiFi sleep mode
+    #ifdef ESP8266
+    WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
+    #endif
+    
+    // Re-enable MQTT publishing and pump communication
+    extern bool haDiscoveryInProgress;
+    haDiscoveryInProgress = false;
+    
+    Serial.println("========================================");
+    Serial.println("HA: HOME ASSISTANT DISCOVERY COMPLETE");
+    Serial.println("========================================");
+    Serial.print("HA: Free heap: ");
+    Serial.println(ESP.getFreeHeap());
 }

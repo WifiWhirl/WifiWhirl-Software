@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <title>WifiWhirl | Web-Konfiguration</title>
@@ -9,9 +9,15 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
     <script src="function.js" type="text/javascript"></script>
     <script src="index.js" type="text/javascript"></script>
   </head>
@@ -38,12 +44,14 @@
       </header>
 
       <div class="topnav" id="topnav">
-        <a href="./">Übersicht</a>
-        <a href="hwconfig.html">Hardware-Konfiguration</a>
+        <a href="./">Dashboard</a>
+        <a href="automation.html">Automatisierung</a>
+        <a href="smartschedule.html">Smart Schedule</a>
         <a href="config.html">SPA-Konfiguration</a>
         <a href="webconfig.html" class="active">Web-Konfiguration</a>
-        <a href="wifi.html">Netzwerkkonfiguration</a>
         <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="wifi.html">Netzwerkkonfiguration</a>
+        <a href="hwconfig.html">Pumpenkonfiguration</a>
         <a href="/restart/">WifiWhirl Modul neu starten</a>
       </div>
 
@@ -110,6 +118,46 @@
             </td>
           </tr>
           <tr>
+            <td>Zeige Abschnitt "Energie & Kosten"</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="showSectionEnergy" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+          <tr>
+            <td>Zeige Abschnitt "Wasserqualität"</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="showSectionWaterQuality" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+          <tr>
+            <td>Zeige "Cyanursäure" (Wasserqualität)</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="showWQCyanuric" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+          <tr>
+            <td>Zeige "Alkalinität" (Wasserqualität)</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="showWQAlkalinity" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+          <tr>
             <td>Verwende Auswahl (anstatt Schieberegler)</td>
             <td>
               <label class="switch"
@@ -122,11 +170,35 @@
         </table>
       </section>
 
+      <section>
+        <table>
+          <tr>
+            <td>WebSocket Verbindung deaktivieren (Polling verwenden)</td>
+            <td>
+              <label class="switch"
+                ><input type="checkbox" id="disableWebSocket" /><span
+                  class="slider round"
+                ></span
+              ></label>
+            </td>
+          </tr>
+        </table>
+        <p style="font-size: 0.85em; margin: 8px 4px 0; opacity: 0.7">
+          Diese Einstellung wird nur lokal in diesem Browser gespeichert.
+          Aktiviere diese Option, falls du Verbindungsprobleme mit dem WifiWhirl
+          Modul hast (z.B. mit iOS 26 und Safari Browser). Nach dem Speichern
+          lade bitte das Dashboard neu.
+        </p>
+      </section>
+
       <p class="center">
         <button
           id="save"
           class="button"
-          onclick="buttonConfirm(this);saveWebConfig()"
+          onclick="
+            buttonConfirm(this);
+            saveWebConfig();
+          "
         >
           Speichern
         </button>
@@ -139,6 +211,9 @@
     </div>
 
     <script>
+      // Always initialize the WebSocket toggle from localStorage (browser-local setting)
+      document.getElementById("disableWebSocket").checked =
+        localStorage.getItem("disableWebSocket") === "true";
       if (localStorage.getItem("showSectionTemperature")) {
         setWebConfig();
       }
@@ -157,38 +232,70 @@
           localStorage.getItem("showSectionTimer") === "true";
         document.getElementById("showSectionTotals").checked =
           localStorage.getItem("showSectionTotals") === "true";
+        document.getElementById("showSectionEnergy").checked =
+          localStorage.getItem("showSectionEnergy") === "true";
+        document.getElementById("showSectionWaterQuality").checked =
+          localStorage.getItem("showSectionWaterQuality") !== "false";
+        document.getElementById("showWQCyanuric").checked =
+          localStorage.getItem("showWQCyanuric") === "true";
+        document.getElementById("showWQAlkalinity").checked =
+          localStorage.getItem("showWQAlkalinity") === "true";
         document.getElementById("useControlSelector").checked =
           localStorage.getItem("useControlSelector") === "true";
+        // WebSocket toggle is localStorage-only
+        document.getElementById("disableWebSocket").checked =
+          localStorage.getItem("disableWebSocket") === "true";
       }
 
       function saveWebConfig() {
         localStorage.setItem(
           "showSectionTemperature",
-          document.getElementById("showSectionTemperature").checked
+          document.getElementById("showSectionTemperature").checked,
         );
         localStorage.setItem(
           "showSectionDisplay",
-          document.getElementById("showSectionDisplay").checked
+          document.getElementById("showSectionDisplay").checked,
         );
         localStorage.setItem(
           "showSectionControl",
-          document.getElementById("showSectionControl").checked
+          document.getElementById("showSectionControl").checked,
         );
         localStorage.setItem(
           "showSectionButtons",
-          document.getElementById("showSectionButtons").checked
+          document.getElementById("showSectionButtons").checked,
         );
         localStorage.setItem(
           "showSectionTimer",
-          document.getElementById("showSectionTimer").checked
+          document.getElementById("showSectionTimer").checked,
         );
         localStorage.setItem(
           "showSectionTotals",
-          document.getElementById("showSectionTotals").checked
+          document.getElementById("showSectionTotals").checked,
+        );
+        localStorage.setItem(
+          "showSectionEnergy",
+          document.getElementById("showSectionEnergy").checked,
+        );
+        localStorage.setItem(
+          "showSectionWaterQuality",
+          document.getElementById("showSectionWaterQuality").checked,
+        );
+        localStorage.setItem(
+          "showWQCyanuric",
+          document.getElementById("showWQCyanuric").checked,
+        );
+        localStorage.setItem(
+          "showWQAlkalinity",
+          document.getElementById("showWQAlkalinity").checked,
         );
         localStorage.setItem(
           "useControlSelector",
-          document.getElementById("useControlSelector").checked
+          document.getElementById("useControlSelector").checked,
+        );
+        // WebSocket toggle is localStorage-only
+        localStorage.setItem(
+          "disableWebSocket",
+          document.getElementById("disableWebSocket").checked,
         );
         writeWebConfig();
       }
@@ -208,6 +315,13 @@
             document.getElementById("showSectionButtons").checked = json.SSB;
             document.getElementById("showSectionTimer").checked = json.SSTIM;
             document.getElementById("showSectionTotals").checked = json.SSTOT;
+            document.getElementById("showSectionEnergy").checked = json.SSEN;
+            document.getElementById("showSectionWaterQuality").checked =
+              json.SSWQ !== false;
+            document.getElementById("showWQCyanuric").checked =
+              json.SWQCYA === true;
+            document.getElementById("showWQAlkalinity").checked =
+              json.SWQALK === true;
             document.getElementById("useControlSelector").checked = json.UCS;
           }
         };
@@ -223,6 +337,10 @@
           SSB: document.getElementById("showSectionButtons").checked,
           SSTIM: document.getElementById("showSectionTimer").checked,
           SSTOT: document.getElementById("showSectionTotals").checked,
+          SSEN: document.getElementById("showSectionEnergy").checked,
+          SSWQ: document.getElementById("showSectionWaterQuality").checked,
+          SWQCYA: document.getElementById("showWQCyanuric").checked,
+          SWQALK: document.getElementById("showWQAlkalinity").checked,
           UCS: document.getElementById("useControlSelector").checked,
         };
         req.send(JSON.stringify(json));

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
   <head>
     <title>WifiWhirl | SPA-Konfiguration</title>
@@ -9,7 +9,10 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
     <meta
       name="viewport"
@@ -17,10 +20,9 @@
     />
 
     <script src="function.js" type="text/javascript"></script>
-    <script src="index.js" type="text/javascript"></script>
   </head>
 
-  <body onload="togglefields()">
+  <body>
     <div id="site">
       <header>
         <form id="darkModeForm">
@@ -42,165 +44,185 @@
       </header>
 
       <div class="topnav" id="topnav">
-        <a href="./">Übersicht</a>
-        <a href="hwconfig.html">Hardware-Konfiguration</a>
+        <a href="./">Dashboard</a>
+        <a href="automation.html">Automatisierung</a>
+        <a href="smartschedule.html">Smart Schedule</a>
         <a href="config.html" class="active">SPA-Konfiguration</a>
         <a href="webconfig.html">Web-Konfiguration</a>
-        <a href="wifi.html">Netzwerkkonfiguration</a>
         <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="wifi.html">Netzwerkkonfiguration</a>
+        <a href="hwconfig.html">Pumpenkonfiguration</a>
         <a href="/restart/">WifiWhirl Modul neu starten</a>
       </div>
 
       <section>
+        <h2>Energiekosten</h2>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Dein Strompreis pro kWh wird zur Berechnung der geschätzten
+          Gesamtenergiekosten auf dem Dashboard verwendet.
+        </p>
         <table>
           <tr>
             <td><label for="price">Preis pro kWh:</label></td>
             <td>
-              <input
-                type="text"
-                id="price"
-                value="0,35"
-                maxlength="4"
-                size="6"
-                pattern="\d{1,1},\d{1,3}"
-                required
-              /><span class="inputunit" style="margin-left: -12px">€</span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="price"
+                  value="0.35"
+                  min="0"
+                  max="9.99"
+                  step="0.01"
+                  inputmode="decimal"
+                  required
+                /><span class="inputunit"> €</span></span
+              >
             </td>
-            <td></td>
+          </tr>
+        </table>
+        <div class="center" style="margin-top: 10px">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Wartungsintervalle</h2>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Lege fest, nach wie vielen Tagen die Timer-Buttons auf dem Dashboard
+          ihre Farbe ändern, um dich auf die fällige Wartung hinzuweisen.
+        </p>
+        <table>
+          <tr>
+            <td>
+              <label for="clinterval">Chlor hinzufügen:</label>
+              <span
+                data-text="Standard: 7 Tage. Empfehlung: 3–7 Tage je nach Nutzung."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="clinterval"
+                  value="7"
+                  min="1"
+                  max="99"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit"> Tage</span></span
+              >
+            </td>
           </tr>
           <tr>
-            <td><label for="clinterval">Chlor hinzufügen:</label></td>
             <td>
-              <input
-                type="text"
-                id="clinterval"
-                value="7"
-                maxlength="2"
-                size="6"
-                pattern="\d{1,2}"
-                required
-              /><span class="inputunit" style="margin-left: -35px">Tage</span>
+              <label for="finterval">Filterreinigung:</label>
+              <span
+                data-text="Standard: 30 Tage. Der Filter sollte regelmäßig ausgespült werden."
+                class="tooltip"
+                >?</span
+              >
             </td>
-            <td></td>
+            <td>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="finterval"
+                  value="30"
+                  min="1"
+                  max="99"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit"> Tage</span></span
+              >
+            </td>
           </tr>
           <tr>
-            <td><label for="finterval">Filterreinigung:</label></td>
             <td>
-              <input
-                type="text"
-                id="finterval"
-                value="30"
-                maxlength="2"
-                size="6"
-                pattern="\d{1,2}"
-                required
-              /><span class="inputunit" style="margin-left: -35px">Tage</span>
+              <label for="fcinterval">Filterwechsel:</label>
+              <span
+                data-text="Standard: 60 Tage. Die Filterkartusche sollte komplett ausgetauscht werden."
+                class="tooltip"
+                >?</span
+              >
             </td>
-            <td></td>
+            <td>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="fcinterval"
+                  value="60"
+                  min="1"
+                  max="99"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit"> Tage</span></span
+              >
+            </td>
           </tr>
           <tr>
-            <td><label for="fcinterval">Filterwechsel:</label></td>
             <td>
-              <input
-                type="text"
-                id="fcinterval"
-                value="60"
-                maxlength="2"
-                size="6"
-                pattern="\d{1,2}"
-                required
-              /><span class="inputunit" style="margin-left: -35px">Tage</span>
+              <label for="wcinterval">Wasserwechsel:</label>
+              <span
+                data-text="Standard: 90 Tage. Das gesamte Wasser sollte erneuert werden. Empfehlung: 60–90 Tage je nach Nutzung."
+                class="tooltip"
+                >?</span
+              >
             </td>
-            <td></td>
-          </tr>
-          <tr>
-            <td><label for="wcinterval">Wasserwechsel:</label></td>
             <td>
-              <input
-                type="text"
-                id="wcinterval"
-                value="90"
-                maxlength="2"
-                size="6"
-                pattern="\d{1,2}"
-                required
-              /><span class="inputunit" style="margin-left: -35px">Tage</span>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="wcinterval"
+                  value="90"
+                  min="1"
+                  max="99"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit"> Tage</span></span
+              >
             </td>
-            <td></td>
           </tr>
+        </table>
+        <div class="center" style="margin-top: 10px">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Pool & Wetter</h2>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Diese Einstellungen werden für die Berechnung der geschätzten
+          Heizdauer bis zum Erreichen der Zieltemperatur sowie für die
+          SmartSchedule Funktion verwendet.
+        </p>
+        <table>
           <tr>
             <td><label for="poolCap">Poolinhalt in Liter:</label></td>
             <td>
-              <input
-                type="text"
-                id="poolCap"
-                value="700"
-                maxlength="4"
-                size="6"
-                pattern="\d{3,4}"
-                required
-              /><span class="inputunit" style="margin-left: -32px">Liter</span>
-            </td>
-            <td></td>
-          </tr>
-          <tr>
-            <td><label for="audio">Töne (ein/aus):</label></td>
-            <td><input type="checkbox" id="audio" /></td>
-            <td></td>
-          </tr>
-          <tr>
-            <td>
-              <label for="notification">Benachrichtigung: </label>
-              <span
-                data-text="Bei aktivierter Benachrichtigung ertönt in Abhängigkeit der eingestellten Benachrichtigungszeit ein Piepton für bevorstehende Aktionen (Filterpumpe, Heizung oder Airjet). Parallel dazu zeigt das Display die verbleibende Zeit an. Die Benachrichtigung wiederholt sich jeweils um die Hälfte der verbleibenden Zeit."
-                class="tooltip"
-                >?</span
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="poolCap"
+                  value="700"
+                  min="100"
+                  max="9999"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                /><span class="inputunit"> Liter</span></span
               >
             </td>
-            <td><input type="checkbox" id="notification" /></td>
-            <td></td>
           </tr>
-          <tr>
-            <td>
-              <label for="notificationtime">Benachrichtigungszeit:</label>
-            </td>
-            <td>
-              <input
-                type="text"
-                id="notificationtime"
-                value="32"
-                maxlength="3"
-                size="6"
-                pattern="\d{1,3}"
-              /><span class="inputunit" style="margin-left: -30px">Sek</span>
-            </td>
-            <td></td>
-          </tr>
-          <!-- <tr>
-            <td>
-              <label for="calibration">Kalibriert:</label
-              ><span
-                data-text="Wenn aktiviert, ist die virtuelle Temperatur kalibriert. Kalibrieren: Schalte die Heizung AUS und die Pumpe EIN. Stoppe die Zeit, bis die Temperatur um einige Grad gesunken ist. Schalte währenddessen keine Air- oder Hydrojets ein. Die Wassertemperatur muss sich zu Beginn um mehrere Grad von der Umgebungstemperatur unterscheiden."
-                class="tooltip"
-                >?</span
-              >
-            </td>
-            <td>
-              <input
-                type="checkbox"
-                id="calibration"
-                onclick="toggleCalibration()"
-              />
-            </td>
-          </tr> -->
-          <!-- <tr>
-            <td></td>
-            <td><a href="calib.html">manuelle Kalibrierung</a></td>
-          </tr> -->
           <tr>
             <td>
               <label for="enableWeather"
-                >Außentemperatur automatisch ermitteln:</label
+                >Außentemperatur<br />automatisch ermitteln:</label
               >
               <span
                 data-text="Mit der Ermittlung der Außentemperatur wird die Umgebungstemperatur automatisch gesetzt. Dies sollte nicht aktiviert werden, wenn der Pool im Innenraum steht."
@@ -216,11 +238,16 @@
               />
             </td>
           </tr>
-
           <tr id="coordinates" style="display: none">
             <td>Postleitzahl:</td>
             <td>
-              <input type="text" id="plz" maxlength="5" size="6" />
+              <input
+                type="text"
+                inputmode="numeric"
+                id="plz"
+                maxlength="5"
+                size="6"
+              />
             </td>
           </tr>
           <tr id="cityhintrow">
@@ -229,191 +256,212 @@
             </td>
           </tr>
         </table>
+        <div class="center" style="margin-top: 10px">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
+        </div>
       </section>
+
       <section>
+        <h2>Geräteeinstellungen</h2>
+        <table>
+          <tr>
+            <td><label for="audio">Töne (ein/aus):</label></td>
+            <td><input type="checkbox" id="audio" /></td>
+          </tr>
+          <tr>
+            <td>
+              <label for="airjetTimeout">Airjet Timeout:</label>
+              <span
+                data-text="Maximale Laufzeit der Luftdüsen. Standard ist 30 Minuten (Hardware-Limit). Bei niedrigerer Einstellung schaltet WifiWhirl die Luftdüsen automatisch ab."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="airjetTimeout"
+                  min="5"
+                  max="30"
+                  value="30"
+                  inputmode="numeric"
+                /><span class="inputunit"> Min</span></span
+              >
+            </td>
+          </tr>
+          <tr id="hydrojetTimeoutRow">
+            <td>
+              <label for="hydrojetTimeout">Hydrojet Timeout:</label>
+              <span
+                data-text="Maximale Laufzeit der Wasserdüsen. Standard ist 60 Minuten (Hardware-Limit). Bei niedrigerer Einstellung schaltet WifiWhirl die Wasserdüsen automatisch ab."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="hydrojetTimeout"
+                  min="5"
+                  max="60"
+                  value="60"
+                  inputmode="numeric"
+                /><span class="inputunit"> Min</span></span
+              >
+            </td>
+          </tr>
+        </table>
+        <div class="center" style="margin-top: 10px">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Bedientasten</h2>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Aktiviere oder deaktiviere einzelne Tasten auf der physischen Pumpe.
+          Deaktivierte Tasten können nur noch über WifiWhirl gesteuert werden.
+        </p>
         <table>
           <tr>
             <td colspan="8">
-              Aktivierte Bedientasten | <label for="toggle_all">Alle:</label>
-              <input type="checkbox" id="toggle_all" onchange="confirmDisable(this);toggleAll();" />
+              <label for="toggle_all">Alle aktivieren/deaktivieren:</label>
+              <input
+                type="checkbox"
+                id="toggle_all"
+                onchange="
+                  confirmDisable(this);
+                  toggleAll();
+                "
+              />
             </td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="power_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="power_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="power_btn">Ein/Aus</label></td>
-            <td><input type="checkbox" id="lock_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="lock_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="lock_btn">Tastensperre</label></td>
-            <td><input type="checkbox" id="bubbles_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="bubbles_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="bubbles_btn">Airjet</label></td>
-            <td><input type="checkbox" id="hydrojets_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="hydrojets_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="hydrojets_btn">Hydrojet</label></td>
-            
           </tr>
           <tr>
-            <td><input type="checkbox" id="pump_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="pump_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="pump_btn">Pumpe</label></td>
-            <td><input type="checkbox" id="up_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="up_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="up_btn">Aufwärts</label></td>
-            <td><input type="checkbox" id="timer_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="timer_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="timer_btn">Timer</label></td>
             <td></td>
             <td></td>
           </tr>
           <tr>
-            <td><input type="checkbox" id="heat_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="heat_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="heat_btn">Heizung</label></td>
-            <td><input type="checkbox" id="down_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="down_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="down_btn">Abwärts</label></td>
-            <td><input type="checkbox" id="unit_btn" onchange="confirmDisable(this)" /></td>
+            <td>
+              <input
+                type="checkbox"
+                id="unit_btn"
+                onchange="
+                  confirmDisable(this);
+                  updateToggleAll();
+                "
+              />
+            </td>
             <td><label for="unit_btn">Einheit</label></td>
             <td></td>
             <td></td>
           </tr>
         </table>
-        <div class="center">
-          <button
-            id="save"
-            class="button"
-            onclick="buttonConfirm(this);saveConfig()"
-          >
-            Speichern
-          </button>
+        <div class="center" style="margin-top: 10px">
+          <button class="button" onclick="saveConfig(this)">Speichern</button>
         </div>
-      </section>
-
-      <section>
-        <h2>Warteschlangenkonfiguration</h2>
-        <table>
-          <tr>
-            <td><label for="commands">Befehl:</label></td>
-            <td>
-              <select name="commands" id="commands" onchange="togglefields()">
-                <option value="4">Filterpumpe ein/aus</option>
-                <option value="3">Heizung ein/aus</option>
-                <option value="2">Airjet ein/aus</option>
-                <option value="11">Hydrojet ein/aus</option>
-                <option value="22">Pumpe ein/aus</option>
-                <option value="23">Tastensperre ein/aus</option>
-                <option value="12">Displayhelligkeit festlegen</option>
-                <option value="19">Text ausgeben</option>
-              </select>
-            </td>
-            <td></td>
-          </tr>
-          <tr id="valinput">
-            <td id="vallabel">ein-/ausschalten:</td>
-            <td>
-              <input type="radio" id="val" name="val" value="1" /><label
-                for="val"
-                id="onoffinfo"
-                >ein</label
-              >
-              <input type="radio" id="valoff" name="val" value="0" /><label
-                for="valoff"
-                id="offinfo"
-                >aus</label
-              >
-            </td>
-            <td id="displayinfo">
-              <label for="val" id="sliderDsp" valign="middle"></label>
-            </td>
-          </tr>
-          <tr id="textinput" style="display: none">
-            <td>
-              <label for="txt"
-                >Text<br />(nur Kleinbuchstaben und Zahlen):</label
-              >
-            </td>
-            <td>
-              <input
-                type="text"
-                id="txt"
-                value=""
-                maxlength="24"
-                size="16"
-                pattern="[a-z0-9-]*"
-              />
-            </td>
-            <td></td>
-          </tr>
-          <tr>
-            <td><label for="xtime">Ausführungszeit:</label><br /></td>
-            <td>
-              <input
-                type="datetime-local"
-                id="xtime"
-                name="xtime"
-                onchange="totimestamp()"
-              />
-            </td>
-            <td></td>
-          </tr>
-          <tr>
-            <td><label for="interval">Wiederholungsintervall:</label></td>
-            <td>
-              <input type="text" id="interval" value="0" size="8" />
-              Stunden
-            </td>
-            <td></td>
-          </tr>
-          <tr>
-            <td colspan="2">
-              <p>(Einmalig ausführen = 0 Stunden)</p>
-            </td>
-            <td></td>
-          </tr>
-          <tr>
-            <td class="center" colspan="2" style="text-align: center">
-              <button
-                id="addcmd"
-                class="button"
-                onclick="buttonConfirm(this);addCommand()"
-              >
-                Hinzufügen
-              </button>
-            </td>
-          </tr>
-        </table>
-      </section>
-
-      <section style="text-align: left">
-        <h2>Befehlswarteschlange</h2>
-        <table id="cmdq" width="100%" style="border-spacing: 0">
-          <tr class="queueeven">
-            <td colspan="2" style="text-align: center">
-              Die Warteschlange wird geladen...
-            </td>
-          </tr>
-        </table>
-        <table>
-          <tr>
-            <td class="center">
-              <button id="saveq" class="button" onclick="savetofile()">
-                Sichern
-              </button>
-            </td>
-            <td class="center">
-              <button
-                id="loadq"
-                class="button"
-                onclick="buttonConfirm(this);loadfromfile()"
-              >
-                Wiederherstellen
-              </button>
-            </td>
-          </tr>
-          <tr class="center">
-            <td class="center" colspan="2" style="text-align: center">
-              <button
-                id="resetq"
-                class="button_red"
-                onclick="buttonConfirm(this);resetCommandQueue()"
-              >
-                Warteschlange leeren
-              </button>
-            </td>
-          </tr>
-        </table>
       </section>
 
       <footer>
@@ -429,61 +477,6 @@
       loadConfig();
       toggleWeatherSettings();
       loadWeatherCity();
-
-      const settarget = 0;
-      const setunit = 1;
-      const setbubbles = 2;
-      const setheat = 3;
-      const setpump = 4;
-      const resetq = 5;
-      const rebootesp = 6;
-      const gettarget = 7;
-      const resettimes = 8;
-      const resetcl = 9;
-      const resetfilter = 10;
-      const setjets = 11;
-      const setbrightness = 12;
-      const setbeep = 13;
-      const setambientf = 14;
-      const setambientc = 15;
-      const resetdaily = 16;
-      const godmode = 17;
-      const fullpower = 18;
-      const printtext = 19;
-      const setready = 20;
-      const setlck = 23;
-
-      const commandlist = [
-        "Zieltemperatur festlegen",
-        "Einheit festlegen",
-        "Airjet",
-        "Heizung",
-        "Filterpumpe",
-        "Warteschlange zurücksetzen",
-        "WLAN Modul neu starten",
-        "Interner Befehl",
-        "Zeiten zurücksetzen",
-        "Chlortimer zurücksetzen",
-        "Filtertimer zurücksetzen",
-        "Hydrojet",
-        "Displayhelligkeit festlegen",
-        "Signalton festlegen",
-        "Umgebungstemperatur °F festlegen",
-        "Umgebungstemperatur °C festlegen",
-        "Täglichen Zähler zurücksetzen",
-        "Steuerung übernehmen",
-        "Volle Leistung",
-        "Text ausgeben",
-        "Bereitschaftszeit festlegen",
-        "",
-        "Pumpe festlegen",
-        "Tastensperre",
-      ];
-
-      function totimestamp() {
-        console.log(Date.parse(document.getElementById("xtime").value) / 1000);
-        console.log("value " + document.getElementById("xtime").value);
-      }
 
       function loadWeatherCity() {
         if (!weatherEnabled) return;
@@ -517,17 +510,12 @@
             var json = JSON.parse(req.responseText);
             console.log(json);
             //document.getElementById('timezone').value = json.TIMEZONE.toString();
-            document.getElementById("price").value = json.PRICE.toFixed(2)
-              .toString()
-              .replace(".", ",");
+            document.getElementById("price").value = json.PRICE.toFixed(2);
             document.getElementById("clinterval").value = json.CLINT.toString();
             document.getElementById("finterval").value = json.FINT.toString();
             document.getElementById("fcinterval").value = json.FCINT.toString();
             document.getElementById("wcinterval").value = json.WCINT.toString();
             document.getElementById("audio").checked = json.AUDIO;
-            document.getElementById("notification").checked = json.NOTIFY;
-            document.getElementById("notificationtime").value =
-              json.NOTIFTIME.toString();
             var date = new Date(json.REBOOTTIME * 1000);
             document.getElementById("lastboot").innerHTML =
               "Letzter Neustart: " + date.toLocaleString();
@@ -535,19 +523,27 @@
             document.getElementById("plz").value = json.PLZ;
             document.getElementById("enableWeather").checked = json.WEATHER;
             weatherEnabled = json.WEATHER;
-            
-            // Hide Hydrojet command if hardware has no jets
-            const hydroOption = document.querySelector("#commands option[value='11']");
-            if (hydroOption) hydroOption.style.display = json.HASJETS ? "" : "none";
 
             // Hide Hydrojet enable-checkboxes if no jets available
-            const hydroCheckboxCell = document.getElementById("hydrojets_btn")?.parentElement;
-            const hydroLabelCell = document.querySelector("label[for='hydrojets_btn']")?.parentElement;
+            const hydroCheckboxCell =
+              document.getElementById("hydrojets_btn")?.parentElement;
+            const hydroLabelCell = document.querySelector(
+              "label[for='hydrojets_btn']",
+            )?.parentElement;
             const displayState = json.HASJETS ? "" : "none";
-            if (hydroCheckboxCell) hydroCheckboxCell.style.display = displayState;
+            if (hydroCheckboxCell)
+              hydroCheckboxCell.style.display = displayState;
             if (hydroLabelCell) hydroLabelCell.style.display = displayState;
-            
+
+            // Hide Hydrojet timeout row if no jets available
+            const hydrojetTimeoutRow =
+              document.getElementById("hydrojetTimeoutRow");
+            if (hydrojetTimeoutRow)
+              hydrojetTimeoutRow.style.display = displayState;
+
             document.getElementById("poolCap").value = json.POOLCAP;
+            document.getElementById("airjetTimeout").value = json.AIRTO || 30;
+            document.getElementById("hydrojetTimeout").value = json.HJTO || 60;
             document.getElementById("lock_btn").checked = json.LCK;
             document.getElementById("timer_btn").checked = json.TMR;
             document.getElementById("bubbles_btn").checked = json.AIR;
@@ -558,160 +554,38 @@
             document.getElementById("up_btn").checked = json.UP;
             document.getElementById("power_btn").checked = json.PWR;
             document.getElementById("hydrojets_btn").checked = json.HJT;
+            updateToggleAll();
             if (json.WEATHER) loadWeatherCity();
             toggleWeatherSettings();
           }
         };
-
-        setInterval(loadCommandQueue, 4000);
-
-        var now = new Date();
-        var offset = now.getTimezoneOffset() * 60000;
-        var adjustedDate = new Date(now.getTime() - offset);
-        var formattedDate = adjustedDate.toISOString().substring(0, 16); // For minute precision
-        var datetimeField = document.getElementById("xtime");
-        datetimeField.value = formattedDate;
       }
 
-      function showpreviewval(val, text) {
-        document.getElementById(text).innerHTML = document
-          .getElementById(val)
-          .value.toString();
-      }
-
-      function togglefields() {
-        var select = document.getElementById("commands");
-        var textinput = document.getElementById("textinput");
-        var varinput = document.getElementById("val");
-        var varinput2 = document.getElementById("valoff");
-        var varlabel = document.getElementById("vallabel");
-        var sliderDsp = document.getElementById("sliderDsp");
-
-        if (select.value == 19) {
-          // show text input
-          textinput.style.display = "table-row";
-          // onoffinput.style.display = "none";
-          valinput.style.display = "none";
-          varinput.value = "1";
-          document.getElementById("onoffinfo").style.display = "none";
-          document.getElementById("offinfo").style.display = "none";
-          document.getElementById("displayinfo").style.display = "none";
-        } else if (select.value == 12) {
-          // Brightness
-          textinput.style.display = "none";
-          valinput.style.display = "table-row";
-          document.getElementById("displayinfo").style.display = "table-row";
-          document.getElementById("onoffinfo").style.display = "none";
-          document.getElementById("offinfo").style.display = "none";
-          varinput2.style.display = "none";
-          varlabel.innerHTML = "Helligkeit:";
-          varinput.setAttribute("type", "range");
-          varinput.style = "width: 13em;";
-          varinput.value = "8";
-          varinput.maxlength = "1";
-          varinput.min = "0";
-          varinput.max = "8";
-          varinput.size = "3";
-          varinput.removeAttribute("onmousedown");
-          varinput.removeAttribute("ontouchend");
-          varinput.setAttribute(
-            "onmousemove",
-            "showpreviewval('val', 'sliderDsp')"
-          );
-          varinput.setAttribute(
-            "ontouchmove",
-            "showpreviewval('val', 'sliderDsp')"
-          );
-          showpreviewval("val", "sliderDsp");
-        } else if (select.value < 12 || select.value == 23) {
-          // on off checkbox
-          textinput.style.display = "none";
-          valinput.style.display = "table-row";
-          document.getElementById("onoffinfo").style.display = "inline";
-          document.getElementById("offinfo").style.display = "inline";
-          document.getElementById("valoff").style.display = "inline";
-          document.getElementById("displayinfo").style.display = "none";
-          varlabel.innerHTML = "ein-/ausschalten:";
-          varinput.setAttribute("type", "radio");
-          varinput.checked = true;
-          varinput.value = 1;
-          varinput.removeAttribute("style");
-          varinput.removeAttribute("maxlength");
-          varinput.removeAttribute("min");
-          varinput.removeAttribute("max");
-          varinput.removeAttribute("size");
-          varinput.removeAttribute("onmousemove");
-          varinput.removeAttribute("ontouchmove");
-          varinput.setAttribute(
-            "onmousedown",
-            "(this.value = this.checked ? 0 : 1)"
-          );
-          varinput.setAttribute(
-            "ontouchend",
-            "(this.value = this.checked ? 0 : 1)"
-          );
+      function saveConfig(btnElement) {
+        // Disable the button and show saving state
+        var originalText = btnElement ? btnElement.textContent : "";
+        if (btnElement) {
+          btnElement.disabled = true;
+          btnElement.textContent = "Wird gespeichert...";
         }
-      }
 
-      function getCommandJson() {
-        // Safely determine the value for the VALUE field
-        let valueToSend;
-        const commandValue = parseInt(
-          document.getElementById("commands").value
-        );
-        if (commandValue === 12) {
-          // Case for command 12 (brightness slider)
-          const inputElement = document.querySelector('input[name="val"]');
-          valueToSend = inputElement ? parseFloat(inputElement.value) : 0;
-        } else {
-          // Case for other commands (on/off radio buttons)
-          const checkedInput = document.querySelector(
-            'input[name="val"]:checked'
-          );
-          valueToSend = checkedInput ? parseFloat(checkedInput.value) : 0;
-        }
-        // Safely parse time and interval, providing defaults if parsing fails
-        const parsedTime =
-          Date.parse(document.getElementById("xtime").value) / 1000;
-        const xtimeToSend = isNaN(parsedTime) ? 0 : parsedTime;
-
-        const parsedInterval =
-          parseInt(document.getElementById("interval").value) * 3600;
-        const intervalToSend = isNaN(parsedInterval) ? 0 : parsedInterval;
-
-        return {
-          CMD: commandValue,
-          VALUE: valueToSend,
-          XTIME: xtimeToSend,
-          INTERVAL: intervalToSend,
-          TXT: document.getElementById("txt").value,
-        };
-      }
-
-      function saveConfig() {
         var req = new XMLHttpRequest();
         req.open("POST", "/setconfig/");
 
-        // Get command data from the helper
-        const commandJson = getCommandJson();
-
         var json = {
           TIMEZONE: 0,
-          PRICE: parseFloat(
-            document.getElementById("price").value.replace(",", ".")
-          ).toFixed(2),
+          PRICE: parseFloat(document.getElementById("price").value).toFixed(2),
           CLINT: parseInt(document.getElementById("clinterval").value),
           FINT: parseInt(document.getElementById("finterval").value),
           FCINT: parseInt(document.getElementById("fcinterval").value),
           WCINT: parseInt(document.getElementById("wcinterval").value),
           AUDIO: document.getElementById("audio").checked,
-          NOTIFY: document.getElementById("notification").checked,
-          NOTIFTIME: parseInt(
-            document.getElementById("notificationtime").value
-          ),
           PLZ: document.getElementById("plz").value,
           WEATHER: document.getElementById("enableWeather").checked,
           POOLCAP: document.getElementById("poolCap").value,
+          AIRTO: parseInt(document.getElementById("airjetTimeout").value) || 30,
+          HJTO:
+            parseInt(document.getElementById("hydrojetTimeout").value) || 60,
           LCK: document.getElementById("lock_btn").checked,
           TMR: document.getElementById("timer_btn").checked,
           AIR: document.getElementById("bubbles_btn").checked,
@@ -722,12 +596,25 @@
           UP: document.getElementById("up_btn").checked,
           PWR: document.getElementById("power_btn").checked,
           HJT: document.getElementById("hydrojets_btn").checked,
-          ...commandJson, // Merge the command data
         };
 
         var jsonstring = JSON.stringify(json);
         req.send(jsonstring);
         console.log(jsonstring);
+
+        req.onreadystatechange = function () {
+          if (this.readyState == 4 && btnElement) {
+            if (this.status == 200) {
+              btnElement.textContent = "Gespeichert";
+            } else {
+              btnElement.textContent = "Fehler!";
+            }
+            setTimeout(function () {
+              btnElement.textContent = originalText;
+              btnElement.disabled = false;
+            }, 2000);
+          }
+        };
 
         if (document.getElementById("enableWeather").checked) {
           weatherEnabled = 1;
@@ -736,214 +623,36 @@
         toggleWeatherSettings();
       }
 
+      var btnIds = [
+        "lock_btn",
+        "timer_btn",
+        "bubbles_btn",
+        "unit_btn",
+        "heat_btn",
+        "pump_btn",
+        "down_btn",
+        "up_btn",
+        "power_btn",
+        "hydrojets_btn",
+      ];
+
       function toggleAll() {
-        document.getElementById("lock_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("timer_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("bubbles_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("unit_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("heat_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("pump_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("down_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("up_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("power_btn").checked =
-          document.getElementById("toggle_all").checked;
-        document.getElementById("hydrojets_btn").checked =
-          document.getElementById("toggle_all").checked;
-      }
-
-      let dateoptions = {
-        weekday: "long",
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-        hour12: false,
-      };
-
-      function loadCommandQueue() {
-        var req = new XMLHttpRequest();
-        req.open("POST", "/getcommands/");
-        req.send();
-        req.onreadystatechange = function () {
-          if (this.readyState == 4 && this.status == 200) {
-            var json = JSON.parse(req.responseText);
-            console.log(json);
-            var table = document.getElementById("cmdq");
-            table.innerHTML = "";
-            if (json.LEN == 0) {
-              var row = table.insertRow();
-              row.className = "queueeven";
-              var cell = row.insertCell(0);
-              cell.colSpan = "2";
-              cell.style = "text-align: center;";
-              cell.innerHTML = "Die Warteschlange ist leer.";
-              return;
-            }
-            for (var i = 0; i < json.LEN; i++) {
-              var row = table.insertRow();
-              if (i % 2) {
-                row.className = "queueodd";
-              } else {
-                row.className = "queueeven";
-              }
-              var cell = row.insertCell(0);
-              cell.colSpan = "2";
-              cell.style = "padding: 0.5em;";
-              var date = new Date(json.XTIME[i] * 1000);
-              cell.innerHTML =
-                "<strong>" +
-                commandlist[json["CMD"][i]] +
-                " " +
-                (json["VALUE"][i] == 1
-                  ? "einschalten"
-                  : json["VALUE"][i] == 0
-                  ? "ausschalten"
-                  : json["VALUE"][i]) +
-                "</strong><br>" +
-                "Nächste Ausführung: " +
-                new Intl.DateTimeFormat(undefined, dateoptions).format(date) + //date.toLocaleString()
-                "<br>Wiederholungsintervall: " +
-                (json["INTERVAL"][i] != 0
-                  ? json["INTERVAL"][i] / 3600 +
-                    " Stunde" +
-                    (json["INTERVAL"][i] / 3600 != 1 ? "n" : "")
-                  : "einmalig");
-              var row = table.insertRow();
-              if (i % 2) {
-                row.className = "queueodd";
-              } else {
-                row.className = "queueeven";
-              }
-              cell = row.insertCell(0);
-              cell.width = "50%";
-              cell.style = "padding: 0.5em; text-align: center;";
-              cell.innerHTML =
-                '<button id="editCmd' +
-                i +
-                '" class="button" onclick="editCommandQueue(' +
-                i +
-                ')">Überschreiben</button>';
-              cell = row.insertCell(1);
-              cell.width = "50%";
-              cell.style = "padding: 0.5em; text-align: center;";
-              cell.innerHTML =
-                '<button id="delCmd' +
-                i +
-                '" class="button_red" onclick="delCommand(' +
-                i +
-                ')">Löschen</button>';
-            }
-          }
-        };
-      }
-
-      function addCommand() {
-        var req = new XMLHttpRequest();
-        req.open("POST", "/addcommand/");
-        var json = getCommandJson();
-        req.send(JSON.stringify(json));
-        console.log(json);
-      }
-
-      function resetCommandQueue() {
-        var req = new XMLHttpRequest();
-        req.open("POST", "/addcommand/");
-        var json = {
-          CMD: resetq,
-          VAL: 1,
-          XTIME: 0,
-          INTERVAL: 0,
-        };
-        req.send(JSON.stringify(json));
-        console.log(json);
-        loadCommandQueue();
-      }
-
-      function savetofile() {
-        var filename = prompt(
-          "Bitte gib einen Dateinamen ein",
-          "wifiwhirl_backup_warteschlange.json"
-        );
-        if (filename == null) return;
-        if (!filename.endsWith(".json")) {
-          _filename = filename + ".json";
-          filename = _filename;
+        var state = document.getElementById("toggle_all").checked;
+        for (var i = 0; i < btnIds.length; i++) {
+          document.getElementById(btnIds[i]).checked = state;
         }
-        var req = new XMLHttpRequest();
-        req.open("POST", "/cmdq_file/");
-        var json = {
-          ACT: "save",
-          NAME: filename,
-        };
-        req.send(JSON.stringify(json));
-        console.log(json);
-        var reqget = new XMLHttpRequest();
-        reqget.open("GET", "/" + filename);
-        req.onreadystatechange = function () {
-          if (this.status == 200) {
-            console.log(this.status);
-            reqget.responseType = "blob";
-            reqget.onload = function (event) {
-              var blob = reqget.response;
-              var fileName = req.getResponseHeader("fileName");
-              var link = document.createElement("a");
-              link.href = window.URL.createObjectURL(blob);
-              link.download = fileName;
-              link.click();
-            };
+      }
+
+      function updateToggleAll() {
+        var allChecked = true;
+        for (var i = 0; i < btnIds.length; i++) {
+          if (!document.getElementById(btnIds[i]).checked) {
+            allChecked = false;
+            break;
           }
-        };
-        reqget.send();
+        }
+        document.getElementById("toggle_all").checked = allChecked;
       }
-
-      function loadfromfile() {
-        var filename = prompt(
-          "Bitte gib einen Dateinamen ein",
-          "wifiwhirl_backup_warteschlange.json"
-        );
-        if (filename == null) return;
-        var req = new XMLHttpRequest();
-        req.open("POST", "/cmdq_file/");
-        var json = {
-          ACT: "load",
-          NAME: filename,
-        };
-        req.send(JSON.stringify(json));
-        console.log(json);
-      }
-
-      function editCommandQueue(index) {
-        var req = new XMLHttpRequest();
-        req.open("POST", "/editcommand/");
-        var json = getCommandJson();
-        json.IDX = index;
-        req.send(JSON.stringify(json));
-        console.log(json);
-      }
-
-      function delCommand(index) {
-        var req = new XMLHttpRequest();
-        req.open("POST", "/delcommand/");
-        var json = {
-          IDX: index,
-        };
-        req.send(JSON.stringify(json));
-        console.log(json);
-      }
-
-      // function toggleCalibration() {
-      //   let obj = document.getElementById("calibration");
-      //   if (obj.checked) obj.checked = false;
-      // }
 
       function toggleWeatherSettings() {
         let obj = document.getElementById("coordinates");
@@ -962,18 +671,46 @@
         if (elem.checked) return; // only on uncheck
         var label = document.querySelector("label[for='" + elem.id + "']");
         var btnName = label ? label.innerText.trim() : elem.id;
-        var msg = "Achtung!\n\nMit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl-Modul möglich. " +
-                  "Die Bedientasten auf der Pumpe werden damit deaktiviert!\n\nBist du dir sicher, dass du ";
+        var msg =
+          "Achtung!\n\nMit dem Deaktivieren der Bedientasten ist eine Steuerung nur noch über das WifiWhirl Modul möglich. " +
+          "Die Bedientasten auf der Pumpe werden damit deaktiviert!\n\nBist du dir sicher, dass du ";
 
-        if (btnName === "Alle:") {
+        if (elem.id === "toggle_all") {
           msg += "ALLE Tasten deaktivieren möchtest?";
         } else {
-          msg += "die Taste \"" + btnName + "\" deaktivieren möchtest?";
+          msg += 'die Taste "' + btnName + '" deaktivieren möchtest?';
         }
         if (!confirm(msg)) {
           elem.checked = true; // revert change
         }
       }
+
+      // Fix tooltips on iOS Safari: label[for] in same <td> steals focus
+      (function () {
+        var tips = document.querySelectorAll(".tooltip");
+        for (var i = 0; i < tips.length; i++) {
+          tips[i].setAttribute("tabindex", "0");
+          tips[i].addEventListener("click", function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            // Close any other open tooltip first
+            var all = document.querySelectorAll(".tooltip.active");
+            for (var j = 0; j < all.length; j++) {
+              if (all[j] !== this) all[j].classList.remove("active");
+            }
+            this.classList.toggle("active");
+            this.focus();
+          });
+        }
+        // Dismiss tooltip when tapping anywhere else
+        document.addEventListener("click", function () {
+          var all = document.querySelectorAll(".tooltip.active");
+          for (var j = 0; j < all.length; j++) {
+            all[j].classList.remove("active");
+            all[j].blur();
+          }
+        });
+      })();
     </script>
     <script src="darkmode.js"></script>
   </body>

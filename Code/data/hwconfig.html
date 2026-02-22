@@ -1,7 +1,7 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <title>WifiWhirl | Hardware-Konfiguration</title>
+    <title>WifiWhirl | Pumpenkonfiguration</title>
     <meta charset="utf-8" />
     <link rel="icon" type="image/png" sizes="180x180" href="logo.png" />
     <meta name="theme-color" content="#4051b5" />
@@ -9,7 +9,10 @@
     <link
       rel="stylesheet"
       href="main.css"
-      onload="this.media='all'; this.onload=null;"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
     <meta
       name="viewport"
@@ -34,22 +37,31 @@
         </form>
         <a href="./"
           ><div id="header">
-            <span>Hardware-Konfiguration</span><span>WifiWhirl</span>
+            <span>Pumpenkonfiguration</span><span>WifiWhirl</span>
           </div></a
         >
         <a href="javascript:void(0);" class="topnavicon" onclick="topNav()"></a>
       </header>
 
       <div class="topnav" id="topnav">
-        <a href="./">Übersicht</a>
-        <a href="hwconfig.html" class="active">Hardware-Konfiguration</a>
+        <a href="./">Dashboard</a>
+        <a href="automation.html">Automatisierung</a>
+        <a href="smartschedule.html">Smart Schedule</a>
         <a href="config.html">SPA-Konfiguration</a>
         <a href="webconfig.html">Web-Konfiguration</a>
-        <a href="wifi.html">Netzwerkkonfiguration</a>
         <a href="mqtt.html">MQTT-Konfiguration</a>
+        <a href="wifi.html">Netzwerkkonfiguration</a>
+        <a href="hwconfig.html" class="active">Pumpenkonfiguration</a>
         <a href="/restart/">WifiWhirl Modul neu starten</a>
       </div>
       <section>
+        <p style="margin: 0 0 0.8em 0; font-size: 0.9em; opacity: 0.8">
+          Wähle hier das Modell deiner Bestway-Pumpe aus, damit WifiWhirl
+          korrekt mit der Steuerung kommuniziert. Diese Einstellung muss nur bei
+          der Ersteinrichtung oder nach einem Pumpenwechsel angepasst werden.
+          Nach dem Speichern startet das Modul automatisch neu, falls du das
+          Modell geändert hast.
+        </p>
         <p>Wähle dein Pumpenmodell aus:</p>
         <input
           type="radio"
@@ -102,9 +114,8 @@
             console.log(json);
             console.log(json.cio.toString());
 
-            document.getElementById(
-              "cio_" + json.cio.toString()
-            ).checked = true;
+            document.getElementById("cio_" + json.cio.toString()).checked =
+              true;
           }
         };
       }
@@ -113,20 +124,89 @@
         console.log("Sending sethardware request");
         buttonConfirm(
           document.getElementById("save"),
-          "gespeichert &check; (Vergiss nicht, das WifiWhirl-Modul neu zu starten.)",
-          6
+          "gespeichert &check;",
+          6,
         );
-        var req = new XMLHttpRequest();
-        req.open("POST", "/sethardware/");
+
         var json = {
+          MODEL: parseInt(
+            document.querySelector("input[name='cio_model']:checked").value,
+          ),
           cio: document.querySelector("input[name='cio_model']:checked").value,
           dsp: document.querySelector("input[name='cio_model']:checked").value,
           pcb: "v2b",
           hasTempSensor: 0,
           pins: [1, 2, 5, 6, 4, 3, 7, null],
         };
+
+        var req = new XMLHttpRequest();
+        req.open("POST", "/sethardware/");
+
+        // Handle response - check if restart is needed
+        req.onload = function () {
+          if (req.status == 200) {
+            console.log("Response received:", req.responseText);
+
+            // Try to parse response as JSON
+            try {
+              var response = JSON.parse(req.responseText);
+              console.log("Parsed response:", response);
+
+              if (response.restart === true) {
+                console.log("Restart required - showing restart page");
+
+                // Replace entire document with restart message
+                document.open();
+                document.write(
+                  "<!DOCTYPE html>" +
+                    "<html>" +
+                    "<head>" +
+                    "<title>WifiWhirl | Neustart</title>" +
+                    '<meta charset="utf-8" />' +
+                    '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+                    "<style>" +
+                    "body { font-family: sans-serif; text-align: center; padding: 50px; margin: 0; background: #f5f5f5; }" +
+                    "h1 { color: #4051b5; margin-bottom: 20px; }" +
+                    "p { font-size: 18px; margin: 20px; color: #333; }" +
+                    ".info { color: #666; font-size: 16px; }" +
+                    ".btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #4051b5; color: white; text-decoration: none; border-radius: 5px; }" +
+                    ".btn:hover { background: #2c3a8f; }" +
+                    "</style>" +
+                    "</head>" +
+                    "<body>" +
+                    "<h1>WifiWhirl startet neu...</h1>" +
+                    "<p>" +
+                    response.reason +
+                    "</p>" +
+                    '<p class="info">Die Pumpenkonfiguration wird aktualisiert.</p>' +
+                    '<p class="info">Bitte warte ca. 30 Sekunden...</p>' +
+                    '<a href="/" class="btn">Zurück zur Übersicht</a>' +
+                    "<script>" +
+                    'setTimeout(function() { window.location.href = "/"; }, 30000);' +
+                    "<\/script>" +
+                    "</body>" +
+                    "</html>",
+                );
+                document.close();
+              } else {
+                console.log("Hardware config saved (no restart needed)");
+              }
+            } catch (e) {
+              // Response is not JSON - normal save without restart
+              console.log(
+                "Hardware config saved (no restart needed), exception:",
+                e,
+              );
+            }
+          }
+        };
+
+        req.onerror = function () {
+          console.error("Request failed");
+        };
+
+        console.log("Sending hardware config:", JSON.stringify(json));
         req.send(JSON.stringify(json));
-        console.log(JSON.stringify(json));
       }
     </script>
 
