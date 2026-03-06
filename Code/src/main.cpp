@@ -116,8 +116,7 @@ void loop()
 
     // Pause pump communication during HA discovery
     // Pump communication allocates memory (Strings, parsing) that conflicts with discovery
-    extern bool haDiscoveryInProgress;
-    bool newData = false; // Default to false
+    bool newData = false;
 
     static bool lastDiscoveryState = false;
     if (haDiscoveryInProgress != lastDiscoveryState)
@@ -125,14 +124,14 @@ void loop()
         // Discovery state changed - log it
         if (haDiscoveryInProgress)
         {
-            Serial.println(">>> MAIN LOOP: Discovery started - bwc->loop() PAUSED");
-            Serial.print(">>> MAIN LOOP: Heap at discovery start: ");
+            Serial.println(F(">>> MAIN LOOP: Discovery started - bwc->loop() PAUSED"));
+            Serial.print(F(">>> MAIN LOOP: Heap at discovery start: "));
             Serial.println(ESP.getFreeHeap());
         }
         else
         {
-            Serial.println(">>> MAIN LOOP: Discovery ended - bwc->loop() RESUMED");
-            Serial.print(">>> MAIN LOOP: Heap after discovery: ");
+            Serial.println(F(">>> MAIN LOOP: Discovery ended - bwc->loop() RESUMED"));
+            Serial.print(F(">>> MAIN LOOP: Heap after discovery: "));
             Serial.println(ESP.getFreeHeap());
         }
         lastDiscoveryState = haDiscoveryInProgress;
@@ -177,18 +176,18 @@ void loop()
                 // publish pretty button name if display button is pressed (or NOBTN if released)
                 if (!msg.equals(prevButtonName))
                 {
-                    Serial.println(">>> MQTT: Publishing button name change");
+                    Serial.println(F(">>> MQTT: Publishing button name change"));
                     mqttClient->publish(getMqttTopicButton().c_str(), msg.c_str(), true);
                     prevButtonName = msg;
                 }
 
                 if (newData || sendMQTTFlag)
                 {
-                    Serial.print(">>> MQTT: sendMQTT() called (newData=");
+                    Serial.print(F(">>> MQTT: sendMQTT() called (newData="));
                     Serial.print(newData);
-                    Serial.print(", flag=");
+                    Serial.print(F(", flag="));
                     Serial.print(sendMQTTFlag);
-                    Serial.println(")");
+                    Serial.println(F(")"));
                     sendMQTT();
                     sendMQTTFlag = false;
                 }
@@ -198,7 +197,7 @@ void loop()
                 // During discovery - log if we're blocking
                 if (newData || sendMQTTFlag)
                 {
-                    Serial.println(">>> MQTT: sendMQTT() BLOCKED by discovery");
+                    Serial.println(F(">>> MQTT: sendMQTT() BLOCKED by discovery"));
                 }
             }
         }
@@ -214,7 +213,7 @@ void loop()
             }
             else
             {
-                Serial.println(">>> WS: sendWS() BLOCKED by discovery");
+                Serial.println(F(">>> WS: sendWS() BLOCKED by discovery"));
             }
         }
 
@@ -478,21 +477,20 @@ void startOTA()
 void stopall()
 {
     bwc->stop();
-    Serial.println("detaching");
+    Serial.println(F("detaching"));
     updateMqttTimer.detach();
     periodicTimer.detach();
     updateWSTimer.detach();
-    // bwc->saveSettings();
-    Serial.println("stopping FS");
+    Serial.println(F("stopping FS"));
     LittleFS.end();
-    Serial.println("stopping server");
+    Serial.println(F("stopping server"));
     server->stop();
-    Serial.println("stopping ws");
+    Serial.println(F("stopping ws"));
     webSocket->close();
-    Serial.println("stopping mqtt");
+    Serial.println(F("stopping mqtt"));
     if (enableMqtt)
         mqttClient->disconnect();
-    Serial.println("end stopall");
+    Serial.println(F("end stopall"));
 }
 
 /*pause: action=true cont: action=false*/
@@ -650,7 +648,7 @@ void handleGetHardware()
     File file = LittleFS.open("hwcfg.json", "r");
     if (!file)
     {
-        // Serial.println(F("Failed to open hwcfg.json"));
+        Serial.println(F("FS: Failed to open hwcfg.json for read"));
         server->send(404, F("text/plain"), F("not found"));
         return;
     }
@@ -708,13 +706,13 @@ void handleSetHardware()
 
     if (modelChanged)
     {
-        Serial.println("========================================");
-        Serial.print("HW: Model changed: ");
+        Serial.println(F("========================================"));
+        Serial.print(F("HW: Model changed: "));
         Serial.print(oldModel);
-        Serial.print(" -> ");
+        Serial.print(F(" -> "));
         Serial.println(newModel);
-        Serial.println("HW: WifiWhirl restarting for hardware initialization...");
-        Serial.println("========================================");
+        Serial.println(F("HW: WifiWhirl restarting for hardware initialization..."));
+        Serial.println(F("========================================"));
 
         // Send response with restart notification
         String response = "{\"restart\": true, \"reason\": \"Hardware-Modell geändert. WifiWhirl startet neu um das neue Modell zu initialisieren.\"}";
@@ -743,7 +741,7 @@ void handleSetHardware()
     else
     {
         // No model change, just normal save
-        Serial.println("HW: Hardware config saved (no restart needed)");
+        Serial.println(F("HW: Hardware config saved (no restart needed)"));
         server->send(200, F("text/plain"), "ok");
     }
 }
@@ -897,7 +895,7 @@ bool checkHttpPost(HTTPMethod method)
 {
     if (method != HTTP_POST)
     {
-        server->send(405, "text/plain", "Method not allowed.");
+        server->send(405, F("text/plain"), F("Method not allowed."));
         return false;
     }
     return true;
@@ -910,7 +908,7 @@ bool checkHttpGet(HTTPMethod method)
 {
     if (method != HTTP_GET)
     {
-        server->send(405, "text/plain", "Method not allowed.");
+        server->send(405, F("text/plain"), F("Method not allowed."));
         return false;
     }
     return true;
@@ -1117,6 +1115,7 @@ void handle_cmdq_file()
         File file = LittleFS.open(F("/cmdq.json"), "w");
         if (!file)
         {
+            Serial.println(F("FS: Failed to open /cmdq.json for write"));
             server->send(500, F("text/plain"), F("Fehler beim Speichern der Datei"));
             return;
         }

@@ -62,13 +62,14 @@ void loadMqtt()
     File file = LittleFS.open("mqtt.json", "r");
     if (!file)
     {
+        Serial.println(F("FS: mqtt.json not found, using defaults"));
         return;
     }
 
     StaticJsonDocument<512> doc;
 
     DeserializationError error = deserializeJson(doc, file);
-    file.close(); // Close file once read
+    file.close();
     if (error)
     {
         return;
@@ -115,6 +116,7 @@ void saveMqtt()
     File file = LittleFS.open("mqtt.json", "w");
     if (!file)
     {
+        Serial.println(F("FS: Failed to open mqtt.json for write"));
         return;
     }
 
@@ -239,9 +241,9 @@ void handleSetMqtt()
     {
         haRelevantChanged = true;
         changeReason = "MQTT Server geändert";
-        Serial.print("MQTT: Server changed: ");
+        Serial.print(F("MQTT: Server changed: "));
         Serial.print(oldMqttServer);
-        Serial.print(" -> ");
+        Serial.print(F(" -> "));
         Serial.println(mqttServer);
     }
 
@@ -249,9 +251,9 @@ void handleSetMqtt()
     {
         haRelevantChanged = true;
         changeReason = "MQTT Port geändert";
-        Serial.print("MQTT: Port changed: ");
+        Serial.print(F("MQTT: Port changed: "));
         Serial.print(oldMqttPort);
-        Serial.print(" -> ");
+        Serial.print(F(" -> "));
         Serial.println(mqttPort);
     }
 
@@ -259,23 +261,23 @@ void handleSetMqtt()
     {
         haRelevantChanged = true;
         changeReason = "MQTT Benutzername geändert";
-        Serial.println("MQTT: Username changed");
+        Serial.println(F("MQTT: Username changed"));
     }
 
     if (oldMqttPassword != mqttPassword)
     {
         haRelevantChanged = true;
         changeReason = "MQTT Passwort geändert";
-        Serial.println("MQTT: Password changed");
+        Serial.println(F("MQTT: Password changed"));
     }
 
     if (oldMqttClientId != mqttClientId)
     {
         haRelevantChanged = true;
         changeReason = "MQTT Client ID geändert";
-        Serial.print("MQTT: Client ID changed: ");
+        Serial.print(F("MQTT: Client ID changed: "));
         Serial.print(oldMqttClientId);
-        Serial.print(" -> ");
+        Serial.print(F(" -> "));
         Serial.println(mqttClientId);
     }
 
@@ -283,9 +285,9 @@ void handleSetMqtt()
     {
         haRelevantChanged = true;
         changeReason = "MQTT Base Topic geändert";
-        Serial.print("MQTT: Base topic changed: ");
+        Serial.print(F("MQTT: Base topic changed: "));
         Serial.print(oldMqttBaseTopic);
-        Serial.print(" -> ");
+        Serial.print(F(" -> "));
         Serial.println(mqttBaseTopic);
     }
 
@@ -307,10 +309,10 @@ void handleSetMqtt()
     if (mqttBeingEnabled)
     {
         // MQTT disabled -> enabled: Restart for clean discovery
-        Serial.println("========================================");
-        Serial.println("MQTT: Enabling MQTT");
-        Serial.println("MQTT: WifiWhirl restarting for clean initialization...");
-        Serial.println("========================================");
+        Serial.println(F("========================================"));
+        Serial.println(F("MQTT: Enabling MQTT"));
+        Serial.println(F("MQTT: WifiWhirl restarting for clean initialization..."));
+        Serial.println(F("========================================"));
 
         // Send response with restart notification
         String response = "{\"restart\": true, \"reason\": \"MQTT wird aktiviert. WifiWhirl startet neu um Home Assistant Discovery durchzuführen.\"}";
@@ -330,12 +332,12 @@ void handleSetMqtt()
     else if (haRelevantChanged && oldUseMqtt && useMqtt)
     {
         // MQTT was enabled and still is, settings changed -> restart for re-discovery
-        Serial.println("========================================");
-        Serial.println("MQTT: HA-relevant settings changed!");
-        Serial.print("MQTT: Reason: ");
+        Serial.println(F("========================================"));
+        Serial.println(F("MQTT: HA-relevant settings changed!"));
+        Serial.print(F("MQTT: Reason: "));
         Serial.println(changeReason);
-        Serial.println("MQTT: Restarting to re-run discovery...");
-        Serial.println("========================================");
+        Serial.println(F("MQTT: Restarting to re-run discovery..."));
+        Serial.println(F("========================================")); 
 
         // Send response with restart notification
         String response = "{\"restart\": true, \"reason\": \"" + changeReason + ". WifiWhirl startet neu um MQTT Konfiguration zu aktualisieren.\"}";
@@ -359,8 +361,8 @@ void handleSetMqtt()
     else if (mqttBeingDisabled)
     {
         // MQTT enabled -> disabled: No restart needed, stop MQTT
-        Serial.println("MQTT: Disabling MQTT");
-        Serial.println("MQTT: Settings saved");
+        Serial.println(F("MQTT: Disabling MQTT"));
+        Serial.println(F("MQTT: Settings saved"));
         server->send(200, F("text/plain"), "");
         if (mqttClient)
         {
@@ -370,14 +372,14 @@ void handleSetMqtt()
     else if (haRelevantChanged && !useMqtt)
     {
         // MQTT disabled, settings changed: Save for future use
-        Serial.println("MQTT: HA-relevant settings changed but MQTT is disabled");
-        Serial.println("MQTT: Settings saved for future use");
+        Serial.println(F("MQTT: HA-relevant settings changed but MQTT is disabled"));
+        Serial.println(F("MQTT: Settings saved for future use"));
         server->send(200, F("text/plain"), "");
     }
     else
     {
         // No HA-relevant changes, restart MQTT connection if enabled
-        Serial.println("MQTT: Settings updated (no discovery required)");
+        Serial.println(F("MQTT: Settings updated (no discovery required)"));
         server->send(200, F("text/plain"), "");
         if (useMqtt)
         {
@@ -479,7 +481,7 @@ void mqttConnect()
     {
         return;
     }
-    Serial.println("mqttconn");
+    Serial.println(F("mqttconn"));
 
     // Serial.print(F("MQTT > Connecting ... "));
     // We'll connect with a Retained Last Will that updates the 'Status' topic with "Dead" when the device goes offline...
@@ -520,14 +522,14 @@ void mqttConnect()
         // NOT on every reconnect (would waste memory and cause instability)
         if (!haDiscoveryHasRunOnce)
         {
-            Serial.println("HA");
+            Serial.println(F("HA"));
             setupHA();
-            Serial.println("done");
+            Serial.println(F("done"));
             haDiscoveryHasRunOnce = true;
         }
         else
         {
-            Serial.println("HA: Skipping discovery (already ran after boot)");
+            Serial.println(F("HA: Skipping discovery (already ran after boot)"));
         }
 #endif
     }
@@ -536,5 +538,5 @@ void mqttConnect()
         // Serial.print(F("failed, Return Code = "));
         // Serial.println(mqttClient->state()); // states explained in webSocket->js
     }
-    Serial.println("end mqttcon");
+    Serial.println(F("end mqttcon"));
 }

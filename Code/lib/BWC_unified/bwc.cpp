@@ -221,7 +221,7 @@ void BWC::_log()
     File file = LittleFS.open("/log.txt", "a");
     if (!file)
     {
-        // Serial.println(F("Failed to save states.txt"));
+        Serial.println(F("FS: Failed to open /log.txt for append"));
         return;
     }
     if (++writes > 1000)
@@ -1287,7 +1287,7 @@ bool BWC::_loadHardware(Models &cioNo, Models &dspNo, int pins[])
     File file = LittleFS.open("/hwcfg.json", "r");
     if (!file)
     {
-        // Serial.println(F("Failed to open hwcfg.json"));
+        Serial.println(F("FS: Failed to open /hwcfg.json for read"));
         return false;
     }
     // DynamicJsonDocument doc(256);
@@ -1406,7 +1406,7 @@ void BWC::_restoreStates()
     File file = LittleFS.open("/states.txt", "r");
     if (!file)
     {
-        // Serial.println(F("Failed to read states.txt"));
+        Serial.println(F("FS: Failed to open /states.txt for read"));
         return;
     }
     // DynamicJsonDocument doc(512);
@@ -1471,7 +1471,7 @@ void BWC::loadCommandQueue()
     File file = LittleFS.open("/cmdq.json", "r");
     if (!file)
     {
-        // Serial.println(F("Failed to read cmdq.json"));
+        Serial.println(F("FS: Failed to open /cmdq.json for read"));
         return;
     }
 
@@ -1518,7 +1518,7 @@ void BWC::saveRebootInfo()
     File file = LittleFS.open("/bootlog.txt", "a");
     if (!file)
     {
-        // Serial.println(F("Failed to save bootlog.txt"));
+        Serial.println(F("FS: Failed to open /bootlog.txt for append"));
         return;
     }
 
@@ -1550,7 +1550,7 @@ void BWC::_saveStates()
     File file = LittleFS.open("/states.txt", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save states.txt"));
+        Serial.println(F("FS: Failed to open /states.txt for write"));
         return;
     }
 
@@ -1585,7 +1585,7 @@ void BWC::_saveCommandQueue()
     File file = LittleFS.open("/cmdq.json", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save cmdq.json"));
+        Serial.println(F("FS: Failed to open /cmdq.json for write"));
         return;
     }
     else
@@ -1636,7 +1636,7 @@ void BWC::saveSettings()
     File file = LittleFS.open("/settings.json", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save settings.json"));
+        Serial.println(F("FS: Failed to open /settings.json for write"));
         return;
     }
 
@@ -1714,7 +1714,7 @@ void BWC::saveDebugInfo(const String &s)
     File file = LittleFS.open("/debug.txt", "a");
     if (!file)
     {
-        // Serial.println(F("Failed to save debug.txt"));
+        Serial.println(F("FS: Failed to open /debug.txt for append"));
         return;
     }
 
@@ -1753,7 +1753,7 @@ bool BWC::_load_melody_json(const String &filename)
     File file = LittleFS.open(filename, "r");
     if (!file)
     {
-        // Serial.println("file error");
+        Serial.println(F("FS: Failed to open melody file for read"));
         return false;
     }
     int beat_period;
@@ -2382,7 +2382,7 @@ void BWC::_loadSmartSchedule()
     File file = LittleFS.open("/smartschedule.json", "r");
     if (!file)
     {
-        // File doesn't exist, use defaults
+        Serial.println(F("FS: /smartschedule.json not found, using defaults"));
         return;
     }
     

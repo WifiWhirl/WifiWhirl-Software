@@ -163,7 +163,7 @@ void startNTP()
     while (now < 8 * 3600 * 2)
     {
         delay(500);
-        Serial.print(".");
+        Serial.print(F("."));
         now = time(nullptr);
         if (count++ > 10)
             return;
@@ -194,6 +194,7 @@ sWifi_info loadWifi()
     File file = LittleFS.open("/wifi.json", "r");
     if (!file)
     {
+        Serial.println(F("FS: /wifi.json not found, using defaults"));
         return wifi_info;
     }
 
@@ -234,6 +235,7 @@ void saveWifi(const sWifi_info &wifi_info)
     File file = LittleFS.open("/wifi.json", "w");
     if (!file)
     {
+        Serial.println(F("FS: Failed to open /wifi.json for write"));
         return;
     }
 

@@ -30,27 +30,34 @@
 #include "bwc.h"
 #include "config.h"
 
+// --- Core application state ---
 extern BWC *bwc;
 extern char *stack_start;
 extern uint32_t heap_water_mark;
 
+// --- Timers & periodic tasks ---
 extern Ticker bootlogTimer;
 extern Ticker periodicTimer;
 extern Ticker startComplete;
 extern bool periodicTimerFlag;
 extern int periodicTimerInterval;
+
+// --- WiFi state ---
 extern bool wifiConnected;
 
+// --- HTTP server ---
 #if defined(ESP8266)
 extern ESP8266WebServer *server;
 #elif defined(ESP32)
 extern WebServer server;
 #endif
 
+// --- WebSocket state ---
 extern WebSocketsServer *webSocket;
 extern Ticker updateWSTimer;
 extern bool sendWSFlag;
 
+// --- MQTT runtime state ---
 extern WiFiClient *aWifiClient;
 extern PubSubClient *mqttClient;
 extern int mqtt_connect_count;
@@ -58,10 +65,13 @@ extern String prevButtonName;
 extern Ticker updateMqttTimer;
 extern bool sendMQTTFlag;
 extern bool enableMqtt;
+
+// --- Home Assistant discovery state ---
 extern bool haDiscoveryInProgress;
 extern unsigned long haDiscoveryLastCompleted;
 extern bool haDiscoveryHasRunOnce;
 
+// --- Weather state ---
 extern uint64_t ambExpires;
 
 command_que_item parseCommandFromJson(const JsonVariantConst &src);

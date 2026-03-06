@@ -235,13 +235,13 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
     
     if (!mqttClient->connected())
     {
-        Serial.print(" - MQTT not connected");
+        Serial.print(F(" - MQTT not connected"));
         return false;
     }
 
     if (!mqttClient->beginPublish(topic, payloadSize, true))
     {
-        Serial.print(" - MQTT beginPublish failed");
+        Serial.print(F(" - MQTT beginPublish failed"));
         return false;
     }
 
@@ -250,7 +250,7 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
     bool published = mqttClient->endPublish();
     if (!published)
     {
-        Serial.print(" - MQTT endPublish failed");
+        Serial.print(F(" - MQTT endPublish failed"));
     }
     
     // Ensure data is sent to network stack
@@ -278,17 +278,16 @@ void setupHA()
 {
     haDiscoveryInProgress = true;
     
-    Serial.println("========================================");
-    Serial.println("HA: HOME ASSISTANT DISCOVERY STARTING");
-    Serial.println("========================================");
-    Serial.print("HA: Free heap: ");
+    Serial.println(F("========================================"));
+    Serial.println(F("HA: HOME ASSISTANT DISCOVERY STARTING"));
+    Serial.println(F("========================================"));
+    Serial.print(F("HA: Free heap: "));
     Serial.print(ESP.getFreeHeap());
-    Serial.println(" bytes");
+    Serial.println(F(" bytes"));
     
-    // Disable WiFi sleep mode during discovery for better stability
     #ifdef ESP8266
     WiFi.setSleepMode(WIFI_NONE_SLEEP);
-    Serial.println("HA: WiFi sleep mode disabled during discovery");
+    Serial.println(F("HA: WiFi sleep mode disabled during discovery"));
     #endif
     
     // Generate unique chip ID for device identification
@@ -340,38 +339,34 @@ void setupHA()
     size_t failureCount = 0;
     const size_t BATCH_SIZE = 5; // OPTIMIZED: Increased from 3 to 5 due to reduced MQTT buffer (768 bytes)
     
-    Serial.print("HA: Processing ");
+    Serial.print(F("HA: Processing "));
     Serial.print(totalEntities);
-    Serial.print(" entities in batches of ");
+    Serial.print(F(" entities in batches of "));
     Serial.print(BATCH_SIZE);
-    Serial.println("...");
+    Serial.println(F("..."));
     
-    delay(100); // Safe watchdog feeding before starting entity processing
+    delay(100);
 
     for (size_t i = 0; i < totalEntities; i++)
     {
-        // AGGRESSIVE memory cleanup every batch to prevent fragmentation and crashes
         if (i % BATCH_SIZE == 0 && i > 0) {
-            Serial.print("HA: Batch ");
+            Serial.print(F("HA: Batch "));
             Serial.print(i / BATCH_SIZE);
-            Serial.print(" completed. Free heap: ");
+            Serial.print(F(" completed. Free heap: "));
             Serial.print(ESP.getFreeHeap());
-            Serial.print(" bytes, Max block: ");
+            Serial.print(F(" bytes, Max block: "));
             Serial.print(ESP.getMaxFreeBlockSize());
-            Serial.println(" bytes");
+            Serial.println(F(" bytes"));
             
-            // Force MQTT client to flush all pending data and clear internal buffers
             mqttClient->loop();
             delay(50);
-            mqttClient->loop(); // Double loop to ensure complete flush
-            delay(500); // INCREASED: Allow more time for network stack to fully process
+            mqttClient->loop();
+            delay(500);
             
-            // Check fragmentation, not just total memory
-            // Need at least 3KB contiguous for remaining entities + climate (1.7KB)
             if (ESP.getMaxFreeBlockSize() < 3000) {
-                Serial.print("HA: CRITICAL - Heap fragmented! Max block: ");
+                Serial.print(F("HA: CRITICAL - Heap fragmented! Max block: "));
                 Serial.print(ESP.getMaxFreeBlockSize());
-                Serial.println(" bytes. Restarting for clean heap...");
+                Serial.println(F(" bytes. Restarting for clean heap..."));
                 haDiscoveryInProgress = false;
                 delay(1000);
                 ESP.restart();
@@ -379,22 +374,22 @@ void setupHA()
             }
         }
         
-        Serial.print(">>> Entity #");
+        Serial.print(F(">>> Entity #"));
         Serial.print(i + 1);
-        Serial.print(": Heap=");
+        Serial.print(F(": Heap="));
         Serial.print(ESP.getFreeHeap());
-        Serial.print(", MaxBlock=");
+        Serial.print(F(", MaxBlock="));
         Serial.print(ESP.getMaxFreeBlockSize());
-        Serial.print(", Frag=");
+        Serial.print(F(", Frag="));
         Serial.print(100 - (ESP.getMaxFreeBlockSize() * 100 / ESP.getFreeHeap()));
-        Serial.println("%");
+        Serial.println(F("%"));
         
         if (ESP.getMaxFreeBlockSize() < 3500) {
-            Serial.print("HA: WARNING - Low contiguous memory before entity #");
+            Serial.print(F("HA: WARNING - Low contiguous memory before entity #"));
             Serial.print(i + 1);
-            Serial.print(". Max block: ");
+            Serial.print(F(". Max block: "));
             Serial.print(ESP.getMaxFreeBlockSize());
-            Serial.println(" bytes. Restarting...");
+            Serial.println(F(" bytes. Restarting..."));
             haDiscoveryInProgress = false;
             delay(1000);
             ESP.restart();
@@ -608,30 +603,29 @@ void setupHA()
         
         if (strcmp(ram_buffer, "_amb_temp_c_manual") == 0)
         {
-            Serial.print("HA: Publishing entity ");
+            Serial.print(F("HA: Publishing entity "));
             Serial.print(component_ram);
-            Serial.print(" -> _amb_temp_c");
+            Serial.print(F(" -> _amb_temp_c"));
             publishResult = publishHaEntity(component_ram, "_amb_temp_c", doc);
         }
         else
         {
-            Serial.print("HA: Publishing entity ");
+            Serial.print(F("HA: Publishing entity "));
             Serial.print(component_ram);
-            Serial.print(" -> ");
+            Serial.print(F(" -> "));
             Serial.print(ram_buffer);
             publishResult = publishHaEntity(component_ram, ram_buffer, doc);
         }
         
-        // Log the result
         if (publishResult)
         {
-            Serial.println(" ✓");
+            Serial.println(F(" OK"));
             successCount++;
             mqttClient->loop();
         }
         else
         {
-            Serial.println(" ✗ FAILED");
+            Serial.println(F(" FAILED"));
             failureCount++;
             mqttClient->loop();
             continue;
@@ -646,9 +640,9 @@ void setupHA()
         }
     }
 
-    Serial.print("HA: Entity summary - Success: ");
+    Serial.print(F("HA: Entity summary - Success: "));
     Serial.print(successCount);
-    Serial.print(", Failed: ");
+    Serial.print(F(", Failed: "));
     Serial.println(failureCount);
 
     // Climate entity configuration
@@ -720,29 +714,28 @@ void setupHA()
         climate_doc[FPSTR(_pl_not_avail)] = F("Dead");
 
         // Publish climate entity
-        Serial.print("HA: Publishing climate entity -> _climate");
+        Serial.print(F("HA: Publishing climate entity -> _climate"));
         
         bool climateResult = publishHaEntity("climate", "_climate", climate_doc);
         if (climateResult)
         {
-            Serial.println(" ✓");
+            Serial.println(F(" OK"));
         }
         else
         {
-            Serial.println(" ✗ FAILED");
+            Serial.println(F(" FAILED"));
         }
     }
     
-    // Re-enable WiFi sleep mode
     #ifdef ESP8266
     WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
     #endif
     
     haDiscoveryInProgress = false;
     
-    Serial.println("========================================");
-    Serial.println("HA: HOME ASSISTANT DISCOVERY COMPLETE");
-    Serial.println("========================================");
-    Serial.print("HA: Free heap: ");
+    Serial.println(F("========================================"));
+    Serial.println(F("HA: HOME ASSISTANT DISCOVERY COMPLETE"));
+    Serial.println(F("========================================"));
+    Serial.print(F("HA: Free heap: "));
     Serial.println(ESP.getFreeHeap());
 }

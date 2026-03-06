@@ -20,7 +20,7 @@ void loadWebConfig()
     }
     else
     {
-        // Serial.println(F("Failed to read webconfig.json. Using defaults."));
+        Serial.println(F("FS: /webconfig.json not found, using defaults"));
     }
 
     showSectionTemperature = (doc.containsKey("SST") ? doc[F("SST")] : false);
@@ -44,7 +44,7 @@ void saveWebConfig()
     File file = LittleFS.open("/webconfig.json", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save webconfig.json"));
+        Serial.println(F("FS: Failed to open /webconfig.json for write"));
         return;
     }
 
@@ -97,7 +97,7 @@ void handleGetWebConfig()
     {
         json = F("{\"error\": \"Failed to serialize webcfg\"}");
     }
-    server->send(200, "application/json", json);
+    server->send(200, F("application/json"), json);
 }
 
 /**
