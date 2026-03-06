@@ -35,7 +35,11 @@ void handleWebhook()
     item.xtime = xtime;
     item.interval = interval;
     item.text = txt;
-    bwc->add_command(item);
+    if (!bwc->add_command(item))
+    {
+        server->send(409, F("text/plain"), F("Warteschlange voll (max. 20 Befehle)"));
+        return;
+    }
 
     server->send(200, F("text/plain"), String(item.cmd) + " " + String(item.val) + " " + String(item.xtime));
 }

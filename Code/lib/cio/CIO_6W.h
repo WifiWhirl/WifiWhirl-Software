@@ -43,7 +43,7 @@ protected:
     const uint8_t DSP_DIM_BASE = 0x80;
     const uint8_t DSP_DIM_ON = 0x8;
     volatile bool _new_packet_available;
-    bool _packet_transm_active;
+    volatile bool _packet_transm_active;
     volatile uint16_t _button_code;
     uint8_t _pressed_button = NOBTN;
     // sToggles _requested_states; //not used

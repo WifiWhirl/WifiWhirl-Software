@@ -130,6 +130,10 @@ void BWC::begin()
     // dsp->LEDshow();
     _save_settings_ticker.attach(600.0f, save_settings_cb, this);
     _scroll_text_ticker.attach(0.25f, scroll_text_cb, this);
+    // Seed change timestamps to current millis() so timeouts don't fire at boot
+    _pump_change_timestamp_ms = millis();
+    _bubbles_change_timestamp_ms = millis();
+    _jets_change_timestamp_ms = millis();
 }
 
 void BWC::loop()
@@ -807,14 +811,19 @@ bool BWC::getWeather()
 
 bool BWC::add_command(command_que_item command_item)
 {
+    if ((int)_command_que.size() >= MAXCOMMANDS)
+    {
+        Serial.printf("Command queue full (%d/%d) - rejected CMD %d\n",
+                       _command_que.size(), MAXCOMMANDS, command_item.cmd);
+        return false;
+    }
     _save_cmdq_needed = true;
     if (command_item.cmd == SETREADY)
     {
-        command_item.val = (int64_t)command_item.xtime; // Use val field to store the time to be ready
-        command_item.xtime = 0;                         // And start checking now
+        command_item.val = (int64_t)command_item.xtime;
+        command_item.xtime = 0;
         command_item.interval = 0;
     }
-    // add parameters to _command_que[rows][parameter columns] and sort the array on xtime.
     _command_que.push_back(command_item);
     std::sort(_command_que.begin(), _command_que.end(), _compare_command);
     return true;
@@ -822,7 +831,7 @@ bool BWC::add_command(command_que_item command_item)
 
 bool BWC::edit_command(uint8_t index, command_que_item command_item)
 {
-    if (index > _command_que.size())
+    if (index >= _command_que.size())
         return false;
     _save_cmdq_needed = true;
     if (command_item.cmd == SETREADY)
@@ -1026,11 +1035,10 @@ void BWC::getJSONSettings(String &rtn)
 
 String BWC::getJSONCommandQueue()
 {
-// feed the dog
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
     // Set the values in the document
     doc[F("LEN")] = _command_que.size();
     for (unsigned int i = 0; i < _command_que.size(); i++)
@@ -1178,16 +1186,8 @@ void BWC::_updateTimes()
 {
     uint32_t now = millis();
     static uint32_t prevtime = now;
-    int elapsedtime_ms = now - prevtime;
+    uint32_t elapsedtime_ms = now - prevtime;
     prevtime = now;
-    // //(some of) these age-counters resets when the state changes
-    // for(unsigned int i = 0; i < cio->getSizeofStates(); i++)
-    // {
-    //     cio->setStateAge(i, cio->getStateAge(i) + elapsedtime_ms);
-    // }
-
-    if (elapsedtime_ms < 0)
-        return; // millis() rollover every 24,8 days
     if (cio->cio_states.heatred)
     {
         _heatingtime_ms += elapsedtime_ms;
@@ -1221,7 +1221,7 @@ void BWC::_updateTimes()
     }
 
     if (_override_dsp_brt_timer > 0)
-        _override_dsp_brt_timer -= elapsedtime_ms; // counts down to or below zero
+        _override_dsp_brt_timer -= (int16_t)elapsedtime_ms;
 
     // watts, kWh today, total kWh
     float heatingEnergy = (_heatingtime + _heatingtime_ms / 1000) / 3600.0 * cio->getPower().HEATERPOWER;
@@ -1241,7 +1241,7 @@ void BWC::_updateTimes()
     if (_notes.size())
     {
         dsp->audiofrequency = _notes.back().frequency_hz;
-        _note_duration += elapsedtime_ms;
+        _note_duration += (int)elapsedtime_ms;
         if (_note_duration >= _notes.back().duration_ms)
         {
             _note_duration -= _notes.back().duration_ms;
@@ -1331,7 +1331,7 @@ void BWC::_loadSettings()
     _cl_timestamp_s = doc[F("CLTIME")];
     _filter_timestamp_s = doc[F("FTIME")];
     _fc_timestamp_s = doc[F("FCTIME")];
-    _wc_timestamp_s = doc[F("WCIME")];
+    _wc_timestamp_s = doc[F("WCTIME")];
     _ph_timestamp_s = doc[F("PHTIME")] | _ph_timestamp_s;
     _clv_timestamp_s = doc[F("CLVTIME")] | _clv_timestamp_s;
     _uptime = doc[F("UPTIME")];
@@ -1451,7 +1451,7 @@ void BWC::loadCommandQueue()
         return;
     }
 
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
     // Deserialize the JSON document
     DeserializationError error = deserializeJson(doc, file);
     if (error)
@@ -1572,7 +1572,7 @@ void BWC::_saveCommandQueue()
     if (_command_que.size())
         if (_command_que[0].cmd == REBOOTESP && _command_que[0].interval == 0)
             return;
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
 
     // Set the values in the document
     doc[F("LEN")] = _command_que.size();
@@ -1630,8 +1630,6 @@ void BWC::saveSettings()
     // Set the values in the document
     doc[F("CLTIME")] = _cl_timestamp_s;
     doc[F("FTIME")] = _filter_timestamp_s;
-    doc[F("FCTIME")] = _fc_timestamp_s;
-    doc[F("WCIME")] = _wc_timestamp_s;
     doc[F("FCTIME")] = _fc_timestamp_s;
     doc[F("WCTIME")] = _wc_timestamp_s;
     doc[F("PHTIME")] = _ph_timestamp_s;

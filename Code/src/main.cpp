@@ -324,7 +324,7 @@ void getOtherInfo(String &rtn)
     StaticJsonDocument<512> doc;
     // Set the values in the document
     doc[F("CONTENT")] = F("OTHER");
-    doc[F("MQTT")] = mqttClient->state();
+    doc[F("MQTT")] = mqttClient ? mqttClient->state() : -1;
     /*TODO: add these:*/
     //   doc[F("PressedButton")] = bwc->getPressedButton();
     doc[F("HASJETS")] = bwc->hasjets;
@@ -420,9 +420,12 @@ void handleSendCommand()
     item.interval = interval;
     item.text = txt;
     item.force = force;
-    bwc->add_command(item);
+    if (!bwc->add_command(item))
+    {
+        server->send(409, F("text/plain"), F("Warteschlange voll (max. 20 Befehle)"));
+        return;
+    }
 
-    // Respond with the accepted command summary
     server->send(200, F("text/plain"), String(item.cmd) + " " + String(item.val) + " " + String(item.xtime));
 }
 
@@ -736,9 +739,12 @@ void startWebSocket()
     HeapSelectIram ephemeral;
     Serial.printf("WS IRamheap %d\n", ESP.getFreeHeap());
 
+    if (webSocket)
+    {
+        webSocket->close();
+        delete webSocket;
+    }
     webSocket = new WebSocketsServer(81);
-    // In case we are already running
-    webSocket->close();
     webSocket->begin();
     webSocket->enableHeartbeat(3000, 3000, 1);
     webSocket->onEvent(webSocketEvent);
@@ -786,7 +792,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
         int64_t xtime = doc[F("XTIME")];
         int64_t interval = doc[F("INTERVAL")];
         String txt = doc[F("TXT")] | "";
-        bool force = doc[F("FORCE")] | false; // Default false if not provided
+        bool force = doc[F("FORCE")] | false;
         command_que_item item;
         item.cmd = command;
         item.val = value;
@@ -794,7 +800,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
         item.interval = interval;
         item.text = txt;
         item.force = force;
-        bwc->add_command(item);
+        if (!bwc->add_command(item))
+        {
+            webSocket->sendTXT(num, "{\"ERR\":\"Warteschlange voll (max. 20 Befehle)\"}");
+        }
     }
     break;
 
@@ -808,9 +817,12 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
  */
 void startHttpServer()
 {
+    if (server)
+    {
+        server->stop();
+        delete server;
+    }
     server = new ESP8266WebServer(80);
-    // In case we are already running
-    server->stop();
     server->on(F("/getconfig/"), handleGetConfig);
     server->on(F("/setconfig/"), handleSetConfig);
     server->on(F("/getcommands/"), handleGetCommandQueue);
@@ -1012,13 +1024,28 @@ void handleSetHardware()
     // Check if MODEL changed - requires restart for proper reinitialization
     String oldModel = bwc->getModel();
 
-    // Parse new config to get new model
+    // Parse new config to extract the cio enum for comparison
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, message);
     String newModel = "";
-    if (!error && doc.containsKey(F("MODEL")))
+    if (!error && doc.containsKey(F("cio")))
     {
-        newModel = String(doc[F("MODEL")].as<int>());
+        int cioEnum = doc[F("cio")].as<int>();
+        switch (cioEnum)
+        {
+        case PRE2021:
+            newModel = F("PRE2021");
+            break;
+        case MIAMI2021:
+            newModel = F("MIAMI2021");
+            break;
+        case MALDIVES2021:
+            newModel = F("MALDIVES2021");
+            break;
+        default:
+            newModel = "";
+            break;
+        }
     }
 
     // Save hardware config
@@ -1323,7 +1350,11 @@ void handleAddCommand()
     item.xtime = xtime;
     item.interval = interval;
     item.text = txt;
-    bwc->add_command(item);
+    if (!bwc->add_command(item))
+    {
+        server->send(409, F("text/plain"), F("Warteschlange voll (max. 20 Befehle)"));
+        return;
+    }
 
     server->send(200, F("text/plain"), "");
 }
@@ -2484,20 +2515,18 @@ void startMqtt()
  */
 void mqttCallback(char *topic, byte *payload, unsigned int length)
 {
-    // Serial.print(F("MQTT > Message arrived ["));
-    // Serial.print(topic);
-    // Serial.print(")] ");
-    for (unsigned int i = 0; i < length; i++)
+    if (length == 0 || length > 1024)
+        return;
+
+    // Null-terminate payload safely: MQTT payloads are NOT null-terminated
+    payload[length] = '\0';
+
+    String topicStr(topic);
+
+    if (topicStr.equals(String(mqttBaseTopic) + "/command"))
     {
-        // Serial.print((char)payload[i]);
-    }
-    // Serial.println();
-    if (String(topic).equals(String(mqttBaseTopic) + "/command"))
-    {
-        // DynamicJsonDocument doc(256);
         StaticJsonDocument<256> doc;
-        String message = (const char *)&payload[0];
-        DeserializationError error = deserializeJson(doc, message);
+        DeserializationError error = deserializeJson(doc, (const char *)payload);
         if (error)
         {
             return;
@@ -2517,12 +2546,10 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
         bwc->add_command(item);
     }
 
-    /* author @malfurion, edited by @visualapproach for v4 */
-    if (String(topic).equals(String(mqttBaseTopic) + "/command_batch"))
+    if (topicStr.equals(String(mqttBaseTopic) + "/command_batch"))
     {
         DynamicJsonDocument doc(1024);
-        String message = (const char *)&payload[0];
-        DeserializationError error = deserializeJson(doc, message);
+        DeserializationError error = deserializeJson(doc, (const char *)payload);
         if (error)
         {
             return;

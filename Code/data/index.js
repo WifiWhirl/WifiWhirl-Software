@@ -141,6 +141,11 @@ function sendCommandHttp(json) {
   var xhr = new XMLHttpRequest();
   xhr.open("POST", "/sendcommand/");
   xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.onload = function () {
+    if (xhr.status === 409) {
+      alert(xhr.responseText);
+    }
+  };
   xhr.send(json);
   console.log("HTTP command: " + json);
 }
@@ -204,10 +209,13 @@ function tryParseJSONObject(jsonString) {
 }
 
 function handlemsg(e) {
-  // Parse WebSocket message event and delegate to processMessageObj
   console.log(e.data);
   var msgobj = tryParseJSONObject(e.data);
   if (!msgobj) return;
+  if (msgobj.ERR) {
+    alert(msgobj.ERR);
+    return;
+  }
   processMessageObj(msgobj);
 }
 

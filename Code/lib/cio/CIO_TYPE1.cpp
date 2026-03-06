@@ -69,12 +69,21 @@ void CIO_6_TYPE1::updateStates()
     //_new_packet_available is true when a data packet has arrived from cio
     if (!_new_packet_available)
         return;
+
+    // Critical section: copy volatile ISR data to local scope atomically
+    noInterrupts();
     _new_packet_available = false;
-    if (_packet_error)
+    uint8_t local_packet_error = _packet_error;
+    _packet_error = 0;
+    uint8_t local_payload[11];
+    memcpy(local_payload, (const void *)_payload, sizeof(local_payload));
+    uint8_t local_brightness = _brightness;
+    interrupts();
+
+    if (local_packet_error)
     {
         bad_packets_count++;
-        packet_error = _packet_error;
-        _packet_error = 0;
+        packet_error = local_packet_error;
         return;
     }
     static uint32_t buttonReleaseTime;
@@ -95,7 +104,7 @@ void CIO_6_TYPE1::updateStates()
     uint8_t checksum = 0;
     for (int i = 0; i < 11; i++)
     {
-        checksum += _payload[i];
+        checksum += local_payload[i];
     }
     if (checksum != prev_checksum)
     {
@@ -103,13 +112,13 @@ void CIO_6_TYPE1::updateStates()
         return;
     }
 #endif
-    // copy private array to public array
-    for (unsigned int i = 0; i < sizeof(_payload); i++)
+    // copy local snapshot to public array
+    for (unsigned int i = 0; i < sizeof(local_payload); i++)
     {
-        _raw_payload_from_cio[i] = _payload[i];
+        _raw_payload_from_cio[i] = local_payload[i];
     }
     good_packets_count++;
-    brightness = _brightness & 7; // extract only the brightness bits (0-7)
+    brightness = local_brightness & 7;
     cio_states.locked = (_raw_payload_from_cio[LCK_IDX] & (1 << LCK_BIT)) > 0;
     cio_states.power = (_raw_payload_from_cio[PWR_IDX] & (1 << PWR_BIT)) > 0;
     /*If both leds are out, don't change (When TIMER is pressed)*/

@@ -487,6 +487,13 @@
       function addCommand() {
         var req = new XMLHttpRequest();
         req.open("POST", "/addcommand/");
+        req.onload = function () {
+          if (req.status === 409) {
+            alert(req.responseText);
+          } else if (req.status === 200) {
+            loadCommandQueue();
+          }
+        };
         var json = getCommandJson();
         req.send(JSON.stringify(json));
         console.log(json);
