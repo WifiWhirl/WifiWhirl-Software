@@ -2,20 +2,52 @@
 #include "web_files.h"
 
 BWC *bwc;
-
-// initial stack
 char *stack_start;
 uint32_t heap_water_mark;
 
+Ticker bootlogTimer;
+Ticker periodicTimer;
+Ticker startComplete;
+bool periodicTimerFlag = false;
+int periodicTimerInterval = 60;
+bool wifiConnected = false;
+
+#if defined(ESP8266)
+ESP8266WebServer *server;
+#elif defined(ESP32)
+WebServer server(80);
+#endif
+
+WebSocketsServer *webSocket;
+Ticker updateWSTimer;
+bool sendWSFlag = false;
+
+WiFiClient *aWifiClient;
+PubSubClient *mqttClient;
+int mqtt_connect_count;
+String prevButtonName = "";
+Ticker updateMqttTimer;
+bool sendMQTTFlag = false;
+bool enableMqtt = false;
+bool haDiscoveryInProgress = false;
+unsigned long haDiscoveryLastCompleted = 0;
+bool haDiscoveryHasRunOnce = false;
+
+uint64_t ambExpires = 0;
+
 ESP8266HTTPUpdateServer httpUpdater;
 
-// Setup a oneWire instance to communicate with any OneWire devices
-// Setting arbitrarily to 231 since this isn't an actual pin
-// Later during "setup" the correct pin will be set, if enabled
-// Keeping for later integrations
-// OneWire oneWire(231);
-// // Pass our oneWire reference to Dallas Temperature sensor
-// DallasTemperature tempSensors(&oneWire);
+command_que_item parseCommandFromJson(const JsonVariantConst &src)
+{
+    command_que_item item;
+    item.cmd = src[F("CMD")];
+    item.val = src[F("VALUE")];
+    item.xtime = src[F("XTIME")] | (int64_t)std::time(nullptr);
+    item.interval = src[F("INTERVAL")] | (int64_t)0;
+    item.text = src[F("TXT")] | "";
+    item.force = src[F("FORCE")] | false;
+    return item;
+}
 
 void setup()
 {
@@ -320,7 +352,6 @@ void sendWS()
 
 void getOtherInfo(String &rtn)
 {
-    // DynamicJsonDocument doc(512);
     StaticJsonDocument<512> doc;
     // Set the values in the document
     doc[F("CONTENT")] = F("OTHER");
@@ -404,22 +435,7 @@ void handleSendCommand()
         return;
     }
 
-    // Extract command fields (same format as WebSocket text handler)
-    Commands command = doc[F("CMD")];
-    int64_t value = doc[F("VALUE")];
-    int64_t xtime = doc[F("XTIME")] | (int64_t)std::time(0);
-    int64_t interval = doc[F("INTERVAL")] | (int64_t)0;
-    String txt = doc[F("TXT")] | "";
-    bool force = doc[F("FORCE")] | false;
-
-    // Build command queue item and add to the command queue
-    command_que_item item;
-    item.cmd = command;
-    item.val = value;
-    item.xtime = xtime;
-    item.interval = interval;
-    item.text = txt;
-    item.force = force;
+    command_que_item item = parseCommandFromJson(doc);
     if (!bwc->add_command(item))
     {
         server->send(409, F("text/plain"), F("Warteschlange voll (max. 20 Befehle)"));
@@ -427,238 +443,6 @@ void handleSendCommand()
     }
 
     server->send(200, F("text/plain"), String(item.cmd) + " " + String(item.val) + " " + String(item.xtime));
-}
-
-/**
- * Send STATES and TIMES to MQTT
- * It would be more elegant to send both states and times on the "message" topic
- * and use the "CONTENT" field to distinguish between them
- * but it might break peoples home automation setups, so to keep it backwards
- * compatible I choose to start a new topic "/times"
- * @author 877dev
- */
-void sendMQTT()
-{
-    // HeapSelectIram ephemeral;
-    // Serial.printf("IRamheap %d\n", ESP.getFreeHeap());
-    String json;
-    json.reserve(320);
-
-    // send states
-    bwc->getJSONStates(json);
-    if (mqttClient->publish((String(mqttBaseTopic) + "/message").c_str(), String(json).c_str(), true))
-    {
-        // Serial.println(F("MQTT > message published"));
-    }
-    else
-    {
-        // Serial.println(F("MQTT > message not published"));
-    }
-    // delay(2);
-
-    // send times
-    json.clear();
-    bwc->getJSONTimes(json);
-    if (mqttClient->publish((String(mqttBaseTopic) + "/times").c_str(), String(json).c_str(), true))
-    {
-        // Serial.println(F("MQTT > times published"));
-    }
-    else
-    {
-        // Serial.println(F("MQTT > times not published"));
-    }
-    // delay(2);
-
-    // send other info
-    json.clear();
-    getOtherInfo(json);
-    if (mqttClient->publish((String(mqttBaseTopic) + "/other").c_str(), String(json).c_str(), true))
-    {
-        // Serial.println(F("MQTT > other published"));
-    }
-    else
-    {
-        // Serial.println(F("MQTT > other not published"));
-    }
-}
-
-/**
- * Start a Wi-Fi access point, and try to connect to some given access points.
- * Then wait for either an AP or STA connection
- */
-void startWiFi()
-{
-    // WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
-    WiFi.persistent(true);
-    WiFi.hostname(netHostname);
-    sWifi_info wifi_info;
-    wifi_info = loadWifi();
-
-    if (wifi_info.enableStaticIp4)
-    {
-        Serial.println(F("Setting static IP"));
-        IPAddress ip4Address;
-        IPAddress ip4Gateway;
-        IPAddress ip4Subnet;
-        IPAddress ip4DnsPrimary;
-        IPAddress ip4DnsSecondary;
-        ip4Address.fromString(wifi_info.ip4Address_str);
-        ip4Gateway.fromString(wifi_info.ip4Gateway_str);
-        ip4Subnet.fromString(wifi_info.ip4Subnet_str);
-        ip4DnsPrimary.fromString(wifi_info.ip4DnsPrimary_str);
-        ip4DnsSecondary.fromString(wifi_info.ip4DnsSecondary_str);
-        // Serial.println("WiFi > using static IP \"" + ip4Address.toString() + "\" on gateway \"" + ip4Gateway.toString() + "\"");
-        WiFi.config(ip4Address, ip4Gateway, ip4Subnet, ip4DnsPrimary, ip4DnsSecondary);
-    }
-
-    if (wifi_info.enableAp)
-    {
-        Serial.print(F("WiFi > using WiFi configuration with SSID \""));
-        Serial.println(wifi_info.apSsid + "\"");
-
-        WiFi.begin(wifi_info.apSsid.c_str(), wifi_info.apPwd.c_str());
-
-        Serial.print(F("WiFi > Trying to connect ..."));
-        int maxTries = 10;
-        int tryCount = 0;
-
-        while (WiFi.status() != WL_CONNECTED)
-        {
-            delay(1000);
-            bwc->loop();
-            tryCount++;
-
-            if (tryCount >= maxTries)
-            {
-                if (wifi_info.enableWmApFallback)
-                {
-                    startWiFiConfigPortal(wifi_info.apSsid, wifi_info.apPwd);
-                }
-                break;
-            }
-        }
-    }
-    else
-    {
-        startWiFiConfigPortal();
-    }
-
-    if (WiFi.status() == WL_CONNECTED)
-    {
-        wifi_info.enableAp = true;
-        wifi_info.apSsid = WiFi.SSID();
-        wifi_info.apPwd = WiFi.psk();
-        saveWifi(wifi_info);
-
-        wifiConnected = true;
-
-        // Serial.println(F("WiFi > Connected."));
-        // Serial.println(" SSID: \"" + WiFi.SSID() + "\"");
-        // Serial.println(" IP: \"" + WiFi.localIP().toString() + "\"");
-    }
-    else
-    {
-        // Serial.println(F("WiFi > Connection failed. Retrying in a while ..."));
-    }
-}
-
-/**
- * start WiFiManager configuration portal
- */
-void startWiFiConfigPortal(const String &storedSsid, const String &storedPwd)
-{
-    Serial.println(F("WiFi > Using WiFiManager Config Portal"));
-    ESP_WiFiManager wm;
-
-    WiFiManagerParameter custom_text("<p><strong>Willkommen zur Einrichtung deines WifiWhirl WLAN-Moduls!</strong></p><p>Verbinde dich hier mit deinem WLAN, um mit der Einrichtung zu beginnen.</p>");
-
-    wm.setClass("invert");             // WM Dark Mode
-    wm.setShowInfoErase(false);        // WM Disable Erase Button
-    wm.addParameter(&custom_text);     // WM Show WifiWhirl Text
-    wm.setConfigPortalBlocking(false); // WM non-blocking mode so we can update display
-
-    // Display "net" on pump while in AP mode
-    bwc->printStatic("net");
-
-    wm.autoConnect(wmApName, wmApPassword);
-
-    unsigned long lastReconnectAttempt = 0;
-    const unsigned long reconnectInterval = 10000;
-    bool hasStoredCredentials = (storedSsid.length() > 0);
-
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        wm.process();
-        bwc->loop();
-        delay(100);
-
-        if (hasStoredCredentials && (millis() - lastReconnectAttempt >= reconnectInterval))
-        {
-            lastReconnectAttempt = millis();
-            Serial.println(F("WiFi > Config Portal: Retrying stored network..."));
-            WiFi.begin(storedSsid.c_str(), storedPwd.c_str());
-
-            unsigned long connectStart = millis();
-            while (WiFi.status() != WL_CONNECTED && (millis() - connectStart) < 15000)
-            {
-                wm.process();
-                bwc->loop();
-                delay(100);
-            }
-
-            if (WiFi.status() == WL_CONNECTED)
-            {
-                Serial.println(F("WiFi > Reconnected to stored network"));
-            }
-        }
-    }
-
-    bwc->clearStatic();
-}
-
-/**
- * start NTP sync
- */
-void startNTP()
-{
-    sWifi_info wifi_info;
-    wifi_info = loadWifi();
-    Serial.println(F("start NTP"));
-    if (wifi_info.ip4NTP_str.length() > 0)
-    {
-        static char ntpServer[64];
-        strlcpy(ntpServer, wifi_info.ip4NTP_str.c_str(), sizeof(ntpServer));
-        configTime(0, 0, ntpServer);
-        Serial.print(F("NTP server: "));
-        Serial.println(ntpServer);
-    }
-    else
-    {
-        configTime(0, 0, "ptbtime1.ptb.de", "ptbtime2.ptb.de", "ptbtime3.ptb.de");
-    }
-    time_t now = time(nullptr);
-    int count = 0;
-    while (now < 8 * 3600 * 2)
-    {
-        delay(500);
-        Serial.print(".");
-        now = time(nullptr);
-        if (count++ > 10)
-            return;
-    }
-    Serial.println();
-    struct tm timeinfo;
-    gmtime_r(&now, &timeinfo);
-    // Serial.print("Current time: ");
-    // Serial.print(asctime(&timeinfo));
-
-    time_t boot_timestamp = getBootTime();
-    tm *boot_time_tm = gmtime(&boot_timestamp);
-    char boot_time_str[64];
-    strftime(boot_time_str, 64, "%F %T", boot_time_tm);
-    bwc->reboot_time_str = String(boot_time_str);
-    bwc->reboot_time_t = boot_timestamp;
 }
 
 void startOTA()
@@ -777,7 +561,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
     case WStype_TEXT:
     {
         // Serial.printf("WebSocket > [%u] get Text: %s\r\n", num, payload);
-        // DynamicJsonDocument doc(256);
         StaticJsonDocument<256> doc;
         DeserializationError error = deserializeJson(doc, payload);
         if (error)
@@ -786,20 +569,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len)
             return;
         }
 
-        // Copy values from the JsonDocument to the Config
-        Commands command = doc[F("CMD")];
-        int64_t value = doc[F("VALUE")];
-        int64_t xtime = doc[F("XTIME")];
-        int64_t interval = doc[F("INTERVAL")];
-        String txt = doc[F("TXT")] | "";
-        bool force = doc[F("FORCE")] | false;
-        command_que_item item;
-        item.cmd = command;
-        item.val = value;
-        item.xtime = xtime;
-        item.interval = interval;
-        item.text = txt;
-        item.force = force;
+        command_que_item item = parseCommandFromJson(doc);
         if (!bwc->add_command(item))
         {
             webSocket->sendTXT(num, "{\"ERR\":\"Warteschlange voll (max. 20 Befehle)\"}");
@@ -873,132 +643,6 @@ void startHttpServer()
     // Serial.println(F("HTTP > server started"));
 }
 
-String queryAmbientTemperature()
-{
-    // Track heap usage for debugging
-    Serial.print(F("Weather: Starting query, free heap: "));
-    Serial.println(ESP.getFreeHeap());
-
-    // Use standard WiFiClient for HTTP connection
-    WiFiClient client;
-    HTTPClient http;
-    http.setUserAgent(DEVICE_NAME);
-
-    // Extract PLZ from settings
-    String _plz;
-    {
-        // Scope-limited to ensure immediate cleanup
-        DynamicJsonDocument doc(1024);
-        String json;
-        json.reserve(320);
-        bwc->getJSONSettings(json);
-
-        // Deserialize the JSON document
-        DeserializationError error = deserializeJson(doc, json);
-        json.clear();
-        json = String();
-
-        if (error)
-        {
-            Serial.println(F("Weather: Failed to read config"));
-            return "Error reading config";
-        }
-
-        _plz = doc[F("PLZ")].as<String>();
-        // doc goes out of scope here and is destroyed
-    }
-
-    String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/";
-    Serial.print(F("Weather: Connecting to API: "));
-    Serial.println(weatherURL);
-
-    if (http.begin(client, weatherURL))
-    {
-        http.addHeader("X-WW-Firmware", FW_VERSION);
-        http.addHeader("X-WW-Apikey", String(cloudApiKey));
-        http.addHeader("Accept", "application/json");
-
-        int httpResponseCode = http.GET();
-
-        Serial.print(F("Weather: Response code: "));
-        Serial.println(httpResponseCode);
-
-        if (httpResponseCode == 200)
-        {
-            String payload = http.getString();
-            http.end();
-            client.stop();
-
-            Serial.print(F("Weather: Parsing response, free heap: "));
-            Serial.println(ESP.getFreeHeap());
-
-            StaticJsonDocument<512> resp;
-            DeserializationError error = deserializeJson(resp, payload);
-            payload.clear();
-            payload = String();
-
-            if (error)
-            {
-                Serial.println(F("Weather: Parse error"));
-                return "Error while getting weather data";
-            }
-
-            ambExpires = resp[F("expires")];
-            int64_t _temperature = resp[F("temperature")];
-            const char *_name = resp[F("name")];
-
-            // Copy name before clearing document
-            String result = String(_name);
-
-            bwc->setAmbientTemperature(_temperature, true);
-
-            Serial.print(F("Weather: Success, free heap: "));
-            Serial.println(ESP.getFreeHeap());
-
-            return result;
-        }
-        else if (httpResponseCode == 404)
-        {
-            Serial.print(F("Weather: Error code: "));
-            Serial.println(httpResponseCode);
-            http.end();
-            client.stop();
-
-            return "Error: ZIP code not found";
-        }
-        else
-        {
-            Serial.print(F("Weather: Error code: "));
-            Serial.println(httpResponseCode);
-            http.end();
-            client.stop();
-
-            return "Error while getting weather data";
-        }
-    }
-    else
-    {
-        Serial.println(F("Weather: Could not connect to server"));
-        http.end();
-        client.stop();
-
-        return "Error while getting weather data";
-    }
-}
-
-void handleGetWeather()
-{
-    String ambient = queryAmbientTemperature();
-    if (ambient.indexOf("Error") >= 0)
-    {
-        server->send(500, F("text/plain"), "Es ist ein Fehler aufgetreten. Bitte prüfe die PLZ.");
-    }
-    else
-    {
-        server->send(200, F("text/plain"), ambient);
-    }
-}
-
 void handleGetHardware()
 {
     // if (!checkHttpPost(server->method()))
@@ -1025,7 +669,7 @@ void handleSetHardware()
     String oldModel = bwc->getModel();
 
     // Parse new config to extract the cio enum for comparison
-    DynamicJsonDocument doc(1024);
+    StaticJsonDocument<384> doc;
     DeserializationError error = deserializeJson(doc, message);
     String newModel = "";
     if (!error && doc.containsKey(F("cio")))
@@ -1329,7 +973,6 @@ void handleAddCommand()
     if (!checkHttpPost(server->method()))
         return;
 
-    // DynamicJsonDocument doc(256);
     StaticJsonDocument<256> doc;
     String message = server->arg(0);
     DeserializationError error = deserializeJson(doc, message);
@@ -1339,17 +982,7 @@ void handleAddCommand()
         return;
     }
 
-    Commands command = doc[F("CMD")];
-    int64_t value = doc[F("VALUE")];
-    int64_t xtime = doc[F("XTIME")];
-    int64_t interval = doc[F("INTERVAL")];
-    String txt = doc[F("TXT")] | "";
-    command_que_item item;
-    item.cmd = command;
-    item.val = value;
-    item.xtime = xtime;
-    item.interval = interval;
-    item.text = txt;
+    command_que_item item = parseCommandFromJson(doc);
     if (!bwc->add_command(item))
     {
         server->send(409, F("text/plain"), F("Warteschlange voll (max. 20 Befehle)"));
@@ -1368,7 +1001,6 @@ void handleEditCommand()
     if (!checkHttpPost(server->method()))
         return;
 
-    // DynamicJsonDocument doc(256);
     StaticJsonDocument<256> doc;
     String message = server->arg(0);
     DeserializationError error = deserializeJson(doc, message);
@@ -1378,18 +1010,8 @@ void handleEditCommand()
         return;
     }
 
-    Commands command = doc[F("CMD")];
-    int64_t value = doc[F("VALUE")];
-    int64_t xtime = doc[F("XTIME")];
-    int64_t interval = doc[F("INTERVAL")];
-    String txt = doc[F("TXT")] | "";
+    command_que_item item = parseCommandFromJson(doc);
     uint8_t index = doc[F("IDX")];
-    command_que_item item;
-    item.cmd = command;
-    item.val = value;
-    item.xtime = xtime;
-    item.interval = interval;
-    item.text = txt;
     bwc->edit_command(index, item);
 
     server->send(200, F("text/plain"), "");
@@ -1404,7 +1026,6 @@ void handleDelCommand()
     if (!checkHttpPost(server->method()))
         return;
 
-    // DynamicJsonDocument doc(256);
     StaticJsonDocument<256> doc;
     String message = server->arg(0);
     DeserializationError error = deserializeJson(doc, message);
@@ -1604,815 +1225,6 @@ void handleCancelSmartSchedule()
     server->send(200, F("text/plain"), F("Schedule cancelled"));
 }
 
-void copyFile(String source, String dest)
-{
-    char ibuffer[128]; // declare a buffer
-
-    File f_source = LittleFS.open(source, "r"); // open source file to read
-    if (!f_source)
-    {
-        return;
-    }
-
-    File f_dest = LittleFS.open(dest, "w"); // open destination file to write
-    if (!f_dest)
-    {
-        return;
-    }
-
-    while (f_source.available() > 0)
-    {
-        byte i = f_source.readBytes(ibuffer, 128); // i = number of bytes placed in buffer from file f_source
-        f_dest.write(ibuffer, i);                  // write i bytes from buffer to file f_dest
-    }
-
-    f_dest.close();   // done, close the destination file
-    f_source.close(); // done, close the source file
-}
-
-/**
- * load "Web Config" json configuration from "webconfig.json"
- */
-void loadWebConfig()
-{
-    // DynamicJsonDocument doc(1024);
-    StaticJsonDocument<256> doc;
-
-    File file = LittleFS.open("/webconfig.json", "r");
-    if (file)
-    {
-        DeserializationError error = deserializeJson(doc, file);
-        if (error)
-        {
-            // Serial.println(F("Failed to deserialize webconfig.json"));
-            file.close();
-            return;
-        }
-    }
-    else
-    {
-        // Serial.println(F("Failed to read webconfig.json. Using defaults."));
-    }
-
-    showSectionTemperature = (doc.containsKey("SST") ? doc[F("SST")] : false);
-    showSectionDisplay = (doc.containsKey("SSD") ? doc[F("SSD")] : true);
-    showSectionControl = (doc.containsKey("SSC") ? doc[F("SSC")] : true);
-    showSectionButtons = (doc.containsKey("SSB") ? doc[F("SSB")] : true);
-    showSectionTimer = (doc.containsKey("SSTIM") ? doc[F("SSTIM")] : true);
-    showSectionTotals = (doc.containsKey("SSTOT") ? doc[F("SSTOT")] : true);
-    showSectionEnergy = (doc.containsKey("SSEN") ? doc[F("SSEN")] : true);
-    showSectionWaterQuality = (doc.containsKey("SSWQ") ? doc[F("SSWQ")] : true);
-    showWQCyanuric = (doc.containsKey("SWQCYA") ? doc[F("SWQCYA")] : false);
-    showWQAlkalinity = (doc.containsKey("SWQALK") ? doc[F("SWQALK")] : false);
-    useControlSelector = (doc.containsKey("UCS") ? doc[F("UCS")] : false);
-}
-
-/**
- * save "Web Config" json configuration to "webconfig.json"
- */
-void saveWebConfig()
-{
-    File file = LittleFS.open("/webconfig.json", "w");
-    if (!file)
-    {
-        // Serial.println(F("Failed to save webconfig.json"));
-        return;
-    }
-
-    // DynamicJsonDocument doc(256);
-    StaticJsonDocument<256> doc;
-
-    doc[F("SST")] = showSectionTemperature;
-    doc[F("SSD")] = showSectionDisplay;
-    doc[F("SSC")] = showSectionControl;
-    doc[F("SSB")] = showSectionButtons;
-    doc[F("SSTIM")] = showSectionTimer;
-    doc[F("SSTOT")] = showSectionTotals;
-    doc[F("SSEN")] = showSectionEnergy;
-    doc[F("SSWQ")] = showSectionWaterQuality;
-    doc[F("SWQCYA")] = showWQCyanuric;
-    doc[F("SWQALK")] = showWQAlkalinity;
-    doc[F("UCS")] = useControlSelector;
-
-    if (serializeJson(doc, file) == 0)
-    {
-        // Serial.println(F("{\"error\": \"Failed to serialize file\"}"));
-    }
-    file.close();
-}
-
-/**
- * response for /getwebconfig/
- * web server prints a json document
- */
-void handleGetWebConfig()
-{
-    if (!checkHttpPost(server->method()))
-        return;
-
-    // DynamicJsonDocument doc(256);
-    StaticJsonDocument<256> doc;
-
-    doc[F("SST")] = showSectionTemperature;
-    doc[F("SSD")] = showSectionDisplay;
-    doc[F("SSC")] = showSectionControl;
-    doc[F("SSB")] = showSectionButtons;
-    doc[F("SSTIM")] = showSectionTimer;
-    doc[F("SSTOT")] = showSectionTotals;
-    doc[F("SSEN")] = showSectionEnergy;
-    doc[F("SSWQ")] = showSectionWaterQuality;
-    doc[F("SWQCYA")] = showWQCyanuric;
-    doc[F("SWQALK")] = showWQAlkalinity;
-    doc[F("UCS")] = useControlSelector;
-
-    String json;
-    if (serializeJson(doc, json) == 0)
-    {
-        json = F("{\"error\": \"Failed to serialize webcfg\"}");
-    }
-    server->send(200, "application/json", json);
-}
-
-/**
- * response for /setwebconfig/
- * web server writes a json document
- */
-void handleSetWebConfig()
-{
-    if (!checkHttpPost(server->method()))
-        return;
-
-    // DynamicJsonDocument doc(256);
-    StaticJsonDocument<256> doc;
-    String message = server->arg(0);
-    DeserializationError error = deserializeJson(doc, message);
-    if (error)
-    {
-        // Serial.println(F("Failed to read config file"));
-        server->send(400, F("text/plain"), F("Error deserializing message"));
-        return;
-    }
-
-    showSectionTemperature = doc[F("SST")];
-    showSectionDisplay = doc[F("SSD")];
-    showSectionControl = doc[F("SSC")];
-    showSectionButtons = doc[F("SSB")];
-    showSectionTimer = doc[F("SSTIM")];
-    showSectionTotals = doc[F("SSTOT")];
-    showSectionEnergy = doc[F("SSEN")];
-    showSectionWaterQuality = doc.containsKey("SSWQ") ? doc[F("SSWQ")] : true;
-    showWQCyanuric = doc.containsKey("SWQCYA") ? doc[F("SWQCYA")] : false;
-    showWQAlkalinity = doc.containsKey("SWQALK") ? doc[F("SWQALK")] : false;
-    useControlSelector = doc[F("UCS")];
-
-    saveWebConfig();
-
-    server->send(200, F("text/plain"), "");
-}
-
-/**
- * load WiFi json configuration from "wifi.json"
- */
-sWifi_info loadWifi()
-{
-    sWifi_info wifi_info;
-    File file = LittleFS.open("/wifi.json", "r");
-    if (!file)
-    {
-        // Serial.println(F("Failed to read wifi.json. Using defaults."));
-        return wifi_info;
-    }
-
-    DynamicJsonDocument doc(1024);
-
-    DeserializationError error = deserializeJson(doc, file);
-    if (error)
-    {
-        // Serial.println(F("Failed to deserialize wifi.json"));
-        file.close();
-        return wifi_info;
-    }
-
-    wifi_info.enableAp = doc[F("enableAp")];
-    if (doc.containsKey("enableWM"))
-        wifi_info.enableWmApFallback = doc[F("enableWM")];
-    wifi_info.apSsid = doc[F("apSsid")].as<String>();
-    wifi_info.apPwd = doc[F("apPwd")].as<String>();
-
-    wifi_info.enableStaticIp4 = doc[F("enableStaticIp4")];
-    String s(30);
-    wifi_info.ip4Address_str = doc[F("ip4Address")].as<String>();
-    wifi_info.ip4Gateway_str = doc[F("ip4Gateway")].as<String>();
-    wifi_info.ip4Subnet_str = doc[F("ip4Subnet")].as<String>();
-    wifi_info.ip4DnsPrimary_str = doc[F("ip4DnsPrimary")].as<String>();
-    wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
-    wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
-
-    return wifi_info;
-}
-
-/**
- * save WiFi json configuration to "wifi.json"
- */
-void saveWifi(const sWifi_info &wifi_info)
-{
-    File file = LittleFS.open("/wifi.json", "w");
-    if (!file)
-    {
-        // Serial.println(F("Failed to save wifi.json"));
-        return;
-    }
-
-    DynamicJsonDocument doc(1024);
-
-    doc[F("enableAp")] = wifi_info.enableAp;
-    doc[F("enableWM")] = wifi_info.enableWmApFallback;
-    doc[F("apSsid")] = wifi_info.apSsid;
-    doc[F("apPwd")] = wifi_info.apPwd;
-    doc[F("enableStaticIp4")] = wifi_info.enableStaticIp4;
-    doc[F("ip4Address")] = wifi_info.ip4Address_str;
-    doc[F("ip4Gateway")] = wifi_info.ip4Gateway_str;
-    doc[F("ip4Subnet")] = wifi_info.ip4Subnet_str;
-    doc[F("ip4DnsPrimary")] = wifi_info.ip4DnsPrimary_str;
-    doc[F("ip4DnsSecondary")] = wifi_info.ip4DnsSecondary_str;
-    doc[F("ip4NTP")] = wifi_info.ip4NTP_str;
-
-    if (serializeJson(doc, file) == 0)
-    {
-        // Serial.println(F("{\"error\": \"Failed to serialize file\"}"));
-    }
-    file.close();
-}
-
-/**
- * response for /scanwifi/
- * Scans for available WiFi networks and returns them as JSON
- */
-void handleScanWifi()
-{
-    // Synchronous scan; typically completes in 2-5 seconds
-    int n = WiFi.scanNetworks(false, false);
-
-    DynamicJsonDocument doc(2048);
-    JsonArray networks = doc.createNestedArray(F("networks"));
-
-    for (int i = 0; i < n && i < 20; i++)
-    {
-        // Skip empty SSIDs (hidden networks)
-        if (WiFi.SSID(i).length() == 0)
-            continue;
-
-        // Skip duplicate SSIDs (keep the one with stronger signal)
-        bool duplicate = false;
-        for (size_t j = 0; j < networks.size(); j++)
-        {
-            if (networks[j]["ssid"].as<String>() == WiFi.SSID(i))
-            {
-                duplicate = true;
-                break;
-            }
-        }
-        if (duplicate)
-            continue;
-
-        JsonObject net = networks.createNestedObject();
-        net[F("ssid")] = WiFi.SSID(i);
-        net[F("rssi")] = WiFi.RSSI(i);
-        net[F("enc")] = (WiFi.encryptionType(i) != ENC_TYPE_NONE);
-    }
-
-    WiFi.scanDelete();
-
-    String json;
-    if (serializeJson(doc, json) == 0)
-    {
-        json = F("{\"networks\":[]}");
-    }
-    server->send(200, F("application/json"), json);
-}
-
-/**
- * response for /getwifi/
- * web server prints a json document
- */
-void handleGetWifi()
-{
-    if (!checkHttpPost(server->method()))
-        return;
-
-    DynamicJsonDocument doc(1024);
-
-    sWifi_info wifi_info;
-    wifi_info = loadWifi();
-
-    doc[F("enableAp")] = wifi_info.enableAp;
-    doc[F("enableWM")] = wifi_info.enableWmApFallback;
-    doc[F("apSsid")] = wifi_info.apSsid;
-    doc[F("apPwd")] = F("<Passwort eingeben>");
-    if (!hidePasswords)
-    {
-        doc[F("apPwd")] = wifi_info.apPwd;
-    }
-
-    doc[F("enableStaticIp4")] = wifi_info.enableStaticIp4;
-    doc[F("ip4Address")] = wifi_info.ip4Address_str;
-    doc[F("ip4Gateway")] = wifi_info.ip4Gateway_str;
-    doc[F("ip4Subnet")] = wifi_info.ip4Subnet_str;
-    doc[F("ip4DnsPrimary")] = wifi_info.ip4DnsPrimary_str;
-    doc[F("ip4DnsSecondary")] = wifi_info.ip4DnsSecondary_str;
-    doc[F("ip4NTP")] = wifi_info.ip4NTP_str;
-    doc[F("wmApName")] = wmApName;
-    String json;
-    if (serializeJson(doc, json) == 0)
-    {
-        json = F("{\"error\": \"Failed to serialize message\"}");
-    }
-    server->send(200, F("application/json"), json);
-}
-
-/**
- * response for /setwifi/
- * web server writes a json document
- */
-void handleSetWifi()
-{
-    if (!checkHttpPost(server->method()))
-        return;
-
-    DynamicJsonDocument doc(1024);
-    String message = server->arg(0);
-    DeserializationError error = deserializeJson(doc, message);
-    if (error)
-    {
-        // Serial.println(F("Failed to read config file"));
-        server->send(400, F("text/plain"), F("Error deserializing message"));
-        return;
-    }
-
-    // Load existing settings first to support partial updates.
-    // Each section on the frontend sends only its own fields,
-    // so missing fields must retain their previous values.
-    sWifi_info old_info = loadWifi();
-    sWifi_info wifi_info = old_info;
-
-    if (doc.containsKey(F("enableAp")))
-        wifi_info.enableAp = doc[F("enableAp")];
-    if (doc.containsKey(F("enableWM")))
-        wifi_info.enableWmApFallback = doc[F("enableWM")];
-    if (doc.containsKey(F("apSsid")))
-        wifi_info.apSsid = doc[F("apSsid")].as<String>();
-    if (doc.containsKey(F("apPwd")))
-        wifi_info.apPwd = doc[F("apPwd")].as<String>();
-
-    if (doc.containsKey(F("enableStaticIp4")))
-        wifi_info.enableStaticIp4 = doc[F("enableStaticIp4")];
-    if (doc.containsKey(F("ip4Address")))
-        wifi_info.ip4Address_str = doc[F("ip4Address")].as<String>();
-    if (doc.containsKey(F("ip4Gateway")))
-        wifi_info.ip4Gateway_str = doc[F("ip4Gateway")].as<String>();
-    if (doc.containsKey(F("ip4Subnet")))
-        wifi_info.ip4Subnet_str = doc[F("ip4Subnet")].as<String>();
-    if (doc.containsKey(F("ip4DnsPrimary")))
-        wifi_info.ip4DnsPrimary_str = doc[F("ip4DnsPrimary")].as<String>();
-    if (doc.containsKey(F("ip4DnsSecondary")))
-        wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
-    if (doc.containsKey(F("ip4NTP")))
-        wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
-
-    // Detect what changed: NTP can be applied live, everything else needs a reboot
-    bool ntpChanged = (wifi_info.ip4NTP_str != old_info.ip4NTP_str);
-    bool networkChanged = (wifi_info.enableAp != old_info.enableAp) ||
-                          (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
-                          (wifi_info.apSsid != old_info.apSsid) ||
-                          (wifi_info.apPwd != old_info.apPwd) ||
-                          (wifi_info.enableStaticIp4 != old_info.enableStaticIp4) ||
-                          (wifi_info.ip4Address_str != old_info.ip4Address_str) ||
-                          (wifi_info.ip4Gateway_str != old_info.ip4Gateway_str) ||
-                          (wifi_info.ip4Subnet_str != old_info.ip4Subnet_str) ||
-                          (wifi_info.ip4DnsPrimary_str != old_info.ip4DnsPrimary_str) ||
-                          (wifi_info.ip4DnsSecondary_str != old_info.ip4DnsSecondary_str);
-
-    if (!ntpChanged && !networkChanged)
-    {
-        // Nothing changed, no need to save or restart
-        Serial.println(F("WiFi: No changes detected"));
-        server->send(200, F("application/json"), F("{\"restart\":false}"));
-        return;
-    }
-
-    saveWifi(wifi_info);
-
-    if (ntpChanged && !networkChanged)
-    {
-        // Only NTP changed - apply live without reboot
-        Serial.println(F("WiFi: NTP server changed, applying live"));
-        startNTP();
-        server->send(200, F("application/json"), F("{\"restart\":false,\"saved\":true}"));
-        return;
-    }
-
-    // Network settings changed - restart required to apply
-    Serial.println(F("WiFi: Network config changed, restarting..."));
-
-    String response = F("{\"restart\":true,\"reason\":\"Netzwerkeinstellungen geändert. WifiWhirl startet neu.\"}");
-    server->send(200, F("application/json"), response);
-
-    // Give server time to send response
-    delay(500);
-
-    // Save all settings
-    bwc->saveSettings();
-
-    // Stop all services gracefully
-    periodicTimer.detach();
-    updateMqttTimer.detach();
-    updateWSTimer.detach();
-    if (mqttClient)
-    {
-        mqttClient->disconnect();
-    }
-
-    delay(1000);
-
-    // Restart ESP to apply new network configuration
-    ESP.restart();
-}
-
-/*
- * response for /resetwifi/
- * do this before giving away the device (be aware of other credentials e.g. MQTT)
- * a complete flash erase should do the job but remember to upload the filesystem as well.
- */
-void handleResetWifi()
-{
-    server->send(200, F("text/html"), F("WLAN Einstellungen werden gelöscht ..."));
-    // Serial.println(F("WiFi connection reset (erase) ..."));
-    resetWiFi();
-
-    // server->send(200, F("text/html"), F("WLAN Einstellungen wurden gelöscht ..."));
-// Serial.println(F("WiFi connection reset (erase) ... done."));
-// Serial.println(F("ESP reset ..."));
-#if defined(ESP8266)
-    ESP.reset();
-#else
-    ESP.restart();
-#endif
-}
-
-void resetWiFi()
-{
-    sWifi_info wifi_info;
-    wifi_info.enableAp = false;
-    wifi_info.enableWmApFallback = true;
-    wifi_info.apSsid = "";
-    wifi_info.apPwd = "";
-    saveWifi(wifi_info);
-
-    WiFi.disconnect(true);
-    WiFi.softAPdisconnect(true);
-    delay(500);
-
-    periodicTimer.detach();
-    updateMqttTimer.detach();
-    updateWSTimer.detach();
-    bwc->stop();
-    bwc->saveSettings();
-    delay(1000);
-    //     delay(1000);
-}
-
-/**
- * load MQTT json configuration from "mqtt.json"
- */
-void loadMqtt()
-{
-    File file = LittleFS.open("mqtt.json", "r");
-    if (!file)
-    {
-        return;
-    }
-
-    DynamicJsonDocument doc(1024);
-
-    DeserializationError error = deserializeJson(doc, file);
-    file.close(); // Close file once read
-    if (error)
-    {
-        return;
-    }
-
-    bool needsMigration = false;
-    useMqtt = doc[F("enableMqtt")];
-
-    if (doc.containsKey(F("mqttServer")))
-    {
-        mqttServer = doc[F("mqttServer")].as<String>();
-    }
-    // Backwards compatibility for old IPAddress format
-    else if (doc.containsKey(F("mqttIpAddress")))
-    {
-        IPAddress ip;
-        ip[0] = doc[F("mqttIpAddress")][0];
-        ip[1] = doc[F("mqttIpAddress")][1];
-        ip[2] = doc[F("mqttIpAddress")][2];
-        ip[3] = doc[F("mqttIpAddress")][3];
-        mqttServer = ip.toString();
-        needsMigration = true; // Mark for migration
-    }
-
-    mqttPort = doc[F("mqttPort")];
-    mqttUsername = doc[F("mqttUsername")].as<String>();
-    mqttPassword = doc[F("mqttPassword")].as<String>();
-    mqttClientId = doc[F("mqttClientId")].as<String>();
-    mqttBaseTopic = doc[F("mqttBaseTopic")].as<String>();
-    mqttTelemetryInterval = doc[F("mqttTelemetryInterval")];
-
-    // If an old config was found, migrate it to the new format now.
-    if (needsMigration)
-    {
-        saveMqtt();
-    }
-}
-
-/**
- * save MQTT json configuration to "mqtt.json"
- */
-void saveMqtt()
-{
-    File file = LittleFS.open("mqtt.json", "w");
-    if (!file)
-    {
-        return;
-    }
-
-    DynamicJsonDocument doc(1024);
-
-    doc[F("enableMqtt")] = useMqtt;
-    doc[F("mqttServer")] = mqttServer;
-    doc[F("mqttPort")] = mqttPort;
-    doc[F("mqttUsername")] = mqttUsername;
-    doc[F("mqttPassword")] = mqttPassword;
-    doc[F("mqttClientId")] = mqttClientId;
-    doc[F("mqttBaseTopic")] = mqttBaseTopic;
-    doc[F("mqttTelemetryInterval")] = mqttTelemetryInterval;
-
-    if (serializeJson(doc, file) == 0)
-    {
-    }
-    file.close();
-}
-
-/**
- * response for /getmqtt/
- * web server prints a json document
- */
-void handleGetMqtt()
-{
-    if (!checkHttpPost(server->method()))
-        return;
-
-    DynamicJsonDocument doc(1024);
-
-    doc[F("enableMqtt")] = useMqtt;
-    doc[F("mqttServer")] = mqttServer;
-    doc[F("mqttPort")] = mqttPort;
-    doc[F("mqttUsername")] = mqttUsername;
-    doc[F("mqttPassword")] = "<Passwort eingeben>";
-    if (!hidePasswords)
-    {
-        doc[F("mqttPassword")] = mqttPassword;
-    }
-    doc[F("mqttClientId")] = mqttClientId;
-    doc[F("mqttBaseTopic")] = mqttBaseTopic;
-    doc[F("mqttTelemetryInterval")] = mqttTelemetryInterval;
-
-    String json;
-    if (serializeJson(doc, json) == 0)
-    {
-        json = F("{\"error\": \"Failed to serialize message\"}");
-    }
-    server->send(200, F("text/plain"), json);
-}
-
-/**
- * response for /setmqtt/
- * web server writes a json document
- */
-void handleSetMqtt()
-{
-    if (!checkHttpPost(server->method()))
-        return;
-
-    DynamicJsonDocument doc(1024);
-    String message = server->arg(0);
-    DeserializationError error = deserializeJson(doc, message);
-    if (error)
-    {
-        server->send(400, F("text/plain"), F("Error deserializing message"));
-        return;
-    }
-
-    // Store old values to detect changes that require HA discovery re-run
-    bool oldUseMqtt = useMqtt; // Store old MQTT enabled state
-    String oldMqttServer = mqttServer;
-    int oldMqttPort = mqttPort;
-    String oldMqttUsername = mqttUsername;
-    String oldMqttPassword = mqttPassword;
-    String oldMqttClientId = mqttClientId;
-    String oldMqttBaseTopic = mqttBaseTopic;
-
-    useMqtt = doc[F("enableMqtt")];
-    enableMqtt = useMqtt;
-
-    if (doc.containsKey(F("mqttServer")))
-    {
-        mqttServer = doc[F("mqttServer")].as<String>();
-    }
-
-    mqttPort = doc[F("mqttPort")];
-    mqttUsername = doc[F("mqttUsername")].as<String>();
-
-    // Only update password if a new one is provided (not empty or placeholder)
-    String newPassword = doc[F("mqttPassword")].as<String>();
-    if (newPassword.length() > 0 && newPassword != "<Passwort eingeben>")
-    {
-        mqttPassword = newPassword;
-    }
-    else
-    {
-        // Load existing password from file to ensure we don't save empty password
-        File file = LittleFS.open("mqtt.json", "r");
-        if (file)
-        {
-            DynamicJsonDocument existingDoc(1024);
-            DeserializationError error = deserializeJson(existingDoc, file);
-            file.close();
-            if (!error && existingDoc.containsKey(F("mqttPassword")))
-            {
-                mqttPassword = existingDoc[F("mqttPassword")].as<String>();
-            }
-        }
-    }
-
-    mqttClientId = doc[F("mqttClientId")].as<String>();
-    mqttBaseTopic = doc[F("mqttBaseTopic")].as<String>();
-    mqttTelemetryInterval = doc[F("mqttTelemetryInterval")];
-
-    // These settings affect how entities are registered in Home Assistant
-    bool haRelevantChanged = false;
-    String changeReason = "";
-
-    if (oldMqttServer != mqttServer)
-    {
-        haRelevantChanged = true;
-        changeReason = "MQTT Server geändert";
-        Serial.print("MQTT: Server changed: ");
-        Serial.print(oldMqttServer);
-        Serial.print(" -> ");
-        Serial.println(mqttServer);
-    }
-
-    if (oldMqttPort != mqttPort)
-    {
-        haRelevantChanged = true;
-        changeReason = "MQTT Port geändert";
-        Serial.print("MQTT: Port changed: ");
-        Serial.print(oldMqttPort);
-        Serial.print(" -> ");
-        Serial.println(mqttPort);
-    }
-
-    if (oldMqttUsername != mqttUsername)
-    {
-        haRelevantChanged = true;
-        changeReason = "MQTT Benutzername geändert";
-        Serial.println("MQTT: Username changed");
-    }
-
-    if (oldMqttPassword != mqttPassword)
-    {
-        haRelevantChanged = true;
-        changeReason = "MQTT Passwort geändert";
-        Serial.println("MQTT: Password changed");
-    }
-
-    if (oldMqttClientId != mqttClientId)
-    {
-        haRelevantChanged = true;
-        changeReason = "MQTT Client ID geändert";
-        Serial.print("MQTT: Client ID changed: ");
-        Serial.print(oldMqttClientId);
-        Serial.print(" -> ");
-        Serial.println(mqttClientId);
-    }
-
-    if (oldMqttBaseTopic != mqttBaseTopic)
-    {
-        haRelevantChanged = true;
-        changeReason = "MQTT Base Topic geändert";
-        Serial.print("MQTT: Base topic changed: ");
-        Serial.print(oldMqttBaseTopic);
-        Serial.print(" -> ");
-        Serial.println(mqttBaseTopic);
-    }
-
-    // Save settings before responding
-    saveMqtt();
-
-    // Restart ESP if:
-    // 1. MQTT is being enabled (disabled -> enabled): Clean boot ensures proper discovery
-    // 2. MQTT was enabled, still enabled, and HA-relevant settings changed: Re-run discovery
-    //
-    // DO NOT restart if:
-    // - MQTT is being disabled (enabled -> disabled): Stop MQTT
-    // - MQTT stays disabled and settings changed: Save for future use
-    // - Only non-HA-relevant settings changed (telemetry interval): Reconnect
-
-    bool mqttBeingEnabled = (!oldUseMqtt && useMqtt);
-    bool mqttBeingDisabled = (oldUseMqtt && !useMqtt);
-
-    if (mqttBeingEnabled)
-    {
-        // MQTT disabled -> enabled: Restart for clean discovery
-        Serial.println("========================================");
-        Serial.println("MQTT: Enabling MQTT");
-        Serial.println("MQTT: WifiWhirl restarting for clean initialization...");
-        Serial.println("========================================");
-
-        // Send response with restart notification
-        String response = "{\"restart\": true, \"reason\": \"MQTT wird aktiviert. WifiWhirl startet neu um Home Assistant Discovery durchzuführen.\"}";
-        server->send(200, F("application/json"), response);
-
-        // Give server time to send response
-        delay(500);
-
-        // Stop all services gracefully
-        periodicTimer.detach();
-        updateMqttTimer.detach();
-        updateWSTimer.detach();
-
-        // Restart ESP - after restart, discovery will run once with new settings
-        ESP.restart();
-    }
-    else if (haRelevantChanged && oldUseMqtt && useMqtt)
-    {
-        // MQTT was enabled and still is, settings changed -> restart for re-discovery
-        Serial.println("========================================");
-        Serial.println("MQTT: HA-relevant settings changed!");
-        Serial.print("MQTT: Reason: ");
-        Serial.println(changeReason);
-        Serial.println("MQTT: Restarting to re-run discovery...");
-        Serial.println("========================================");
-
-        // Send response with restart notification
-        String response = "{\"restart\": true, \"reason\": \"" + changeReason + ". WifiWhirl startet neu um MQTT Konfiguration zu aktualisieren.\"}";
-        server->send(200, F("application/json"), response);
-
-        // Give server time to send response
-        delay(500);
-
-        // Stop all services gracefully
-        periodicTimer.detach();
-        updateMqttTimer.detach();
-        updateWSTimer.detach();
-        if (mqttClient)
-        {
-            mqttClient->disconnect();
-        }
-
-        // Restart ESP - after restart, discovery will run once with new settings
-        ESP.restart();
-    }
-    else if (mqttBeingDisabled)
-    {
-        // MQTT enabled -> disabled: No restart needed, stop MQTT
-        Serial.println("MQTT: Disabling MQTT");
-        Serial.println("MQTT: Settings saved");
-        server->send(200, F("text/plain"), "");
-        if (mqttClient)
-        {
-            mqttClient->disconnect();
-        }
-    }
-    else if (haRelevantChanged && !useMqtt)
-    {
-        // MQTT disabled, settings changed: Save for future use
-        Serial.println("MQTT: HA-relevant settings changed but MQTT is disabled");
-        Serial.println("MQTT: Settings saved for future use");
-        server->send(200, F("text/plain"), "");
-    }
-    else
-    {
-        // No HA-relevant changes, restart MQTT connection if enabled
-        Serial.println("MQTT: Settings updated (no discovery required)");
-        server->send(200, F("text/plain"), "");
-        if (useMqtt)
-        {
-            startMqtt();
-        }
-    }
-}
-
 /**
  * response for /restart/
  */
@@ -2470,188 +1282,6 @@ void handleUpdate()
     handleFileRead("/update.html");
 }
 
-/**
- * MQTT setup and connect
- * @author 877dev
- */
-void startMqtt()
-{
-    {
-        HeapSelectIram ephemeral;
-        Serial.printf("IRamheap %d\n", ESP.getFreeHeap());
-        Serial.println(F("startmqtt"));
-        if (!aWifiClient)
-            aWifiClient = new WiFiClient;
-        if (!mqttClient)
-            mqttClient = new PubSubClient(*aWifiClient);
-    }
-
-    // load mqtt credential file if it exists, and update default strings
-    loadMqtt();
-
-    // disconnect in case we are already connected
-    mqttClient->disconnect();
-
-    // setup MQTT broker information as defined earlier
-    mqttClient->setServer(mqttServer.c_str(), mqttPort);
-    // MEMORY OPTIMIZATION: Reduced buffer from 1536 to 768 bytes to save heap
-    // Home Assistant discovery still works with smaller buffers due to streaming publish
-    if (mqttClient->setBufferSize(768))
-    {
-        Serial.println(F("MQTT > Buffer size set to 768 bytes"));
-    }
-    mqttClient->setKeepAlive(60);
-    mqttClient->setSocketTimeout(30);
-    // set callback details
-    // this function is called automatically whenever a message arrives on a subscribed topic.
-    mqttClient->setCallback(mqttCallback);
-    // Connect to MQTT broker, publish Status/MAC/count, and subscribe to keypad topic.
-    mqttConnect();
-}
-
-/**
- * MQTT callback function
- * @author 877dev
- */
-void mqttCallback(char *topic, byte *payload, unsigned int length)
-{
-    if (length == 0 || length > 1024)
-        return;
-
-    // Null-terminate payload safely: MQTT payloads are NOT null-terminated
-    payload[length] = '\0';
-
-    String topicStr(topic);
-
-    if (topicStr.equals(String(mqttBaseTopic) + "/command"))
-    {
-        StaticJsonDocument<256> doc;
-        DeserializationError error = deserializeJson(doc, (const char *)payload);
-        if (error)
-        {
-            return;
-        }
-
-        Commands command = doc[F("CMD")];
-        int64_t value = doc[F("VALUE")];
-        int64_t xtime = doc[F("XTIME")] | 0;
-        int64_t interval = doc[F("INTERVAL")] | 0;
-        String txt = doc[F("TXT")] | "";
-        command_que_item item;
-        item.cmd = command;
-        item.val = value;
-        item.xtime = xtime;
-        item.interval = interval;
-        item.text = txt;
-        bwc->add_command(item);
-    }
-
-    if (topicStr.equals(String(mqttBaseTopic) + "/command_batch"))
-    {
-        DynamicJsonDocument doc(1024);
-        DeserializationError error = deserializeJson(doc, (const char *)payload);
-        if (error)
-        {
-            return;
-        }
-
-        JsonArray commandArray = doc.as<JsonArray>();
-
-        for (JsonVariant commandItem : commandArray)
-        {
-            Commands command = commandItem[F("CMD")];
-            int64_t value = commandItem[F("VALUE")];
-            int64_t xtime = commandItem[F("XTIME")] | 0;
-            int64_t interval = commandItem[F("INTERVAL")] | 0;
-            String txt = commandItem[F("TXT")] | "";
-            command_que_item item;
-            item.cmd = command;
-            item.val = value;
-            item.xtime = xtime;
-            item.interval = interval;
-            item.text = txt;
-            bwc->add_command(item);
-        }
-    }
-}
-
-/**
- * Connect to MQTT broker, publish Status/MAC/count, and subscribe to keypad topic.
- */
-void mqttConnect()
-{
-    // do not connect if MQTT is not enabled
-    if (!enableMqtt)
-    {
-        return;
-    }
-    Serial.println("mqttconn");
-
-    // Serial.print(F("MQTT > Connecting ... "));
-    // We'll connect with a Retained Last Will that updates the 'Status' topic with "Dead" when the device goes offline...
-    if (mqttClient->connect(
-            mqttClientId.c_str(),                        // client_id : the client ID to use when connecting to the server->
-            mqttUsername.c_str(),                        // username : the username to use. If NULL, no username or password is used (const char[])
-            mqttPassword.c_str(),                        // password : the password to use. If NULL, no password is used (const char[])setupHA
-            (String(mqttBaseTopic) + "/Status").c_str(), // willTopic : the topic to be used by the will message (const char[])
-            0,                                           // willQoS : the quality of service to be used by the will message (int : 0,1 or 2)
-            1,                                           // willRetain : whether the will should be published with the retain flag (int : 0 or 1)
-            "Dead"))                                     // willMessage : the payload of the will message (const char[])
-    {
-        // Serial.println(F("success!"));
-        mqtt_connect_count++;
-
-        // update MQTT every X seconds. (will also be updated on state changes)
-        updateMqttTimer.attach(mqttTelemetryInterval, []
-                               { sendMQTTFlag = true; });
-
-        // These all have the Retained flag set to true, so that the value is stored on the server and can be retrieved at any point
-        // Check the 'Status' topic to see that the device is still online before relying on the data from these retained topics
-        mqttClient->publish((String(mqttBaseTopic) + "/Status").c_str(), "Alive", true);
-        mqttClient->publish((String(mqttBaseTopic) + "/MAC_Address").c_str(), WiFi.macAddress().c_str(), true);                 // Device MAC Address
-        mqttClient->publish((String(mqttBaseTopic) + "/MQTT_Connect_Count").c_str(), String(mqtt_connect_count).c_str(), true); // MQTT Connect Count
-        mqttClient->loop();
-
-        // Watch the 'command' topic for incoming MQTT messages
-        mqttClient->subscribe((String(mqttBaseTopic) + "/command").c_str());
-        mqttClient->subscribe((String(mqttBaseTopic) + "/command_batch").c_str());
-        mqttClient->loop();
-
-#ifdef ESP8266
-        // mqttClient->publish((String(mqttBaseTopic) + "/reboot_time").c_str(), DateTime.format(DateFormatter::SIMPLE).c_str(), true);
-        mqttClient->publish((String(mqttBaseTopic) + "/reboot_time").c_str(), (bwc->reboot_time_str + 'Z').c_str(), true);
-        mqttClient->publish((String(mqttBaseTopic) + "/reboot_reason").c_str(), ESP.getResetReason().c_str(), true);
-        String buttonname;
-        buttonname.reserve(32);
-        bwc->getButtonName(buttonname);
-        mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), buttonname.c_str(), true);
-        mqttClient->loop();
-        sendMQTT();
-
-        // Only run HA discovery on FIRST connection after boot
-        // NOT on every reconnect (would waste memory and cause instability)
-        extern bool haDiscoveryHasRunOnce;
-        if (!haDiscoveryHasRunOnce)
-        {
-            Serial.println("HA");
-            setupHA();
-            Serial.println("done");
-            haDiscoveryHasRunOnce = true;
-        }
-        else
-        {
-            Serial.println("HA: Skipping discovery (already ran after boot)");
-        }
-#endif
-    }
-    else
-    {
-        // Serial.print(F("failed, Return Code = "));
-        // Serial.println(mqttClient->state()); // states explained in webSocket->js
-    }
-    Serial.println("end mqttcon");
-}
-
 time_t getBootTime()
 {
     time_t seconds = millis() / 1000;
@@ -2692,28 +1322,3 @@ void handleESPInfo()
     server->send(200, F("text/plain; charset=utf-8"), response);
 #endif
 }
-
-// Keeping for later integrations
-// void setTemperatureFromSensor()
-// {
-//     if(bwc->hasTempSensor)
-//     {
-//             tempSensors.requestTemperatures();
-//             float temperatureC = tempSensors.getTempCByIndex(0);
-//             //float temperatureF = tempSensors.getTempFByIndex(0);
-//             //Serial.print(temperatureC);
-//             //Serial.println("ºC");
-//             //Serial.print(temperatureF);
-//             //Serial.println("ºF");
-
-//             // Ignore bad reads
-//             if(temperatureC >= -20.0)
-//             {
-//                 bwc->setAmbientTemperature(temperatureC, true);
-//             }
-//     }
-// }
-
-#include "webhooks.inc"
-#include "homeassistant.inc"
-#include "prometheus.inc"

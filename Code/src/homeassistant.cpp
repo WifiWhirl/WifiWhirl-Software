@@ -1,3 +1,6 @@
+#include "main.h"
+#include "WifiWhirl_Version.h"
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Build and publish Home-Assistant MQTT auto-discovery payloads for all WifiWhirl entities
@@ -273,8 +276,6 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
 //--------------------------------------------------------------------------------------------------
 void setupHA()
 {
-    // Set flag to prevent MQTT publishing and pump communication during discovery
-    extern bool haDiscoveryInProgress;
     haDiscoveryInProgress = true;
     
     Serial.println("========================================");
@@ -371,7 +372,6 @@ void setupHA()
                 Serial.print("HA: CRITICAL - Heap fragmented! Max block: ");
                 Serial.print(ESP.getMaxFreeBlockSize());
                 Serial.println(" bytes. Restarting for clean heap...");
-                extern bool haDiscoveryInProgress;
                 haDiscoveryInProgress = false;
                 delay(1000);
                 ESP.restart();
@@ -379,8 +379,6 @@ void setupHA()
             }
         }
         
-        // Check memory before EVERY entity to catch corruption early
-        // Log detailed memory state for debugging
         Serial.print(">>> Entity #");
         Serial.print(i + 1);
         Serial.print(": Heap=");
@@ -391,14 +389,12 @@ void setupHA()
         Serial.print(100 - (ESP.getMaxFreeBlockSize() * 100 / ESP.getFreeHeap()));
         Serial.println("%");
         
-        // Need 3500+ bytes for: MQTT buffer (768) + JSON (~600) + topic (220) + safety (1912)
         if (ESP.getMaxFreeBlockSize() < 3500) {
             Serial.print("HA: WARNING - Low contiguous memory before entity #");
             Serial.print(i + 1);
             Serial.print(". Max block: ");
             Serial.print(ESP.getMaxFreeBlockSize());
             Serial.println(" bytes. Restarting...");
-            extern bool haDiscoveryInProgress;
             haDiscoveryInProgress = false;
             delay(1000);
             ESP.restart();
@@ -742,8 +738,6 @@ void setupHA()
     WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
     #endif
     
-    // Re-enable MQTT publishing and pump communication
-    extern bool haDiscoveryInProgress;
     haDiscoveryInProgress = false;
     
     Serial.println("========================================");

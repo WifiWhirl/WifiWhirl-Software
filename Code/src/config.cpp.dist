@@ -1,0 +1,40 @@
+#include "config.h"
+
+/* Network Settings */
+bool enableWmApFallback = true;
+const char *wmApName = DEVICE_NAME;
+const char *wmApPassword = "wifiwhirl";
+const char *netHostname = DEVICE_NAME;
+
+/* OTA Service Credentials */
+const char *OTAName = DEVICE_NAME;
+const char *OTAPassword = "wifiwhirl";
+const char *update_path = "/update";
+
+/* WifiWhirl Cloud Settings */
+const char *cloudApi = "";
+const char *cloudApiKey PROGMEM = "";
+
+/* Web UI Configuration */
+bool showSectionTemperature = false;
+bool showSectionDisplay = true;
+bool showSectionControl = true;
+bool showSectionButtons = true;
+bool showSectionTimer = true;
+bool showSectionTotals = true;
+bool showSectionEnergy = true;
+bool showSectionWaterQuality = true;
+bool showWQCyanuric = false;
+bool showWQAlkalinity = false;
+bool useControlSelector = false;
+const bool hidePasswords = true;
+
+/* MQTT Server */
+bool useMqtt = false;
+String mqttServer = "192.168.0.20";
+int mqttPort = 1883;
+String mqttUsername = "Benutzername";
+String mqttPassword = "Passwort";
+String mqttClientId = DEVICE_NAME;
+String mqttBaseTopic = DEVICE_NAME;
+int mqttTelemetryInterval = 600;

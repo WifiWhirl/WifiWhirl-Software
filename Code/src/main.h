@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Arduino.h>
 #include <ArduinoOTA.h>
 #include <DNSServer.h>
@@ -7,9 +9,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-// Update Server
 #include <ESP8266HTTPUpdateServer.h>
-// #include <WiFiClientSecure.h>
 #include <time.h>
 
 #else
@@ -19,15 +19,10 @@
 
 #endif
 
-// Keeping for later integrations
-// #include <OneWire.h>
-// #include <DallasTemperature.h>
-
 #include <LittleFS.h>
-#include <PubSubClient.h> // ** Requires library 2.8.0 or higher ** https://github.com/knolleary/pubsubclient
+#include <PubSubClient.h>
 #include <Ticker.h>
 #include <WebSocketsServer.h>
-// #include <ESP_WiFiManager.h>
 #include <WiFiManager.h>
 #define ESP_WiFiManager WiFiManager
 #include <umm_malloc/umm_heap_select.h>
@@ -35,64 +30,41 @@
 #include "bwc.h"
 #include "config.h"
 
-/**  */
-Ticker bootlogTimer;
-/**  */
-Ticker periodicTimer;
-Ticker startComplete;
-/**  */
-bool periodicTimerFlag = false;
-/**  */
-int periodicTimerInterval = 60;
-/** get or set the state of the network beeing connected */
-bool wifiConnected = false;
+extern BWC *bwc;
+extern char *stack_start;
+extern uint32_t heap_water_mark;
 
-/** a WiFi Manager for configurations via access point */
-// ESP_WiFiManager wm;
+extern Ticker bootlogTimer;
+extern Ticker periodicTimer;
+extern Ticker startComplete;
+extern bool periodicTimerFlag;
+extern int periodicTimerInterval;
+extern bool wifiConnected;
 
-/** a webserver object that listens on port 80 */
 #if defined(ESP8266)
-ESP8266WebServer *server;
+extern ESP8266WebServer *server;
 #elif defined(ESP32)
-WebServer server(80);
+extern WebServer server;
 #endif
 
-/** a websocket object that listens on port 81 */
-WebSocketsServer *webSocket;
-/**  */
-Ticker updateWSTimer;
-/**  */
-bool sendWSFlag = false;
+extern WebSocketsServer *webSocket;
+extern Ticker updateWSTimer;
+extern bool sendWSFlag;
 
-/** a WiFi client beeing used by the MQTT client */
-WiFiClient *aWifiClient;
-/** a MQTT client */
-PubSubClient *mqttClient;
-/**  */
-bool checkMqttConnection = false;
-/** Count of how may times we've connected to the MQTT server since booting (should always be 1 or more) */
-int mqtt_connect_count;
-/**  */
-String prevButtonName = "";
-/**  */
-bool prevunit = 1;
-/**  */
-Ticker updateMqttTimer;
-/**  */
-bool sendMQTTFlag = false;
-bool enableMqtt = false;
-bool enableWeather = false;
-/** Flag to block MQTT publishing during Home Assistant discovery to prevent memory corruption */
-bool haDiscoveryInProgress = false;
-/** Timestamp of last HA discovery completion - prevents immediate re-discovery after disconnect */
-unsigned long haDiscoveryLastCompleted = 0;
-/** Flag to track if this is first discovery after boot - don't restart after first one */
-bool haDiscoveryHasRunOnce = false;
+extern WiFiClient *aWifiClient;
+extern PubSubClient *mqttClient;
+extern int mqtt_connect_count;
+extern String prevButtonName;
+extern Ticker updateMqttTimer;
+extern bool sendMQTTFlag;
+extern bool enableMqtt;
+extern bool haDiscoveryInProgress;
+extern unsigned long haDiscoveryLastCompleted;
+extern bool haDiscoveryHasRunOnce;
 
-/** used for handleAUX() */
-bool runonce = true;
-uint64_t ambExpires = 0;
+extern uint64_t ambExpires;
 
+command_que_item parseCommandFromJson(const JsonVariantConst &src);
 void sendWS();
 void getOtherInfo(String &rtn);
 void sendMQTT();
@@ -111,6 +83,7 @@ void handleNotFound();
 String getContentType(const String &filename);
 bool handleFileRead(String path);
 bool checkHttpPost(HTTPMethod method);
+bool checkHttpGet(HTTPMethod method);
 String queryAmbientTemperature();
 void handleGetWeather();
 void handleGetConfig();
@@ -120,7 +93,6 @@ void handleAddCommand();
 void handleEditCommand();
 void handleDelCommand();
 void handle_cmdq_file();
-void copyFile(String source, String dest);
 void loadWebConfig();
 void saveWebConfig();
 void handleGetWebConfig();
@@ -149,9 +121,6 @@ void mqttCallback(char *topic, byte *payload, unsigned int length);
 void mqttConnect();
 time_t getBootTime();
 void handleESPInfo();
-
-// Keeping for later integrations
-// void setTemperatureFromSensor();
 
 void setupHA();
 void handlePrometheusMetrics();
