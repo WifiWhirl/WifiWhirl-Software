@@ -495,6 +495,8 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         _heatingtime_ms = 0;
         _airtime_ms = 0;
         _energy_total_kWh = 0;
+        _energy_daily_Ws = 0;
+        _energy_daily_yday = -1;
         _save_settings_needed = true;
         _new_data_available = true;
         break;
@@ -583,9 +585,15 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         _new_data_available = true;
         break;
     case RESETDAILY:
+    {
         _energy_daily_Ws = 0;
+        time_t ts = (time_t)_timestamp_secs;
+        struct tm ti;
+        gmtime_r(&ts, &ti);
+        _energy_daily_yday = ti.tm_yday + ti.tm_year * 366;
         _new_data_available = true;
         break;
+    }
     case SETGODMODE:
         cio->cio_toggles.godmode = val > 0;
         break;
@@ -1236,6 +1244,24 @@ void BWC::_updateTimes()
     _energy_power_W += cio->getPower().IDLEPOWER;
     _energy_power_W += cio->cio_states.jets * cio->getPower().JETPOWER;
 
+    // Auto-reset daily energy counter at midnight (day-of-year change)
+    if (_timestamp_secs > 100000)
+    {
+        time_t ts = (time_t)_timestamp_secs;
+        struct tm timeinfo;
+        gmtime_r(&ts, &timeinfo);
+        int today = timeinfo.tm_yday + timeinfo.tm_year * 366;
+        if (_energy_daily_yday < 0)
+        {
+            _energy_daily_yday = today;
+        }
+        else if (today != _energy_daily_yday)
+        {
+            _energy_daily_Ws = 0;
+            _energy_daily_yday = today;
+        }
+    }
+
     _energy_daily_Ws += elapsedtime_ms * _energy_power_W / 1000.0;
 
     if (_notes.size())
@@ -1354,6 +1380,7 @@ void BWC::_loadSettings()
     _audio_enabled = doc[F("AUDIO")];
     _energy_total_kWh = doc[F("KWH")];
     _energy_daily_Ws = doc[F("KWHD")];
+    _energy_daily_yday = doc[F("KWHD_DAY")] | -1;
     _ambient_temp = doc[F("AMB")] | 20;
     _dsp_brightness = doc[F("BRT")] | 7;
     _plz = doc[F("PLZ")].as<String>();
@@ -1654,7 +1681,7 @@ void BWC::saveSettings()
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;
-    // doc[F("SAVETIME")] = DateTime.format(DateFormatter::SIMPLE);
+    doc[F("KWHD_DAY")] = _energy_daily_yday;
     doc[F("AMB")] = _ambient_temp;
     doc[F("BRT")] = _dsp_brightness;
     doc[F("PLZ")] = _plz;

@@ -199,6 +199,7 @@ private:
     bool _audio_enabled;
     float _energy_total_kWh;
     double _energy_daily_Ws; // Wattseconds internally
+    int _energy_daily_yday = -1; // day-of-year (0-365) when daily counter was last valid; -1 = unknown
     int _energy_power_W;
     String _plz;
     bool _weather = 0;
