@@ -1,5 +1,8 @@
 #include "main.h"
 
+static sWifi_info _cachedWifi;
+static bool _wifiCacheValid = false;
+
 /**
  * Start a Wi-Fi access point, and try to connect to some given access points.
  * Then wait for either an AP or STA connection
@@ -184,21 +187,22 @@ void startNTP()
  */
 sWifi_info loadWifi()
 {
+    if (_wifiCacheValid)
+        return _cachedWifi;
+
     sWifi_info wifi_info;
     File file = LittleFS.open("/wifi.json", "r");
     if (!file)
     {
-        // Serial.println(F("Failed to read wifi.json. Using defaults."));
         return wifi_info;
     }
 
     StaticJsonDocument<512> doc;
 
     DeserializationError error = deserializeJson(doc, file);
+    file.close();
     if (error)
     {
-        // Serial.println(F("Failed to deserialize wifi.json"));
-        file.close();
         return wifi_info;
     }
 
@@ -216,6 +220,9 @@ sWifi_info loadWifi()
     wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
     wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
 
+    _cachedWifi = wifi_info;
+    _wifiCacheValid = true;
+
     return wifi_info;
 }
 
@@ -227,7 +234,6 @@ void saveWifi(const sWifi_info &wifi_info)
     File file = LittleFS.open("/wifi.json", "w");
     if (!file)
     {
-        // Serial.println(F("Failed to save wifi.json"));
         return;
     }
 
@@ -247,9 +253,11 @@ void saveWifi(const sWifi_info &wifi_info)
 
     if (serializeJson(doc, file) == 0)
     {
-        // Serial.println(F("{\"error\": \"Failed to serialize file\"}"));
     }
     file.close();
+
+    _cachedWifi = wifi_info;
+    _wifiCacheValid = true;
 }
 
 /**

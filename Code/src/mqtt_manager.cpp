@@ -1,5 +1,34 @@
 #include "main.h"
 
+static String mqttTopicMessage;
+static String mqttTopicTimes;
+static String mqttTopicOther;
+static String mqttTopicStatus;
+static String mqttTopicMac;
+static String mqttTopicConnCount;
+static String mqttTopicCommand;
+static String mqttTopicCommandBatch;
+static String mqttTopicRebootTime;
+static String mqttTopicRebootReason;
+static String mqttTopicButton;
+
+const String& getMqttTopicButton() { return mqttTopicButton; }
+
+void initMqttTopics()
+{
+    mqttTopicMessage      = mqttBaseTopic + "/message";
+    mqttTopicTimes        = mqttBaseTopic + "/times";
+    mqttTopicOther        = mqttBaseTopic + "/other";
+    mqttTopicStatus       = mqttBaseTopic + "/Status";
+    mqttTopicMac          = mqttBaseTopic + "/MAC_Address";
+    mqttTopicConnCount    = mqttBaseTopic + "/MQTT_Connect_Count";
+    mqttTopicCommand      = mqttBaseTopic + "/command";
+    mqttTopicCommandBatch = mqttBaseTopic + "/command_batch";
+    mqttTopicRebootTime   = mqttBaseTopic + "/reboot_time";
+    mqttTopicRebootReason = mqttBaseTopic + "/reboot_reason";
+    mqttTopicButton       = mqttBaseTopic + "/button";
+}
+
 /**
  * Send STATES and TIMES to MQTT
  * It would be more elegant to send both states and times on the "message" topic
@@ -10,47 +39,19 @@
  */
 void sendMQTT()
 {
-    // HeapSelectIram ephemeral;
-    // Serial.printf("IRamheap %d\n", ESP.getFreeHeap());
     String json;
     json.reserve(320);
 
-    // send states
     bwc->getJSONStates(json);
-    if (mqttClient->publish((String(mqttBaseTopic) + "/message").c_str(), String(json).c_str(), true))
-    {
-        // Serial.println(F("MQTT > message published"));
-    }
-    else
-    {
-        // Serial.println(F("MQTT > message not published"));
-    }
-    // delay(2);
+    mqttClient->publish(mqttTopicMessage.c_str(), json.c_str(), true);
 
-    // send times
     json.clear();
     bwc->getJSONTimes(json);
-    if (mqttClient->publish((String(mqttBaseTopic) + "/times").c_str(), String(json).c_str(), true))
-    {
-        // Serial.println(F("MQTT > times published"));
-    }
-    else
-    {
-        // Serial.println(F("MQTT > times not published"));
-    }
-    // delay(2);
+    mqttClient->publish(mqttTopicTimes.c_str(), json.c_str(), true);
 
-    // send other info
     json.clear();
     getOtherInfo(json);
-    if (mqttClient->publish((String(mqttBaseTopic) + "/other").c_str(), String(json).c_str(), true))
-    {
-        // Serial.println(F("MQTT > other published"));
-    }
-    else
-    {
-        // Serial.println(F("MQTT > other not published"));
-    }
+    mqttClient->publish(mqttTopicOther.c_str(), json.c_str(), true);
 }
 
 /**
@@ -403,6 +404,7 @@ void startMqtt()
 
     // load mqtt credential file if it exists, and update default strings
     loadMqtt();
+    initMqttTopics();
 
     // disconnect in case we are already connected
     mqttClient->disconnect();
@@ -438,7 +440,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
     String topicStr(topic);
 
-    if (topicStr.equals(String(mqttBaseTopic) + "/command"))
+    if (topicStr.equals(mqttTopicCommand))
     {
         StaticJsonDocument<256> doc;
         DeserializationError error = deserializeJson(doc, (const char *)payload);
@@ -450,7 +452,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
         bwc->add_command(parseCommandFromJson(doc));
     }
 
-    if (topicStr.equals(String(mqttBaseTopic) + "/command_batch"))
+    if (topicStr.equals(mqttTopicCommandBatch))
     {
         DynamicJsonDocument doc(1024);
         DeserializationError error = deserializeJson(doc, (const char *)payload);
@@ -482,41 +484,35 @@ void mqttConnect()
     // Serial.print(F("MQTT > Connecting ... "));
     // We'll connect with a Retained Last Will that updates the 'Status' topic with "Dead" when the device goes offline...
     if (mqttClient->connect(
-            mqttClientId.c_str(),                        // client_id : the client ID to use when connecting to the server->
-            mqttUsername.c_str(),                        // username : the username to use. If NULL, no username or password is used (const char[])
-            mqttPassword.c_str(),                        // password : the password to use. If NULL, no password is used (const char[])setupHA
-            (String(mqttBaseTopic) + "/Status").c_str(), // willTopic : the topic to be used by the will message (const char[])
-            0,                                           // willQoS : the quality of service to be used by the will message (int : 0,1 or 2)
-            1,                                           // willRetain : whether the will should be published with the retain flag (int : 0 or 1)
-            "Dead"))                                     // willMessage : the payload of the will message (const char[])
+            mqttClientId.c_str(),
+            mqttUsername.c_str(),
+            mqttPassword.c_str(),
+            mqttTopicStatus.c_str(),
+            0,
+            1,
+            "Dead"))
     {
-        // Serial.println(F("success!"));
         mqtt_connect_count++;
 
-        // update MQTT every X seconds. (will also be updated on state changes)
         updateMqttTimer.attach(mqttTelemetryInterval, []
                                { sendMQTTFlag = true; });
 
-        // These all have the Retained flag set to true, so that the value is stored on the server and can be retrieved at any point
-        // Check the 'Status' topic to see that the device is still online before relying on the data from these retained topics
-        mqttClient->publish((String(mqttBaseTopic) + "/Status").c_str(), "Alive", true);
-        mqttClient->publish((String(mqttBaseTopic) + "/MAC_Address").c_str(), WiFi.macAddress().c_str(), true);                 // Device MAC Address
-        mqttClient->publish((String(mqttBaseTopic) + "/MQTT_Connect_Count").c_str(), String(mqtt_connect_count).c_str(), true); // MQTT Connect Count
+        mqttClient->publish(mqttTopicStatus.c_str(), "Alive", true);
+        mqttClient->publish(mqttTopicMac.c_str(), WiFi.macAddress().c_str(), true);
+        mqttClient->publish(mqttTopicConnCount.c_str(), String(mqtt_connect_count).c_str(), true);
         mqttClient->loop();
 
-        // Watch the 'command' topic for incoming MQTT messages
-        mqttClient->subscribe((String(mqttBaseTopic) + "/command").c_str());
-        mqttClient->subscribe((String(mqttBaseTopic) + "/command_batch").c_str());
+        mqttClient->subscribe(mqttTopicCommand.c_str());
+        mqttClient->subscribe(mqttTopicCommandBatch.c_str());
         mqttClient->loop();
 
 #ifdef ESP8266
-        // mqttClient->publish((String(mqttBaseTopic) + "/reboot_time").c_str(), DateTime.format(DateFormatter::SIMPLE).c_str(), true);
-        mqttClient->publish((String(mqttBaseTopic) + "/reboot_time").c_str(), (bwc->reboot_time_str + 'Z').c_str(), true);
-        mqttClient->publish((String(mqttBaseTopic) + "/reboot_reason").c_str(), ESP.getResetReason().c_str(), true);
+        mqttClient->publish(mqttTopicRebootTime.c_str(), (bwc->reboot_time_str + 'Z').c_str(), true);
+        mqttClient->publish(mqttTopicRebootReason.c_str(), ESP.getResetReason().c_str(), true);
         String buttonname;
         buttonname.reserve(32);
         bwc->getButtonName(buttonname);
-        mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), buttonname.c_str(), true);
+        mqttClient->publish(mqttTopicButton.c_str(), buttonname.c_str(), true);
         mqttClient->loop();
         sendMQTT();
 

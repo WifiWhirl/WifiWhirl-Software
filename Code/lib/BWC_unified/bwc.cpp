@@ -1041,13 +1041,12 @@ void BWC::getJSONSettings(String &rtn)
     }
 }
 
-String BWC::getJSONCommandQueue()
+void BWC::getJSONCommandQueue(String &rtn)
 {
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
     DynamicJsonDocument doc(2048);
-    // Set the values in the document
     doc[F("LEN")] = _command_que.size();
     for (unsigned int i = 0; i < _command_que.size(); i++)
     {
@@ -1058,13 +1057,11 @@ String BWC::getJSONCommandQueue()
         doc[F("TXT")][i] = _command_que[i].text;
     }
 
-    // Serialize JSON to file
-    String jsonmsg;
-    if (serializeJson(doc, jsonmsg) == 0)
+    rtn.clear();
+    if (serializeJson(doc, rtn) == 0)
     {
-        jsonmsg = F("{\"error\": \"Failed to serialize cmdq\"}");
+        rtn = F("{\"error\": \"Failed to serialize cmdq\"}");
     }
-    return jsonmsg;
 }
 
 /*TODO:*/

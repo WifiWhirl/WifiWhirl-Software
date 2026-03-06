@@ -178,7 +178,7 @@ void loop()
                 if (!msg.equals(prevButtonName))
                 {
                     Serial.println(">>> MQTT: Publishing button name change");
-                    mqttClient->publish((String(mqttBaseTopic) + "/button").c_str(), String(msg).c_str(), true);
+                    mqttClient->publish(getMqttTopicButton().c_str(), msg.c_str(), true);
                     prevButtonName = msg;
                 }
 
@@ -960,7 +960,8 @@ void handleGetCommandQueue()
     if (!checkHttpPost(server->method()))
         return;
 
-    String json = bwc->getJSONCommandQueue();
+    String json;
+    bwc->getJSONCommandQueue(json);
     server->send(200, F("application/json"), json);
 }
 

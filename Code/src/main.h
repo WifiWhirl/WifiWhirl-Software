@@ -119,6 +119,7 @@ void handleCancelSmartSchedule();
 void startMqtt();
 void mqttCallback(char *topic, byte *payload, unsigned int length);
 void mqttConnect();
+const String& getMqttTopicButton();
 time_t getBootTime();
 void handleESPInfo();
 

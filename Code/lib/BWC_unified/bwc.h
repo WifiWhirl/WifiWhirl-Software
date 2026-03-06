@@ -85,7 +85,7 @@ public:
     void getJSONTimes(String &rtn);
     void getJSONSettings(String &rtn);
     void setJSONSettings(const String &message);
-    String getJSONCommandQueue();
+    void getJSONCommandQueue(String &rtn);
     uint8_t getState(int state);
     // void saveSettingsFlag();
     void saveSettings();
