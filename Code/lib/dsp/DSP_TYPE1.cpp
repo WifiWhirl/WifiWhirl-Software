@@ -159,10 +159,14 @@ void DSP_6_TYPE1::handleStates()
     {
         clearpayload();
     }
-    if (audiofrequency)
-        tone(getAUDIO(), audiofrequency);
-    else
-        noTone(getAUDIO());
+    if (audiofrequency != _prev_audiofrequency)
+    {
+        if (audiofrequency)
+            tone(getAUDIO(), audiofrequency);
+        else
+            noTone(getAUDIO());
+        _prev_audiofrequency = audiofrequency;
+    }
 
     uploadPayload(dsp_states.brightness);
 }

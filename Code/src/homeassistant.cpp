@@ -277,6 +277,8 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
 void setupHA()
 {
     haDiscoveryInProgress = true;
+    bwc->dsp->audiofrequency = 0;
+    bwc->loop();
     
     Serial.println(F("========================================"));
     Serial.println(F("HA: HOME ASSISTANT DISCOVERY STARTING"));
@@ -359,9 +361,13 @@ void setupHA()
             Serial.println(F(" bytes"));
             
             mqttClient->loop();
+            bwc->loop();
             delay(50);
             mqttClient->loop();
-            delay(500);
+            bwc->loop();
+            delay(200);
+            bwc->loop();
+            delay(200);
             
             if (ESP.getMaxFreeBlockSize() < 3000) {
                 Serial.print(F("HA: CRITICAL - Heap fragmented! Max block: "));

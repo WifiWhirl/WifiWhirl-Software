@@ -1246,32 +1246,36 @@ void BWC::_updateTimes()
 
     if (_timestamp_secs > 100000)
     {
-        time_t ts = (time_t)_timestamp_secs;
-        struct tm timeinfo;
-        gmtime_r(&ts, &timeinfo);
-        int today = timeinfo.tm_yday + timeinfo.tm_year * 366;
-        if (_energy_daily_yday < 0)
+        static uint64_t next_day_check_s = 0;
+        if (_timestamp_secs >= next_day_check_s)
         {
-            _energy_daily_yday = today;
-        }
-        else if (today != _energy_daily_yday)
-        {
-            _energy_daily_Ws = 0;
-            _energy_daily_yday = today;
+            time_t ts = (time_t)_timestamp_secs;
+            struct tm timeinfo;
+            gmtime_r(&ts, &timeinfo);
+            int today = timeinfo.tm_yday + timeinfo.tm_year * 366;
+            if (_energy_daily_yday < 0)
+            {
+                _energy_daily_yday = today;
+            }
+            else if (today != _energy_daily_yday)
+            {
+                _energy_daily_Ws = 0;
+                _energy_daily_yday = today;
+            }
+            next_day_check_s = _timestamp_secs + 60;
         }
         _energy_daily_Ws += energy_increment_Ws;
     }
 
     if (_notes.size())
     {
-        dsp->audiofrequency = _notes.back().frequency_hz;
         _note_duration += (int)elapsedtime_ms;
-        if (_note_duration >= _notes.back().duration_ms)
+        while (_notes.size() && _note_duration >= _notes.back().duration_ms)
         {
             _note_duration -= _notes.back().duration_ms;
             _notes.pop_back();
-            _note_duration = 0;
         }
+        dsp->audiofrequency = _notes.size() ? _notes.back().frequency_hz : 0;
     }
     else
     {
