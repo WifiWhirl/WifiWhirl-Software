@@ -5,8 +5,6 @@
 
 BWC::BWC()
 {
-    // Initialize variables
-
     _dsp_brightness = 7;
     _cl_timestamp_s = time(nullptr);
     _filter_timestamp_s = time(nullptr);
@@ -19,6 +17,15 @@ BWC::BWC()
     _heatingtime = 0;
     _airtime = 0;
     _jettime = 0;
+    _uptime_ms = 0;
+    _pumptime_ms = 0;
+    _heatingtime_ms = 0;
+    _airtime_ms = 0;
+    _jettime_ms = 0;
+    _energy_total_kWh = 0.0;
+    _energy_daily_Ws = 0.0;
+    _energy_daily_yday = -1;
+    _energy_power_W = 0;
     _price = 0.35;
     _cl_interval = 7;
     _filter_interval = 30;
@@ -1218,30 +1225,25 @@ void BWC::_updateTimes()
         _airtime += _airtime_ms / 1000;
         _jettime += _jettime_ms / 1000;
         _uptime += _uptime_ms / 1000;
-        _heatingtime_ms = 0;
-        _pumptime_ms = 0;
-        _airtime_ms = 0;
-        _jettime_ms = 0;
-        _uptime_ms = 0;
+        _heatingtime_ms %= 1000;
+        _pumptime_ms %= 1000;
+        _airtime_ms %= 1000;
+        _jettime_ms %= 1000;
+        _uptime_ms %= 1000;
     }
 
     if (_override_dsp_brt_timer > 0)
         _override_dsp_brt_timer -= (int16_t)elapsedtime_ms;
 
-    // watts, kWh today, total kWh
-    float heatingEnergy = (_heatingtime + _heatingtime_ms / 1000) / 3600.0 * cio->getPower().HEATERPOWER;
-    float pumpEnergy = (_pumptime + _pumptime_ms / 1000) / 3600.0 * cio->getPower().PUMPPOWER;
-    float airEnergy = (_airtime + _airtime_ms / 1000) / 3600.0 * cio->getPower().AIRPOWER;
-    float idleEnergy = (_uptime + _uptime_ms / 1000) / 3600.0 * cio->getPower().IDLEPOWER;
-    float jetEnergy = (_jettime + _jettime_ms / 1000) / 3600.0 * cio->getPower().JETPOWER;
-    _energy_total_kWh = (heatingEnergy + pumpEnergy + airEnergy + idleEnergy + jetEnergy) / 1000; // Wh -> kWh
     _energy_power_W = cio->cio_states.heatred * cio->getPower().HEATERPOWER;
     _energy_power_W += cio->cio_states.pump * cio->getPower().PUMPPOWER;
     _energy_power_W += cio->cio_states.bubbles * cio->getPower().AIRPOWER;
     _energy_power_W += cio->getPower().IDLEPOWER;
     _energy_power_W += cio->cio_states.jets * cio->getPower().JETPOWER;
 
-    // Auto-reset daily energy counter at midnight (day-of-year change)
+    double energy_increment_Ws = elapsedtime_ms * _energy_power_W / 1000.0;
+    _energy_total_kWh += energy_increment_Ws / 3600000.0;
+
     if (_timestamp_secs > 100000)
     {
         time_t ts = (time_t)_timestamp_secs;
@@ -1257,9 +1259,8 @@ void BWC::_updateTimes()
             _energy_daily_Ws = 0;
             _energy_daily_yday = today;
         }
+        _energy_daily_Ws += energy_increment_Ws;
     }
-
-    _energy_daily_Ws += elapsedtime_ms * _energy_power_W / 1000.0;
 
     if (_notes.size())
     {
@@ -1375,8 +1376,8 @@ void BWC::_loadSettings()
     _cya_timestamp_s = doc[F("CYATIME")] | 0;
     _alk_timestamp_s = doc[F("ALKTIME")] | 0;
     _audio_enabled = doc[F("AUDIO")];
-    _energy_total_kWh = doc[F("KWH")];
-    _energy_daily_Ws = doc[F("KWHD")];
+    _energy_total_kWh = doc[F("KWH")] | 0.0;
+    _energy_daily_Ws = doc[F("KWHD")] | 0.0;
     _energy_daily_yday = doc[F("KWHD_DAY")] | -1;
     _ambient_temp = doc[F("AMB")] | 20;
     _dsp_brightness = doc[F("BRT")] | 7;
@@ -1646,12 +1647,11 @@ void BWC::saveSettings()
     _airtime += _airtime_ms / 1000;
     _jettime += _jettime_ms / 1000;
     _uptime += _uptime_ms / 1000;
-    _heatingtime_ms = 0;
-    _pumptime_ms = 0;
-    _airtime_ms = 0;
-    _jettime_ms = 0;
-    _uptime_ms = 0;
-    // Set the values in the document
+    _heatingtime_ms %= 1000;
+    _pumptime_ms %= 1000;
+    _airtime_ms %= 1000;
+    _jettime_ms %= 1000;
+    _uptime_ms %= 1000;
     doc[F("CLTIME")] = _cl_timestamp_s;
     doc[F("FTIME")] = _filter_timestamp_s;
     doc[F("FCTIME")] = _fc_timestamp_s;
