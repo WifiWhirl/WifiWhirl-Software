@@ -190,7 +190,7 @@ private:
     uint32_t _heatingtime_ms;
     uint32_t _airtime_ms;
     uint32_t _jettime_ms;
-    float _price;
+    double _price;
     uint32_t _cl_interval;
     uint32_t _filter_interval;
     uint32_t _fc_interval;
