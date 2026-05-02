@@ -493,8 +493,7 @@ void resetWiFi()
     periodicTimer.detach();
     updateMqttTimer.detach();
     updateWSTimer.detach();
-    bwc->stop();
     bwc->saveSettings();
+    bwc->stop();
     delay(1000);
-    //     delay(1000);
 }

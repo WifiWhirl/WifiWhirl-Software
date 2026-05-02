@@ -58,7 +58,15 @@ void setup()
 
     Serial.begin(115200);
     Serial.println(F("\nStart"));
-    LittleFS.begin();
+    if (!LittleFS.begin())
+    {
+        Serial.println(F("CRITICAL: LittleFS mount failed — formatting..."));
+        LittleFS.format();
+        if (!LittleFS.begin())
+        {
+            Serial.println(F("CRITICAL: LittleFS mount failed after format — flash may be damaged"));
+        }
+    }
     {
         HeapSelectIram ephemeral;
         Serial.printf("IRamheap %d\n", ESP.getFreeHeap());

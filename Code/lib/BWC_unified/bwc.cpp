@@ -1474,38 +1474,46 @@ void BWC::reloadCommandQueue()
 void BWC::loadCommandQueue()
 {
     File file = LittleFS.open("/cmdq.json", "r");
-    if (!file)
+    if (file)
     {
-        Serial.println(F("FS: Failed to open /cmdq.json for read"));
-        return;
+        DynamicJsonDocument doc(2048);
+        DeserializationError error = deserializeJson(doc, file);
+        if (error)
+        {
+            Serial.printf("Failed to deserialize cmdq.json: %s\n", error.c_str());
+        }
+        else
+        {
+            _command_que.clear();
+            for (int i = 0; i < doc[F("LEN")]; i++)
+            {
+                command_que_item item;
+                item.cmd = doc[F("CMD")][i];
+                item.val = doc[F("VALUE")][i];
+                item.xtime = doc[F("XTIME")][i];
+                item.interval = doc[F("INTERVAL")][i];
+                String s = doc[F("TXT")][i] | "";
+                item.text = s;
+                while ((item.interval > 0) && (item.xtime < (uint64_t)time(nullptr)))
+                    item.xtime += item.interval;
+                _command_que.push_back(item);
+            }
+            std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+        }
+        file.close();
+    }
+    else
+    {
+        Serial.println(F("FS: /cmdq.json not found — continuing without command queue"));
     }
 
-    DynamicJsonDocument doc(2048);
-    // Deserialize the JSON document
-    DeserializationError error = deserializeJson(doc, file);
-    if (error)
-    {
-        // Serial.println(F("Failed to deserialize cmdq.json"));
-        file.close();
-        return;
-    }
-    _command_que.clear();
-    // Set the values in the variables
-    for (int i = 0; i < doc[F("LEN")]; i++)
-    {
-        command_que_item item;
-        item.cmd = doc[F("CMD")][i];
-        item.val = doc[F("VALUE")][i];
-        item.xtime = doc[F("XTIME")][i];
-        item.interval = doc[F("INTERVAL")][i];
-        String s = doc[F("TXT")][i] | "";
-        item.text = s;
-        while ((item.interval > 0) && (item.xtime < (uint64_t)time(nullptr)))
-            item.xtime += item.interval;
-        _command_que.push_back(item);
-    }
-    file.close();
-    std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+    /*
+     * Settings, states and smart-schedule must ALWAYS load, regardless of
+     * whether cmdq.json was present or parseable.  Previously these calls
+     * were gated behind a successful cmdq parse, which meant a missing or
+     * corrupt cmdq.json silently left RAM at constructor defaults — and
+     * the periodic save ticker then overwrote the good settings.json.
+     */
     Serial.println(F("Calling _loadSettings()..."));
     _loadSettings();
     Serial.println(F("Calling _restoreStates()..."));
@@ -1582,25 +1590,25 @@ void BWC::_saveStates()
 void BWC::_saveCommandQueue()
 {
     _save_cmdq_needed = false;
-// kill the dog
-//  ESP.wdtDisable();
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
+    /*
+     * Check BEFORE opening the file with "w" (which truncates).
+     * Previously this check was after open(), leaving an empty cmdq.json
+     * on disk — which prevented _loadSettings() from running on next boot,
+     * causing a full settings reset to defaults.
+     */
+    if (_command_que.size())
+        if (_command_que[0].cmd == REBOOTESP && _command_que[0].interval == 0)
+            return;
+
     File file = LittleFS.open("/cmdq.json", "w");
     if (!file)
     {
         Serial.println(F("FS: Failed to open /cmdq.json for write"));
         return;
     }
-    else
-    {
-        // Serial.println(F("Wrote cmdq.json"));
-    }
-    /*Do not save instant reboot command. Don't ask me how I know.*/
-    if (_command_que.size())
-        if (_command_que[0].cmd == REBOOTESP && _command_que[0].interval == 0)
-            return;
     DynamicJsonDocument doc(2048);
 
     // Set the values in the document
@@ -1691,21 +1699,27 @@ void BWC::saveSettings()
     doc[F("POOLCAP")] = _pool_capacity;
     doc[F("AIRTO")] = _airjet_timeout_minutes;
     doc[F("HJTO")] = _hydrojet_timeout_minutes;
-    doc[F("LCK")] = dsp->EnabledButtons[LOCK];
-    doc[F("TMR")] = dsp->EnabledButtons[TIMER];
-    doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];
-    doc[F("UNT")] = dsp->EnabledButtons[UNIT];
-    doc[F("HTR")] = dsp->EnabledButtons[HEAT];
-    doc[F("FLT")] = dsp->EnabledButtons[PUMP];
-    doc[F("DN")] = dsp->EnabledButtons[DOWN];
-    doc[F("UP")] = dsp->EnabledButtons[UP];
-    doc[F("PWR")] = dsp->EnabledButtons[POWER];
-    doc[F("HJT")] = dsp->EnabledButtons[HYDROJETS];
+    if (dsp != nullptr)
+    {
+        doc[F("LCK")] = dsp->EnabledButtons[LOCK];
+        doc[F("TMR")] = dsp->EnabledButtons[TIMER];
+        doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];
+        doc[F("UNT")] = dsp->EnabledButtons[UNIT];
+        doc[F("HTR")] = dsp->EnabledButtons[HEAT];
+        doc[F("FLT")] = dsp->EnabledButtons[PUMP];
+        doc[F("DN")] = dsp->EnabledButtons[DOWN];
+        doc[F("UP")] = dsp->EnabledButtons[UP];
+        doc[F("PWR")] = dsp->EnabledButtons[POWER];
+        doc[F("HJT")] = dsp->EnabledButtons[HYDROJETS];
+    }
+    else
+    {
+        Serial.println(F("WARNING: saveSettings() — dsp deleted, button states not saved"));
+    }
 
-    // Serialize JSON to file
     if (serializeJson(doc, file) == 0)
     {
-        // Serial.println(F("Failed to write json to settings.json"));
+        Serial.println(F("ERROR: Failed to serialize settings.json"));
     }
     file.close();
     // revive the dog

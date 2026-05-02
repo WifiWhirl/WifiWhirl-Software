@@ -374,6 +374,7 @@ void setupHA()
                 Serial.print(ESP.getMaxFreeBlockSize());
                 Serial.println(F(" bytes. Restarting for clean heap..."));
                 haDiscoveryInProgress = false;
+                bwc->saveSettings();
                 delay(1000);
                 ESP.restart();
                 return;
@@ -397,6 +398,7 @@ void setupHA()
             Serial.print(ESP.getMaxFreeBlockSize());
             Serial.println(F(" bytes. Restarting..."));
             haDiscoveryInProgress = false;
+            bwc->saveSettings();
             delay(1000);
             ESP.restart();
             return;

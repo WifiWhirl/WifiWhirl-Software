@@ -326,6 +326,8 @@ void handleSetMqtt()
         updateMqttTimer.detach();
         updateWSTimer.detach();
 
+        bwc->saveSettings();
+
         // Restart ESP - after restart, discovery will run once with new settings
         ESP.restart();
     }
@@ -354,6 +356,8 @@ void handleSetMqtt()
         {
             mqttClient->disconnect();
         }
+
+        bwc->saveSettings();
 
         // Restart ESP - after restart, discovery will run once with new settings
         ESP.restart();
