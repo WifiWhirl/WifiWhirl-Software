@@ -20,29 +20,64 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-# Placeholder for the future external component.
-# Planned usage:
-# external_components:
-#   - source:
-#       type: local
-#       path: ./components
-#
-# wifiwhirl:
-#   model: "S100101_P05326_6PIN"
-#   pins:
-#     cio_data: D1
-#     cio_clk: D2
-#     cio_cs: D3
-#     dsp_data: D4
-#     dsp_clk: D5
-#     dsp_cs: D6
-#     dsp_audio: D7
-#
-# climate:
-#   - platform: wifiwhirl
-#
-# switch:
-#   - platform: wifiwhirl
-#
-# sensor:
-#   - platform: wifiwhirl
+external_components:
+  # For first tests, clone this repo locally next to your ESPHome YAML and
+  # point to the `esphome/components` folder.
+  - source:
+      type: local
+      path: ./WifiWhirl-Software/esphome/components
+
+wifiwhirl:
+  id: spa
+  # S100101 / P05326 behaves like MIAMI2021 in the upstream codebase.
+  model: miami2021
+
+  # Default NodeMCU v3 (ESP8266) pin set used by WifiWhirl when hwcfg.json is present.
+  # Adjust these if your PCB/wiring differs.
+  cio_data_pin: D1
+  cio_clk_pin: D2
+  cio_cs_pin: D3
+  dsp_data_pin: D4
+  dsp_clk_pin: D5
+  dsp_cs_pin: D6
+  dsp_audio_pin: D7
+
+climate:
+  - platform: wifiwhirl
+    wifiwhirl_id: spa
+    name: "Whirlpool"
+
+switch:
+  - platform: wifiwhirl
+    wifiwhirl_id: spa
+    power:
+      name: "Whirlpool Power"
+    lock:
+      name: "Tastensperre"
+    pump:
+      name: "Filter/Pumpe"
+    heater:
+      name: "Heizung"
+    bubbles:
+      name: "Bubbles"
+    jets:
+      name: "HydroJets"
+
+number:
+  - platform: wifiwhirl
+    wifiwhirl_id: spa
+    target_temperature:
+      name: "Zieltemperatur"
+      min_value: 20
+      max_value: 40
+      step: 1
+
+sensor:
+  - platform: wifiwhirl
+    wifiwhirl_id: spa
+    temperature:
+      name: "Wassertemperatur"
+    target_temperature:
+      name: "Zieltemperatur (Sensor)"
+    error_code:
+      name: "Fehlercode"

@@ -37,8 +37,55 @@ For an ESPHome port we will:
 - This is timing-sensitive logic. ESPHome logging must be kept low to avoid jitter.
 - ESP8266 resources are tight; an ESP32 variant is possible but we’ll start with ESP8266 for compatibility with the BOM.
 
+## Quickstart: test flash (ESPHome)
+
+This repo contains an **ESPHome external component** under:
+
+- `esphome/components/wifiwhirl/`
+
+### 1) Clone this repo next to your ESPHome YAML
+
+Example layout:
+
+```
+/home/user/esphome/
+  whirlpool.yaml
+  WifiWhirl-Software/
+    esphome/components/wifiwhirl/...
+```
+
+### 2) Use the example YAML
+
+Start with:
+
+- `esphome/wifiwhirl_s100101_example.yaml`
+
+Key parts:
+
+- `external_components` uses `type: local` (easy for private repos)
+- `wifiwhirl:` configures the MITM pins and model
+- `climate/switch/number/sensor` platforms expose entities directly to Home Assistant via the ESPHome API
+
+### 3) Compile + flash
+
+From ESPHome, run `install` / `run` for your node.
+
+Important:
+- Keep `logger:` at `WARN` (or lower) because the pump/display protocol is timing sensitive.
+
+## What’s implemented (MVP)
+
+- Native ESPHome API integration (no WifiWhirl web UI, no MQTT required)
+- MITM mode kept intact → **physical display stays usable**
+- Entities:
+  - `climate` (off / heat / fan_only)
+  - switches: power, lock, pump, heater, bubbles, jets
+  - number: target temperature
+  - sensors: temperature, target temperature, error code
+
 ## Next steps
 
-- Create `external_components/wifiwhirl` component (C++ + Python codegen)
-- Map commands (SETTARGET, SETHEATER, SETPUMP, SETBUBBLES, SETJETS, …) to entity callbacks
-- Provide a reference YAML for **S100101/P05326 6‑pin**
+- Expand entity coverage (energy/uptime/water chemistry/etc.)
+- Add better model presets (pin mappings, capability flags)
+- Add unit handling (°C/°F) + expose unit as a select
+- Add optional safe-guards (e.g. block pump-off unless `force` is set)
