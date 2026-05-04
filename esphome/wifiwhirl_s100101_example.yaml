@@ -1,0 +1,48 @@
+# WifiWhirl ESPHome example (S100101 / P05326, 6‑pin)
+# Work in progress – intended target is a custom ESPHome external component.
+
+esphome:
+  name: wifiwhirl
+  friendly_name: WifiWhirl
+
+esp8266:
+  board: nodemcuv2
+
+# Keep logging conservative; the pump/display MITM is timing sensitive.
+logger:
+  level: WARN
+
+api:
+
+ota:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+# Placeholder for the future external component.
+# Planned usage:
+# external_components:
+#   - source:
+#       type: local
+#       path: ./components
+#
+# wifiwhirl:
+#   model: "S100101_P05326_6PIN"
+#   pins:
+#     cio_data: D1
+#     cio_clk: D2
+#     cio_cs: D3
+#     dsp_data: D4
+#     dsp_clk: D5
+#     dsp_cs: D6
+#     dsp_audio: D7
+#
+# climate:
+#   - platform: wifiwhirl
+#
+# switch:
+#   - platform: wifiwhirl
+#
+# sensor:
+#   - platform: wifiwhirl
