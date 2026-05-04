@@ -33,4 +33,5 @@
 Code/.vscode/extensions.json
 
 .pio
-.vscode
+.vscode__pycache__/
+*.pyc
