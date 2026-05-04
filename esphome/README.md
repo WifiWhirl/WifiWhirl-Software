@@ -1,5 +1,8 @@
 # ESPHome port (work in progress)
 
+> **Upstream project:** https://github.com/WifiWhirl/WifiWhirl-Software  
+> This repository contains an ESPHome-focused port/adapter layer. The original project is licensed under **GPL-3.0**, and this repo remains **GPL-3.0** as well.
+
 Goal: make WifiWhirl usable as a *native* ESPHome device (no separate WifiWhirl web UI / MQTT discovery required), so Home Assistant can talk to it via the ESPHome API.
 
 ## Hardware (tested baseline)
