@@ -52,6 +52,11 @@ async def to_code(config):
     # ESPHome doesn't always pull it in automatically for external components.
     cg.add_library("bblanchon/ArduinoJson", "6.21.2")
 
+    # WifiWhirl uses LittleFS for persistence/logging. The header exists in the
+    # ESP8266 Arduino framework, but PlatformIO only adds it to include paths
+    # when the library is listed as a dependency.
+    cg.add_platformio_option("lib_deps", ["LittleFS"])
+
     # Ensure generated code sees the WifiWhirl umbrella header.
     cg.add_global(cg.RawExpression('#include "wifiwhirl.h"'))
 
