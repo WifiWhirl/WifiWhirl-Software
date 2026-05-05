@@ -55,7 +55,7 @@ async def to_code(config):
     # WifiWhirl uses LittleFS for persistence/logging. The header exists in the
     # ESP8266 Arduino framework, but PlatformIO only adds it to include paths
     # when the library is listed as a dependency.
-    cg.add_platformio_option("lib_deps", ["LittleFS"])
+    cg.add_platformio_option("lib_deps", ["LittleFS", "Ticker"])
 
     # Ensure generated code sees the WifiWhirl umbrella header.
     cg.add_global(cg.RawExpression('#include "wifiwhirl.h"'))
