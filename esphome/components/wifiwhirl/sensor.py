@@ -22,24 +22,33 @@ WifiWhirlTemperatureSensor = wifiwhirl_ns.class_("WifiWhirlTemperatureSensor", s
 WifiWhirlTargetTemperatureSensor = wifiwhirl_ns.class_("WifiWhirlTargetTemperatureSensor", sensor.Sensor)
 WifiWhirlErrorCodeSensor = wifiwhirl_ns.class_("WifiWhirlErrorCodeSensor", sensor.Sensor)
 
+TEMPERATURE_SCHEMA = sensor.sensor_schema(
+    WifiWhirlTemperatureSensor,
+    unit_of_measurement=UNIT_CELSIUS,
+    accuracy_decimals=0,
+    device_class=DEVICE_CLASS_TEMPERATURE,
+    state_class=STATE_CLASS_MEASUREMENT,
+)
+
+TARGET_TEMPERATURE_SCHEMA = sensor.sensor_schema(
+    WifiWhirlTargetTemperatureSensor,
+    unit_of_measurement=UNIT_CELSIUS,
+    accuracy_decimals=0,
+    device_class=DEVICE_CLASS_TEMPERATURE,
+    state_class=STATE_CLASS_MEASUREMENT,
+)
+
+ERROR_CODE_SCHEMA = sensor.sensor_schema(
+    WifiWhirlErrorCodeSensor,
+    accuracy_decimals=0,
+)
+
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_WIFIWHIRL_ID): cv.use_id(WifiWhirlComponent),
-        cv.Optional(CONF_TEMPERATURE): sensor.sensor_schema(
-            unit_of_measurement=UNIT_CELSIUS,
-            accuracy_decimals=0,
-            device_class=DEVICE_CLASS_TEMPERATURE,
-            state_class=STATE_CLASS_MEASUREMENT,
-        ),
-        cv.Optional(CONF_TARGET_TEMPERATURE): sensor.sensor_schema(
-            unit_of_measurement=UNIT_CELSIUS,
-            accuracy_decimals=0,
-            device_class=DEVICE_CLASS_TEMPERATURE,
-            state_class=STATE_CLASS_MEASUREMENT,
-        ),
-        cv.Optional(CONF_ERROR_CODE): sensor.sensor_schema(
-            accuracy_decimals=0,
-        ),
+        cv.Optional(CONF_TEMPERATURE): TEMPERATURE_SCHEMA,
+        cv.Optional(CONF_TARGET_TEMPERATURE): TARGET_TEMPERATURE_SCHEMA,
+        cv.Optional(CONF_ERROR_CODE): ERROR_CODE_SCHEMA,
     }
 )
 

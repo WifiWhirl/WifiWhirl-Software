@@ -6,7 +6,9 @@
 namespace esphome {
 namespace wifiwhirl {
 
-enum class WifiWhirlSwitchKind : uint8_t {
+// Note: ESPHome codegen currently generates unscoped enum values (wifiwhirl::HEATER, ...).
+// Using an unscoped enum here keeps the generated code compatible.
+enum WifiWhirlSwitchKind : uint8_t {
   HEATER,
   PUMP,
   BUBBLES,
@@ -25,22 +27,22 @@ class WifiWhirlSwitch : public switch_::Switch, public WifiWhirlPublisher {
 
     bool on = false;
     switch (this->kind_) {
-      case WifiWhirlSwitchKind::HEATER:
+      case HEATER:
         on = st.heat;
         break;
-      case WifiWhirlSwitchKind::PUMP:
+      case PUMP:
         on = st.pump;
         break;
-      case WifiWhirlSwitchKind::BUBBLES:
+      case BUBBLES:
         on = st.bubbles;
         break;
-      case WifiWhirlSwitchKind::JETS:
+      case JETS:
         on = st.jets;
         break;
-      case WifiWhirlSwitchKind::POWER:
+      case POWER:
         on = st.power;
         break;
-      case WifiWhirlSwitchKind::LOCK:
+      case LOCK:
         on = st.locked;
         break;
     }
@@ -57,27 +59,27 @@ class WifiWhirlSwitch : public switch_::Switch, public WifiWhirlPublisher {
     const auto &st = this->parent_->states();
 
     switch (this->kind_) {
-      case WifiWhirlSwitchKind::HEATER:
+      case HEATER:
         this->parent_->queue_command(SETHEATER, state ? 1 : 0);
         break;
-      case WifiWhirlSwitchKind::PUMP:
+      case PUMP:
         // Force allows pump-off while heater is running by inserting heater-off first.
         this->parent_->queue_command(SETPUMP, state ? 1 : 0, "", /*force=*/true);
         break;
-      case WifiWhirlSwitchKind::BUBBLES:
+      case BUBBLES:
         this->parent_->queue_command(SETBUBBLES, state ? 1 : 0);
         break;
-      case WifiWhirlSwitchKind::JETS:
+      case JETS:
         this->parent_->queue_command(SETJETS, state ? 1 : 0);
         break;
-      case WifiWhirlSwitchKind::POWER: {
+      case POWER: {
         // Power is a toggle in the protocol; only toggle if a change is needed.
         if (static_cast<bool>(st.power) != state) {
           this->parent_->queue_command(TOGGLEPWR, 1);
         }
         break;
       }
-      case WifiWhirlSwitchKind::LOCK: {
+      case LOCK: {
         if (static_cast<bool>(st.locked) != state) {
           this->parent_->queue_command(TOGGLELCK, 1);
         }

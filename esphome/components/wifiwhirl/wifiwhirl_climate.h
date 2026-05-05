@@ -12,14 +12,25 @@ class WifiWhirlClimate : public climate::Climate, public WifiWhirlPublisher {
 
   climate::ClimateTraits traits() override {
     auto traits = climate::ClimateTraits();
+
     traits.set_supports_current_temperature(true);
     traits.set_supports_two_point_target_temperature(false);
-    traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_FAN_ONLY});
-    traits.set_supported_fan_modes({});
+
+    climate::ClimateModeMask modes;
+    modes.insert(climate::CLIMATE_MODE_OFF);
+    modes.insert(climate::CLIMATE_MODE_HEAT);
+    modes.insert(climate::CLIMATE_MODE_FAN_ONLY);
+    traits.set_supported_modes(modes);
+
+    climate::ClimateFanModeMask fan_modes;
+    traits.set_supported_fan_modes(fan_modes);
+
     traits.set_visual_min_temperature(20);
     traits.set_visual_max_temperature(40);
     traits.set_visual_temperature_step(1);
-    traits.set_temperature_unit(climate::CLIMATE_TEMPERATURE_UNIT_C);
+
+    // Temperature unit is handled by Home Assistant; ESPHome no longer exposes
+    // set_temperature_unit() on ClimateTraits.
     return traits;
   }
 
