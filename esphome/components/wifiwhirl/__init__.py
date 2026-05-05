@@ -48,6 +48,10 @@ CONFIG_SCHEMA = cv.Schema(
 
 
 async def to_code(config):
+    # WifiWhirl upstream uses ArduinoJson directly.
+    # ESPHome doesn't always pull it in automatically for external components.
+    cg.add_library("bblanchon/ArduinoJson", "6.21.2")
+
     # Ensure generated code sees the WifiWhirl umbrella header.
     cg.add_global(cg.RawExpression('#include "wifiwhirl.h"'))
 
