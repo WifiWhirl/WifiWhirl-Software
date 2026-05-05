@@ -159,20 +159,23 @@ void DSP_6_TYPE1::handleStates()
     {
         clearpayload();
     }
-    if (audiofrequency)
-        // NOTE: On ESP8266, Arduino's tone() pulls in waveform support.
-        // ESPHome strips waveform sources by default to save flash, which causes
-        // undefined references at link time (startWaveformClockCycles).
-        // The WifiWhirl ESPHome port does not rely on audio feedback, so we
-        // disable tone() here to keep builds working.
-        //
-        // If we ever want audio, we can revisit this and force-enable waveform
-        // support via PlatformIO options.
+    // NOTE: On ESP8266, Arduino's tone()/noTone() pulls in waveform support.
+    // ESPHome strips waveform sources by default to save flash, which causes
+    // undefined references at link time (startWaveformClockCycles).
+    // The WifiWhirl ESPHome port does not rely on audio feedback, so we
+    // disable tone()/noTone() here to keep builds working.
+    //
+    // If we ever want audio, we can revisit this and force-enable waveform
+    // support via PlatformIO options.
+    if (audiofrequency) {
 #if !defined(ARDUINO_ARCH_ESP8266)
         tone(getAUDIO(), audiofrequency);
 #endif
-    else
+    } else {
+#if !defined(ARDUINO_ARCH_ESP8266)
         noTone(getAUDIO());
+#endif
+    }
 
     uploadPayload(dsp_states.brightness);
 }
