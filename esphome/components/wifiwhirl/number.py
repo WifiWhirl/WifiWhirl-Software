@@ -40,8 +40,14 @@ async def to_code(config):
     if CONF_TARGET_TEMPERATURE in config:
         cfg = config[CONF_TARGET_TEMPERATURE]
         var = cg.new_Pvariable(cfg[CONF_ID], parent)
-        await number.register_number(var, cfg)
-        cg.add(var.set_min_value(cfg["min_value"]))
-        cg.add(var.set_max_value(cfg["max_value"]))
-        cg.add(var.set_step(cfg["step"]))
+
+        # ESPHome 2026.4+: min/max/step are required keyword-only args
+        await number.register_number(
+            var,
+            cfg,
+            min_value=float(cfg["min_value"]),
+            max_value=float(cfg["max_value"]),
+            step=float(cfg["step"]),
+        )
+
         cg.add(parent.register_publisher(var))
