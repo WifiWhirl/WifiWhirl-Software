@@ -58,7 +58,8 @@ async def to_code(config):
     cg.add_platformio_option("lib_deps", ["LittleFS", "Ticker"])
 
     # Ensure generated code sees the WifiWhirl umbrella header.
-    cg.add_global(cg.RawExpression('#include "wifiwhirl.h"'))
+    # Must be a RawStatement (no trailing ';') and use a stable include path.
+    cg.add_global(cg.RawStatement('#include "esphome/components/wifiwhirl/wifiwhirl.h"'))
 
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
