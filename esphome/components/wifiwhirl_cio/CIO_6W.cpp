@@ -1,5 +1,5 @@
 #include "CIO_6W.h"
-#include "../BWC_unified/util.h"
+#include "esphome/components/wifiwhirl_bwc_unified/util.h"
 
 void CIO_6W::handleToggles()
 {

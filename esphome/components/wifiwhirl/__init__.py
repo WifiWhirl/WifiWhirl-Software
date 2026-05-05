@@ -5,6 +5,11 @@ from esphome.const import CONF_ID
 
 CODEOWNERS = ["@Finest"]
 
+# ESPHome only copies C++ sources that are located directly in the component
+# directory. Our vendored WifiWhirl library sources live in separate helper
+# components so they get included in the build.
+AUTO_LOAD = ["wifiwhirl_bwc_unified", "wifiwhirl_cio", "wifiwhirl_dsp"]
+
 wifiwhirl_ns = cg.esphome_ns.namespace("wifiwhirl")
 WifiWhirlComponent = wifiwhirl_ns.class_("WifiWhirlComponent", cg.Component)
 

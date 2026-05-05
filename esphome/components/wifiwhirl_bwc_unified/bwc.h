@@ -18,14 +18,14 @@
 #include "util.h"
 
 // CIO Includes
-#include "../cio/CIO_2021.h"
-#include "../cio/CIO_2021HJT.h"
-#include "../cio/CIO_PRE2021.h"
+#include "esphome/components/wifiwhirl_cio/CIO_2021.h"
+#include "esphome/components/wifiwhirl_cio/CIO_2021HJT.h"
+#include "esphome/components/wifiwhirl_cio/CIO_PRE2021.h"
 
 // DSP Includes
-#include "../dsp/DSP_2021.h"
-#include "../dsp/DSP_2021HJT.h"
-#include "../dsp/DSP_PRE2021.h"
+#include "esphome/components/wifiwhirl_dsp/DSP_2021.h"
+#include "esphome/components/wifiwhirl_dsp/DSP_2021HJT.h"
+#include "esphome/components/wifiwhirl_dsp/DSP_PRE2021.h"
 
 constexpr int MAXCOMMANDS = 20;
 

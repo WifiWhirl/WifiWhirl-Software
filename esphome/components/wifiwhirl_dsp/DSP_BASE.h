@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "../BWC_unified/enums.h"
+#include "esphome/components/wifiwhirl_bwc_unified/enums.h"
 
 class DSP
 {

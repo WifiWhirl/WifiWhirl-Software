@@ -1,5 +1,5 @@
 #include "CIO_TYPE1.h"
-#include "../BWC_unified/ports.h"
+#include "esphome/components/wifiwhirl_bwc_unified/ports.h"
 
 CIO_6_TYPE1 *pointerToClassCIO61;
 

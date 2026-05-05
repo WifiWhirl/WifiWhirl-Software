@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <vector>
 
-// WifiWhirl library (vendored into this external component)
-#include "wifiwhirl_lib/BWC_unified/bwc.h"
+// WifiWhirl library (vendored into helper components so ESPHome copies the sources)
+#include "esphome/components/wifiwhirl_bwc_unified/bwc.h"
 
 namespace esphome {
 namespace wifiwhirl {

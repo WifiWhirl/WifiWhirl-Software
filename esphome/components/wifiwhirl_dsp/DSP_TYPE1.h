@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "../BWC_unified/enums.h"
+#include "esphome/components/wifiwhirl_bwc_unified/enums.h"
 #include "DSP_6W.h"
 
 class DSP_6_TYPE1 : public DSP_6W
