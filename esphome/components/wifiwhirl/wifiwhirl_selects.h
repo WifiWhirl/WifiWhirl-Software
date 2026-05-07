@@ -13,12 +13,6 @@ class WifiWhirlUnitSelect : public select::Select, public WifiWhirlPublisher {
  public:
   explicit WifiWhirlUnitSelect(WifiWhirlComponent *parent) : parent_(parent) {}
 
-  select::SelectTraits traits() override {
-    auto traits = select::SelectTraits();
-    traits.set_options({"C", "F"});
-    return traits;
-  }
-
   void wifiwhirl_publish() override {
     if (this->parent_ == nullptr) return;
     const auto &st = this->parent_->states();
