@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_CLIMATE
+
 #include "esphome/components/climate/climate.h"
 #include "wifiwhirl_component.h"
 
@@ -110,3 +112,5 @@ class WifiWhirlClimate : public climate::Climate, public WifiWhirlPublisher {
 
 }  // namespace wifiwhirl
 }  // namespace esphome
+
+#endif  // USE_CLIMATE

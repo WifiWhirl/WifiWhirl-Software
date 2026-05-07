@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_SELECT
+
 #include "esphome/components/select/select.h"
 #include "wifiwhirl_component.h"
 
@@ -39,3 +41,5 @@ class WifiWhirlUnitSelect : public select::Select, public WifiWhirlPublisher {
 
 }  // namespace wifiwhirl
 }  // namespace esphome
+
+#endif  // USE_SELECT

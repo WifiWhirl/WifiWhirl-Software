@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_SENSOR
+
 #include "esphome/components/sensor/sensor.h"
 #include "wifiwhirl_component.h"
 
@@ -116,3 +118,5 @@ class WifiWhirlHeaterTimeSensor : public sensor::Sensor, public WifiWhirlPublish
 
 }  // namespace wifiwhirl
 }  // namespace esphome
+
+#endif  // USE_SENSOR

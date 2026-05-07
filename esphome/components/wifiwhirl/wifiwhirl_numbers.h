@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_NUMBER
+
 #include "esphome/components/number/number.h"
 #include "wifiwhirl_component.h"
 
@@ -54,3 +56,5 @@ class WifiWhirlBrightnessNumber : public number::Number, public WifiWhirlPublish
 
 }  // namespace wifiwhirl
 }  // namespace esphome
+
+#endif  // USE_NUMBER

@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_TEXT_SENSOR
+
 #include "esphome/components/text_sensor/text_sensor.h"
 
 #include <string>
@@ -62,3 +64,5 @@ class WifiWhirlErrorTextSensor : public text_sensor::TextSensor, public WifiWhir
 
 }  // namespace wifiwhirl
 }  // namespace esphome
+
+#endif  // USE_TEXT_SENSOR

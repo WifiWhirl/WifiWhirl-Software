@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_BUTTON
+
 #include "esphome/components/button/button.h"
 #include "wifiwhirl_component.h"
 
@@ -34,3 +36,5 @@ class WifiWhirlButton : public button::Button {
 
 }  // namespace wifiwhirl
 }  // namespace esphome
+
+#endif  // USE_BUTTON

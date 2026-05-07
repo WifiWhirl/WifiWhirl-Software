@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_SWITCH
+
 #include "esphome/components/switch/switch.h"
 #include "wifiwhirl_component.h"
 
@@ -97,3 +99,5 @@ class WifiWhirlSwitch : public switch_::Switch, public WifiWhirlPublisher {
 
 }  // namespace wifiwhirl
 }  // namespace esphome
+
+#endif  // USE_SWITCH
