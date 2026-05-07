@@ -32,8 +32,8 @@ external_components:
   # Option A (recommended): use this repo directly (private or public)
   - source:
       type: git
-      url: https://github.com/Finest/WifiWhirl-Software
-      ref: esphome-port
+      url: https://github.com/WifiWhirl/WifiWhirl-Software
+      ref: master
     path: esphome/components
     components: [wifiwhirl]
     refresh: 0s
