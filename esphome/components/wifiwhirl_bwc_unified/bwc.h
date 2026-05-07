@@ -105,6 +105,20 @@ public:
     void setAmbientTemperature(int64_t amb, bool unit);
     int getAmbientTemperature();
     String getModel();
+
+    // Lightweight getters for ESPHome.
+    int energy_power_w() const { return this->_energy_power_W; }
+    float energy_total_kwh() const { return this->_energy_total_kWh; }
+    float energy_today_kwh() const { return static_cast<float>(this->_energy_daily_Ws / 3600000.0); }
+
+    uint32_t uptime_s() const { return this->_uptime; }
+    uint32_t pump_time_s() const { return this->_pumptime; }
+    uint32_t heater_time_s() const { return this->_heatingtime; }
+    uint32_t bubbles_time_s() const { return this->_airtime; }
+    uint32_t jets_time_s() const { return this->_jettime; }
+
+    uint8_t dsp_brightness() const { return this->dsp != nullptr ? this->dsp->dsp_states.brightness : 0; }
+
     void print(const String &txt);
     void printStatic(const String &txt);
     void clearStatic();

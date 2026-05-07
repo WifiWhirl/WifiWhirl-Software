@@ -1,7 +1,24 @@
 #include "bwc.h"
 #include "util.h"
 #include "pitches.h"
+
+#include <Arduino.h>
 #include <algorithm>
+
+// Some ESP8266 board variants (e.g. esp07/ESP-07S) do not define the NodeMCU-style
+// Dx aliases (D0..D8). WifiWhirl upstream code uses them heavily, so provide a
+// compatible mapping when missing.
+#ifndef D0
+#define D0 16
+#define D1 5
+#define D2 4
+#define D3 0
+#define D4 2
+#define D5 14
+#define D6 12
+#define D7 13
+#define D8 15
+#endif
 
 BWC::BWC()
 {

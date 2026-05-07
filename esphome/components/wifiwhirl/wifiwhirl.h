@@ -6,6 +6,9 @@
 
 #include "wifiwhirl_component.h"
 #include "wifiwhirl_sensors.h"
+#include "wifiwhirl_text_sensors.h"
 #include "wifiwhirl_switches.h"
 #include "wifiwhirl_numbers.h"
+#include "wifiwhirl_selects.h"
+#include "wifiwhirl_buttons.h"
 #include "wifiwhirl_climate.h"

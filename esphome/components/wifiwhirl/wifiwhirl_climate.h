@@ -15,6 +15,7 @@ class WifiWhirlClimate : public climate::Climate, public WifiWhirlPublisher {
 
     traits.set_supports_current_temperature(true);
     traits.set_supports_two_point_target_temperature(false);
+    traits.set_supports_action(true);
 
     climate::ClimateModeMask modes;
     modes.insert(climate::CLIMATE_MODE_OFF);
@@ -41,7 +42,9 @@ class WifiWhirlClimate : public climate::Climate, public WifiWhirlPublisher {
     this->current_temperature = this->parent_->temperature_c();
     this->target_temperature = this->parent_->target_temperature_c();
 
-    if (st.heat) {
+    if (!st.power) {
+      this->mode = climate::CLIMATE_MODE_OFF;
+    } else if (st.heat) {
       this->mode = climate::CLIMATE_MODE_HEAT;
     } else if (st.pump) {
       this->mode = climate::CLIMATE_MODE_FAN_ONLY;
@@ -49,7 +52,9 @@ class WifiWhirlClimate : public climate::Climate, public WifiWhirlPublisher {
       this->mode = climate::CLIMATE_MODE_OFF;
     }
 
-    if (st.heatred) {
+    if (!st.power) {
+      this->action = climate::CLIMATE_ACTION_OFF;
+    } else if (st.heatred) {
       this->action = climate::CLIMATE_ACTION_HEATING;
     } else if (st.heatgrn) {
       this->action = climate::CLIMATE_ACTION_IDLE;
@@ -76,17 +81,23 @@ class WifiWhirlClimate : public climate::Climate, public WifiWhirlPublisher {
     if (call.get_mode().has_value()) {
       const auto mode = *call.get_mode();
 
+      const auto &st = this->parent_->states();
+
       if (mode == climate::CLIMATE_MODE_HEAT) {
+        // Ensure spa is powered on.
+        if (!st.power) this->parent_->queue_command(TOGGLEPWR, 1);
         // For heating, the pump must be on.
         this->parent_->queue_command(SETPUMP, 1);
         this->parent_->queue_command(SETHEATER, 1);
       } else if (mode == climate::CLIMATE_MODE_FAN_ONLY) {
+        if (!st.power) this->parent_->queue_command(TOGGLEPWR, 1);
         this->parent_->queue_command(SETHEATER, 0);
         this->parent_->queue_command(SETPUMP, 1);
       } else {
-        // OFF
+        // OFF: turn off heater/pump, then power down.
         this->parent_->queue_command(SETHEATER, 0);
         this->parent_->queue_command(SETPUMP, 0, "", /*force=*/true);
+        if (st.power) this->parent_->queue_command(TOGGLEPWR, 1);
       }
       this->mode = mode;
     }

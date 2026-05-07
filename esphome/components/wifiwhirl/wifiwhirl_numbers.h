@@ -32,5 +32,25 @@ class WifiWhirlTargetTemperatureNumber : public number::Number, public WifiWhirl
   WifiWhirlComponent *parent_;
 };
 
+class WifiWhirlBrightnessNumber : public number::Number, public WifiWhirlPublisher {
+ public:
+  explicit WifiWhirlBrightnessNumber(WifiWhirlComponent *parent) : parent_(parent) {}
+
+  void wifiwhirl_publish() override {
+    if (this->parent_ == nullptr) return;
+    this->publish_state(static_cast<float>(this->parent_->brightness()));
+  }
+
+ protected:
+  void control(float value) override {
+    if (this->parent_ == nullptr) return;
+    const int64_t brt = static_cast<int64_t>(lroundf(value));
+    this->parent_->queue_command(SETBRIGHTNESS, brt);
+    this->publish_state(value);
+  }
+
+  WifiWhirlComponent *parent_;
+};
+
 }  // namespace wifiwhirl
 }  // namespace esphome

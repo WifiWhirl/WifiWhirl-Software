@@ -43,9 +43,56 @@ class WifiWhirlComponent : public Component {
   const sStates &states() const { return this->bwc_->cio->cio_states; }
 
   // Convenience helpers.
-  float temperature_c() const { return static_cast<float>(this->states().temperature); }
-  float target_temperature_c() const { return static_cast<float>(this->states().target); }
+  // Note: The spa can operate in °C or °F. Expose values in °C to ESPHome/HA.
+  float temperature_c() const {
+    const float v = static_cast<float>(this->states().temperature);
+    return this->states().unit ? v : ((v - 32.0f) * (5.0f / 9.0f));
+  }
+  float target_temperature_c() const {
+    const float v = static_cast<float>(this->states().target);
+    return this->states().unit ? v : ((v - 32.0f) * (5.0f / 9.0f));
+  }
   int error_code() const { return static_cast<int>(this->states().error); }
+
+  // Additional derived values.
+  uint8_t brightness() const {
+    if (this->bwc_ == nullptr || this->bwc_->dsp == nullptr) return 0;
+    return this->bwc_->dsp->dsp_states.brightness;
+  }
+
+  int power_w() const {
+    if (this->bwc_ == nullptr) return 0;
+    return this->bwc_->energy_power_w();
+  }
+  float energy_today_kwh() const {
+    if (this->bwc_ == nullptr) return 0.0f;
+    return this->bwc_->energy_today_kwh();
+  }
+  float energy_total_kwh() const {
+    if (this->bwc_ == nullptr) return 0.0f;
+    return this->bwc_->energy_total_kwh();
+  }
+
+  uint32_t uptime_s() const {
+    if (this->bwc_ == nullptr) return 0;
+    return this->bwc_->uptime_s();
+  }
+  uint32_t pump_time_s() const {
+    if (this->bwc_ == nullptr) return 0;
+    return this->bwc_->pump_time_s();
+  }
+  uint32_t heater_time_s() const {
+    if (this->bwc_ == nullptr) return 0;
+    return this->bwc_->heater_time_s();
+  }
+  uint32_t bubbles_time_s() const {
+    if (this->bwc_ == nullptr) return 0;
+    return this->bwc_->bubbles_time_s();
+  }
+  uint32_t jets_time_s() const {
+    if (this->bwc_ == nullptr) return 0;
+    return this->bwc_->jets_time_s();
+  }
 
   // Queue a command into the WifiWhirl command queue.
   bool queue_command(Commands cmd, int64_t val, const char *text = "", bool force = false);
