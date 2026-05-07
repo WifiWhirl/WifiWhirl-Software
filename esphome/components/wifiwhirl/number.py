@@ -34,7 +34,6 @@ CONFIG_SCHEMA = cv.Schema(
         ),
         cv.Optional(CONF_BRIGHTNESS): number.number_schema(
             WifiWhirlBrightnessNumber,
-            unit_of_measurement=None,
             icon="mdi:brightness-6",
         ).extend(
             {
