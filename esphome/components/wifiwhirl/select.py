@@ -28,5 +28,6 @@ async def to_code(config):
 
     if CONF_UNIT in config:
         var = cg.new_Pvariable(config[CONF_UNIT][CONF_ID], parent)
-        await select.register_select(var, config[CONF_UNIT])
+        # ESPHome 2026.4+: options are required keyword-only args
+        await select.register_select(var, config[CONF_UNIT], options=["C", "F"])
         cg.add(parent.register_publisher(var))
