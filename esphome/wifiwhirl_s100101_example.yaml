@@ -1,11 +1,12 @@
 # WifiWhirl ESPHome example (S100101 / P05326, 6‑pin)
-# Work in progress – intended target is a custom ESPHome external component.
+# ESPHome 2026.4+ external component example.
 
 esphome:
   name: wifiwhirl
-  friendly_name: WifiWhirl
+  friendly_name: "WifiWhirl (S100101)"
 
 esp8266:
+  # ESP-07S / ESP8266 boards work fine with this build target and give a sane 4MB flash layout.
   board: nodemcuv2
 
 # Keep logging conservative; the pump/display MITM is timing sensitive.
@@ -20,33 +21,50 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
+  # Fallback AP if Wi-Fi fails
+  ap:
+    ssid: "wifiwhirl-fallback"
+    password: !secret wifi_fallback_ap_password
+
+captive_portal:
+
 external_components:
-  # For first tests, clone this repo locally next to your ESPHome YAML and
-  # point to the `esphome/components` folder.
+  # Option A (recommended): use this repo directly (private or public)
   - source:
-      type: local
-      path: ./WifiWhirl-Software/esphome/components
+      type: git
+      url: https://github.com/Finest/WifiWhirl-Software
+      ref: esphome-port
+    path: esphome/components
+    components: [wifiwhirl]
+    refresh: 0s
+
+  # Option B: local checkout next to your ESPHome YAML
+  # - source:
+  #     type: local
+  #     path: ./WifiWhirl-Software/esphome/components
 
 wifiwhirl:
   id: spa
   # S100101 / P05326 behaves like MIAMI2021 in the upstream codebase.
   model: miami2021
 
-  # Default NodeMCU v3 (ESP8266) pin set used by WifiWhirl when hwcfg.json is present.
+  # Default NodeMCU pin set used by WifiWhirl when hwcfg.json is present.
   # Adjust these if your PCB/wiring differs.
-  cio_data_pin: D1
-  cio_clk_pin: D2
-  cio_cs_pin: D3
-  dsp_data_pin: D4
-  dsp_clk_pin: D5
-  dsp_cs_pin: D6
-  dsp_audio_pin: D7
+  cio_data_pin: GPIO5   # D1
+  cio_clk_pin: GPIO4    # D2
+  cio_cs_pin: GPIO14    # D5
+  dsp_data_pin: GPIO12  # D6
+  dsp_clk_pin: GPIO2    # D4
+  dsp_cs_pin: GPIO0     # D3 (boot strap pin, but used by WifiWhirl PCB v2b)
+  dsp_audio_pin: GPIO13 # D7
 
+# Main climate entity (proper HA climate card)
 climate:
   - platform: wifiwhirl
     wifiwhirl_id: spa
     name: "Whirlpool"
 
+# Switches for individual functions
 switch:
   - platform: wifiwhirl
     wifiwhirl_id: spa
@@ -59,19 +77,35 @@ switch:
     heater:
       name: "Heizung"
     bubbles:
-      name: "Bubbles"
+      name: "AirJet/Bubbles"
     jets:
       name: "HydroJets"
 
+# Extra controls
 number:
   - platform: wifiwhirl
     wifiwhirl_id: spa
-    target_temperature:
-      name: "Zieltemperatur"
-      min_value: 20
-      max_value: 40
+    brightness:
+      name: "Display Helligkeit"
+      min_value: 1
+      max_value: 8
       step: 1
 
+select:
+  - platform: wifiwhirl
+    wifiwhirl_id: spa
+    unit:
+      name: "Einheit"
+
+button:
+  - platform: wifiwhirl
+    wifiwhirl_id: spa
+    beep:
+      name: "Beep"
+    accord:
+      name: "Akkord"
+
+# Sensors / status
 sensor:
   - platform: wifiwhirl
     wifiwhirl_id: spa
@@ -81,3 +115,21 @@ sensor:
       name: "Zieltemperatur (Sensor)"
     error_code:
       name: "Fehlercode"
+    power_w:
+      name: "Leistung"
+    energy_today_kwh:
+      name: "Energie heute"
+    energy_total_kwh:
+      name: "Energie gesamt"
+    uptime_h:
+      name: "Uptime"
+    pump_time_h:
+      name: "Pumpenzeit"
+    heater_time_h:
+      name: "Heizzeit"
+
+text_sensor:
+  - platform: wifiwhirl
+    wifiwhirl_id: spa
+    error_text:
+      name: "Fehlertext"
