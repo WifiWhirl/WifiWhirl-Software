@@ -255,11 +255,8 @@
             // Hide Hydrojet command if hardware has no jets
             const select = document.getElementById("commands");
             const hydroOption = select.querySelector('option[value="11"]');
-            if (!json.HASJETS) {
-              if (hydroOption) {
-                select.removeChild(hydroOption); 
-              }
-            }
+            if (hydroOption && !json.HASJETS)
+              hydroOption.remove()
           }
         };
 
