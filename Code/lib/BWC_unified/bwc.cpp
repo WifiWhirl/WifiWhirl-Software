@@ -2,6 +2,15 @@
 #include "util.h"
 #include "pitches.h"
 #include <algorithm>
+#include <cstdlib>
+
+extern const char *defaultTimezone;
+extern const char *defaultTimezoneName;
+
+namespace
+{
+constexpr uint64_t VALID_TIME_THRESHOLD_S = 57600;
+}
 
 BWC::BWC()
 {
@@ -24,6 +33,7 @@ BWC::BWC()
     _jettime_ms = 0;
     _energy_total_kWh = 0.0;
     _energy_daily_Ws = 0.0;
+    _energy_pending_daily_Ws = 0.0;
     _energy_daily_yday = -1;
     _energy_power_W = 0;
     _price = 0.35;
@@ -40,6 +50,8 @@ BWC::BWC()
     _last_alk_value = 100;         // Default 100 mg/L
     _cya_timestamp_s = 0;
     _alk_timestamp_s = 0;
+    _timezone = defaultTimezone;
+    _timezone_name = defaultTimezoneName;
 }
 
 BWC::~BWC()
@@ -503,6 +515,7 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         _airtime_ms = 0;
         _energy_total_kWh = 0;
         _energy_daily_Ws = 0;
+        _energy_pending_daily_Ws = 0;
         _energy_daily_yday = -1;
         _save_settings_needed = true;
         _new_data_available = true;
@@ -594,10 +607,10 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
     case RESETDAILY:
     {
         _energy_daily_Ws = 0;
-        time_t ts = (time_t)_timestamp_secs;
-        struct tm ti;
-        gmtime_r(&ts, &ti);
-        _energy_daily_yday = ti.tm_yday + ti.tm_year * 366;
+        _energy_pending_daily_Ws = 0;
+        int today;
+        _energy_daily_yday = _getEnergyDayIndex(today) ? today : -1;
+        _save_settings_needed = true;
         _new_data_available = true;
         break;
     }
@@ -979,7 +992,7 @@ void BWC::getJSONTimes(String &rtn)
     doc[F("ALKTIME")] = _alk_timestamp_s;
     doc[F("ALKVAL")] = _last_alk_value;
     doc[F("KWH")] = _energy_total_kWh;
-    doc[F("KWHD")] = _energy_daily_Ws / 3600000.0; // Ws -> kWh
+    doc[F("KWHD")] = (_energy_daily_Ws + _energy_pending_daily_Ws) / 3600000.0; // Ws -> kWh
     doc[F("WATT")] = _energy_power_W;
     float t2r = _estHeatingTime();
     String t2r_string = F("Not ready");
@@ -1019,6 +1032,8 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("WCINT")] = _wc_interval;
     doc[F("PHINT")] = _ph_interval;
     doc[F("AUDIO")] = _audio_enabled;
+    doc[F("TIMEZONE")] = _timezone;
+    doc[F("TIMEZONE_NAME")] = _timezone_name;
 #ifdef ESP8266
     doc[F("REBOOTINFO")] = ESP.getResetReason();
 #endif
@@ -1111,6 +1126,15 @@ void BWC::setJSONSettings(const String &message)
     if (doc.containsKey(F("PHINT")))
         _ph_interval = doc[F("PHINT")];
     _audio_enabled = doc[F("AUDIO")];
+    if (doc.containsKey(F("TIMEZONE")))
+        _timezone = doc[F("TIMEZONE")].as<String>();
+    if (_timezone.length() == 0)
+        _timezone = defaultTimezone;
+    if (doc.containsKey(F("TIMEZONE_NAME")))
+        _timezone_name = doc[F("TIMEZONE_NAME")].as<String>();
+    if (_timezone_name.length() == 0)
+        _timezone_name = defaultTimezoneName;
+    applyTimezone();
     _plz = doc[F("PLZ")].as<String>();
     _weather = doc[F("WEATHER")];
     _pool_capacity = doc[F("POOLCAP")];
@@ -1145,6 +1169,55 @@ bool BWC::newData()
     bool result = _new_data_available;
     _new_data_available = false;
     return result;
+}
+
+void BWC::applyTimezone() const
+{
+    const char *timezone = _timezone.length() ? _timezone.c_str() : defaultTimezone;
+    setenv("TZ", timezone, 1);
+    tzset();
+}
+
+bool BWC::_getEnergyDayIndex(int &day_index) const
+{
+    if (_timestamp_secs <= VALID_TIME_THRESHOLD_S)
+        return false;
+
+    time_t ts = (time_t)_timestamp_secs;
+    struct tm timeinfo;
+    localtime_r(&ts, &timeinfo);
+    day_index = timeinfo.tm_yday + timeinfo.tm_year * 366;
+    return true;
+}
+
+void BWC::_addEnergyIncrement(double energy_increment_Ws)
+{
+    _energy_total_kWh += energy_increment_Ws / 3600000.0;
+
+    int today;
+    if (!_getEnergyDayIndex(today))
+    {
+        _energy_pending_daily_Ws += energy_increment_Ws;
+        return;
+    }
+
+    if (_energy_daily_yday < 0)
+    {
+        _energy_daily_yday = today;
+    }
+    else if (today != _energy_daily_yday)
+    {
+        _energy_daily_Ws = 0;
+        _energy_daily_yday = today;
+    }
+
+    if (_energy_pending_daily_Ws > 0)
+    {
+        _energy_daily_Ws += _energy_pending_daily_Ws;
+        _energy_pending_daily_Ws = 0;
+    }
+
+    _energy_daily_Ws += energy_increment_Ws;
 }
 
 /**
@@ -1241,31 +1314,8 @@ void BWC::_updateTimes()
     _energy_power_W += cio->getPower().IDLEPOWER;
     _energy_power_W += cio->cio_states.jets * cio->getPower().JETPOWER;
 
-    double energy_increment_Ws = elapsedtime_ms * _energy_power_W / 1000.0;
-    _energy_total_kWh += energy_increment_Ws / 3600000.0;
-
-    if (_timestamp_secs > 100000)
-    {
-        static uint64_t next_day_check_s = 0;
-        if (_timestamp_secs >= next_day_check_s)
-        {
-            time_t ts = (time_t)_timestamp_secs;
-            struct tm timeinfo;
-            gmtime_r(&ts, &timeinfo);
-            int today = timeinfo.tm_yday + timeinfo.tm_year * 366;
-            if (_energy_daily_yday < 0)
-            {
-                _energy_daily_yday = today;
-            }
-            else if (today != _energy_daily_yday)
-            {
-                _energy_daily_Ws = 0;
-                _energy_daily_yday = today;
-            }
-            next_day_check_s = _timestamp_secs + 60;
-        }
-        _energy_daily_Ws += energy_increment_Ws;
-    }
+    double energy_increment_Ws = (static_cast<double>(elapsedtime_ms) * _energy_power_W) / 1000.0;
+    _addEnergyIncrement(energy_increment_Ws);
 
     if (_notes.size())
     {
@@ -1340,6 +1390,7 @@ void BWC::_loadSettings()
     if (!file)
     {
         Serial.println(F("Failed to open settings.json"));
+        applyTimezone();
         return;
     }
     Serial.printf("settings.json size: %d bytes\n", file.size());
@@ -1351,6 +1402,7 @@ void BWC::_loadSettings()
     {
         Serial.printf("Failed to deserialize settings.json: %s\n", error.c_str());
         file.close();
+        applyTimezone();
         return;
     }
     Serial.println(F("settings.json loaded successfully"));
@@ -1382,7 +1434,15 @@ void BWC::_loadSettings()
     _audio_enabled = doc[F("AUDIO")];
     _energy_total_kWh = doc[F("KWH")] | 0.0;
     _energy_daily_Ws = doc[F("KWHD")] | 0.0;
+    _energy_pending_daily_Ws = doc[F("KWHD_PENDING")] | 0.0;
     _energy_daily_yday = doc[F("KWHD_DAY")] | -1;
+    _timezone = doc[F("TIMEZONE")] | defaultTimezone;
+    if (_timezone.length() == 0)
+        _timezone = defaultTimezone;
+    _timezone_name = doc[F("TIMEZONE_NAME")] | defaultTimezoneName;
+    if (_timezone_name.length() == 0)
+        _timezone_name = defaultTimezoneName;
+    applyTimezone();
     _ambient_temp = doc[F("AMB")] | 20;
     _dsp_brightness = doc[F("BRT")] | 7;
     _plz = doc[F("PLZ")].as<String>();
@@ -1690,7 +1750,10 @@ void BWC::saveSettings()
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;
+    doc[F("KWHD_PENDING")] = _energy_pending_daily_Ws;
     doc[F("KWHD_DAY")] = _energy_daily_yday;
+    doc[F("TIMEZONE")] = _timezone;
+    doc[F("TIMEZONE_NAME")] = _timezone_name;
     doc[F("AMB")] = _ambient_temp;
     doc[F("BRT")] = _dsp_brightness;
     doc[F("PLZ")] = _plz;

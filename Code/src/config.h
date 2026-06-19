@@ -14,6 +14,8 @@ extern bool enableWmApFallback;
 extern const char *wmApName;
 extern const char *wmApPassword;
 extern const char *netHostname;
+extern const char *defaultTimezone;
+extern const char *defaultTimezoneName;
 
 /* OTA Service Credentials */
 extern const char *OTAName;

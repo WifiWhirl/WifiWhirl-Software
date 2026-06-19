@@ -129,6 +129,9 @@ private:
     bool _handlecommand(Commands cmd, int64_t val, const String &txt);
     void _handleCommandQ();
     void _loadSettings();
+    void applyTimezone() const;
+    bool _getEnergyDayIndex(int &day_index) const;
+    void _addEnergyIncrement(double energy_increment_Ws);
     void _saveCommandQueue();
     void _updateTimes();
     void _restoreStates();
@@ -199,8 +202,11 @@ private:
     bool _audio_enabled;
     double _energy_total_kWh;
     double _energy_daily_Ws;
+    double _energy_pending_daily_Ws;
     int _energy_daily_yday = -1;
     int _energy_power_W;
+    String _timezone;
+    String _timezone_name;
     String _plz;
     bool _weather = 0;
     int _pool_capacity = 700;

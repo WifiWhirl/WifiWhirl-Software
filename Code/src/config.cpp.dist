@@ -5,6 +5,8 @@ bool enableWmApFallback = true;
 const char *wmApName = DEVICE_NAME;
 const char *wmApPassword = "wifiwhirl";
 const char *netHostname = DEVICE_NAME;
+const char *defaultTimezone = "CET-1CEST,M3.5.0,M10.5.0/3"; // Europe/Berlin
+const char *defaultTimezoneName = "Europe/Berlin";
 
 /* OTA Service Credentials */
 const char *OTAName = DEVICE_NAME;

@@ -79,6 +79,24 @@
               >
             </td>
           </tr>
+          <tr>
+            <td>
+              <label for="timezone">Zeitzone:</label>
+              <span
+                data-text="Wird für Tageswechsel und lokale Uhrzeit verwendet."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <select id="timezoneName" required></select>
+              <input
+                type="hidden"
+                id="timezone"
+                value="CET-1CEST,M3.5.0,M10.5.0/3"
+              />
+            </td>
+          </tr>
         </table>
         <div class="center" style="margin-top: 10px">
           <button class="button" onclick="saveConfig(this)">Speichern</button>
@@ -474,9 +492,113 @@
 
     <script>
       var weatherEnabled = 0;
+      var defaultTimezoneName = "Europe/Berlin";
+      var defaultTimezone = "CET-1CEST,M3.5.0,M10.5.0/3";
+      var knownTimezonePosix = {
+        "UTC": "UTC0",
+        "Europe/Amsterdam": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Andorra": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Astrakhan": "UTC-4",
+        "Europe/Athens": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Belgrade": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Berlin": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Bratislava": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Brussels": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Bucharest": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Budapest": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Busingen": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Chisinau": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Copenhagen": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Dublin": "GMT0IST,M3.5.0/1,M10.5.0",
+        "Europe/Gibraltar": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Guernsey": "GMT0BST,M3.5.0/1,M10.5.0",
+        "Europe/Helsinki": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Isle_of_Man": "GMT0BST,M3.5.0/1,M10.5.0",
+        "Europe/Istanbul": "TRT-3",
+        "Europe/Jersey": "GMT0BST,M3.5.0/1,M10.5.0",
+        "Europe/Kaliningrad": "EET-2",
+        "Europe/Kiev": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Kirov": "MSK-3",
+        "Europe/Kyiv": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Lisbon": "WET0WEST,M3.5.0/1,M10.5.0",
+        "Europe/Ljubljana": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/London": "GMT0BST,M3.5.0/1,M10.5.0",
+        "Europe/Luxembourg": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Madrid": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Malta": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Mariehamn": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Minsk": "MSK-3",
+        "Europe/Monaco": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Moscow": "MSK-3",
+        "Europe/Oslo": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Paris": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Podgorica": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Prague": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Riga": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Rome": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Samara": "UTC-4",
+        "Europe/San_Marino": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Sarajevo": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Saratov": "UTC-4",
+        "Europe/Simferopol": "MSK-3",
+        "Europe/Skopje": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Sofia": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Stockholm": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Tallinn": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Tirane": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Ulyanovsk": "UTC-4",
+        "Europe/Vaduz": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Vatican": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Vienna": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Vilnius": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+        "Europe/Volgograd": "MSK-3",
+        "Europe/Warsaw": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Zagreb": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "Europe/Zurich": "CET-1CEST,M3.5.0,M10.5.0/3",
+      };
+
+      initTimezoneSelect();
       loadConfig();
       toggleWeatherSettings();
       loadWeatherCity();
+
+      function initTimezoneSelect() {
+        var select = document.getElementById("timezoneName");
+        var zones = Object.keys(knownTimezonePosix).sort();
+        select.innerHTML = "";
+        zones.forEach(function (zone) {
+          var option = document.createElement("option");
+          option.value = zone;
+          option.textContent = zone.replace(/_/g, " ");
+          select.appendChild(option);
+        });
+        select.value = defaultTimezoneName;
+        document.getElementById("timezone").value = defaultTimezone;
+        select.addEventListener("change", function () {
+          document.getElementById("timezone").value = timezoneNameToPosix(
+            select.value,
+          );
+        });
+      }
+
+      function setTimezoneSelection(zone, posix) {
+        var select = document.getElementById("timezoneName");
+        if (!knownTimezonePosix[zone]) zone = timezoneNameForPosix(posix);
+        select.value = zone;
+        document.getElementById("timezone").value = timezoneNameToPosix(zone);
+      }
+
+      function timezoneNameForPosix(posix) {
+        for (var zone in knownTimezonePosix) {
+          if (knownTimezonePosix[zone] === posix) return zone;
+        }
+        return defaultTimezoneName;
+      }
+
+      function timezoneNameToPosix(zone) {
+        if (knownTimezonePosix[zone]) return knownTimezonePosix[zone];
+        return defaultTimezone;
+      }
 
       function loadWeatherCity() {
         if (!weatherEnabled) return;
@@ -509,7 +631,10 @@
           if (this.readyState == 4 && this.status == 200) {
             var json = JSON.parse(req.responseText);
             console.log(json);
-            //document.getElementById('timezone').value = json.TIMEZONE.toString();
+            setTimezoneSelection(
+              json.TIMEZONE_NAME || timezoneNameForPosix(json.TIMEZONE),
+              json.TIMEZONE || defaultTimezone,
+            );
             document.getElementById("price").value = json.PRICE.toFixed(2);
             document.getElementById("clinterval").value = json.CLINT.toString();
             document.getElementById("finterval").value = json.FINT.toString();
@@ -572,8 +697,13 @@
         var req = new XMLHttpRequest();
         req.open("POST", "/setconfig/");
 
+        var timezoneName = document.getElementById("timezoneName").value;
+        var timezone = timezoneNameToPosix(timezoneName);
+        document.getElementById("timezone").value = timezone;
+
         var json = {
-          TIMEZONE: 0,
+          TIMEZONE: timezone,
+          TIMEZONE_NAME: timezoneName,
           PRICE: parseFloat(document.getElementById("price").value).toFixed(2),
           CLINT: parseInt(document.getElementById("clinterval").value),
           FINT: parseInt(document.getElementById("finterval").value),
