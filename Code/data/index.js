@@ -365,14 +365,14 @@ function processMessageObj(msgobj) {
 
         document.getElementById("temp").value = msgobj.TGT;
         document.getElementById("amb").value = msgobj.AMB;
-        document.getElementById("brt").value = msgobj.BRT;
+        document.getElementById("brt").value = msgobj.BRTBASE;
 
         initControlValues = false;
       }
 
       document.getElementById("sliderTempVal").innerHTML = msgobj.TGT;
       document.getElementById("sliderAmbVal").innerHTML = msgobj.AMB;
-      document.getElementById("sliderBrtVal").innerHTML = msgobj.BRT;
+      document.getElementById("sliderBrtVal").innerHTML = msgobj.BRTBASE;
 
       // get selector elements
       var elemSelectorTemp = document.getElementById("selectorTemp");
@@ -393,15 +393,15 @@ function processMessageObj(msgobj) {
           msgobj.AMB;
       }
       if (document.activeElement !== elemSelectorBrt && !updateBrtState) {
-        elemSelectorBrt.value = msgobj.BRT;
+        elemSelectorBrt.value = msgobj.BRTBASE;
         elemSelectorBrt.parentElement.querySelector(".numDisplay").textContent =
-          msgobj.BRT;
+          msgobj.BRTBASE;
       }
 
       // reset update states when the set target matches the input
       if (elemSelectorTemp.value == msgobj.TGT) updateTempState = false;
       if (elemSelectorAmb.value == msgobj.AMB) updateAmbState = false;
-      if (elemSelectorBrt.value == msgobj.BRT) updateBrtState = false;
+      if (elemSelectorBrt.value == msgobj.BRTBASE) updateBrtState = false;
 
       const unitsymbols = document.querySelectorAll("[id^=unitcf]");
       if (msgobj.UNT) {
@@ -427,8 +427,13 @@ function processMessageObj(msgobj) {
         sliderAmb.value = msgobj.AMB;
       }
       if (document.activeElement !== sliderBrt && !updateBrtState) {
-        sliderBrt.value = msgobj.BRT;
+        sliderBrt.value = msgobj.BRTBASE;
       }
+
+      // disable brightness controls while a key-press boost is active, so a
+      // stray click can't pick up the boosted value as the new base
+      sliderBrt.disabled = !!msgobj.BRTOVR;
+      elemSelectorBrt.disabled = !!msgobj.BRTOVR;
     }
   } catch (error) {
     console.error(error);

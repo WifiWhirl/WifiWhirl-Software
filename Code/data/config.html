@@ -330,6 +330,50 @@
               >
             </td>
           </tr>
+          <tr>
+            <td>
+              <label for="brtBoostSteps">Helligkeit erhöhen um:</label>
+              <span
+                data-text="Wie viele Stufen die Helligkeit bei einem Tastendruck angehoben wird."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="brtBoostSteps"
+                  min="1"
+                  max="8"
+                  value="1"
+                  inputmode="numeric"
+                /><span class="inputunit"> Stufen</span></span
+              >
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label for="brtBoostDuration">Dauer der Aufhellung:</label>
+              <span
+                data-text="Wie lange die erhöhte Helligkeit nach dem letzten Tastendruck gehalten wird, bevor das Display wieder abdunkelt."
+                class="tooltip"
+                >?</span
+              >
+            </td>
+            <td>
+              <span class="input-group"
+                ><input
+                  type="number"
+                  id="brtBoostDuration"
+                  min="1"
+                  max="60"
+                  value="5"
+                  inputmode="numeric"
+                /><span class="inputunit"> Sek.</span></span
+              >
+            </td>
+          </tr>
         </table>
         <div class="center" style="margin-top: 10px">
           <button class="button" onclick="saveConfig(this)">Speichern</button>
@@ -669,6 +713,8 @@
             document.getElementById("poolCap").value = json.POOLCAP;
             document.getElementById("airjetTimeout").value = json.AIRTO || 30;
             document.getElementById("hydrojetTimeout").value = json.HJTO || 60;
+            document.getElementById("brtBoostSteps").value = json.BRTSTEP || 1;
+            document.getElementById("brtBoostDuration").value = json.BRTDUR || 5;
             document.getElementById("lock_btn").checked = json.LCK;
             document.getElementById("timer_btn").checked = json.TMR;
             document.getElementById("bubbles_btn").checked = json.AIR;
@@ -716,6 +762,10 @@
           AIRTO: parseInt(document.getElementById("airjetTimeout").value) || 30,
           HJTO:
             parseInt(document.getElementById("hydrojetTimeout").value) || 60,
+          BRTSTEP:
+            parseInt(document.getElementById("brtBoostSteps").value) || 1,
+          BRTDUR:
+            parseInt(document.getElementById("brtBoostDuration").value) || 5,
           LCK: document.getElementById("lock_btn").checked,
           TMR: document.getElementById("timer_btn").checked,
           AIR: document.getElementById("bubbles_btn").checked,

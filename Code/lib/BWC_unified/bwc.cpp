@@ -266,10 +266,10 @@ void BWC::_log()
 void BWC::adjust_brightness()
 {
     if (dsp->dsp_toggles.pressed_button != NOBTN)
-        _override_dsp_brt_timer = 5000;
+        _override_dsp_brt_timer = (int32_t)_brightness_boost_duration_s * 1000;
     if (_override_dsp_brt_timer > 0)
     {
-        dsp->dsp_states.brightness = _dsp_brightness + 1;
+        dsp->dsp_states.brightness = _dsp_brightness + _brightness_boost_steps;
         if (dsp->dsp_states.brightness > 8)
             dsp->dsp_states.brightness = 8;
     }
@@ -922,6 +922,8 @@ void BWC::getJSONStates(String &rtn)
     doc[F("CH3")] = cio->cio_states.char3;
     doc[F("HJT")] = cio->cio_states.jets;
     doc[F("BRT")] = dsp->dsp_states.brightness;
+    doc[F("BRTBASE")] = _dsp_brightness;
+    doc[F("BRTOVR")] = (_override_dsp_brt_timer > 0);
     doc[F("ERR")] = cio->cio_states.error;
     doc[F("GOD")] = (uint8_t)cio->cio_states.godmode;
     doc[F("TGT")] = cio->cio_states.target;
@@ -1045,6 +1047,8 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("POOLCAP")] = _pool_capacity;
     doc[F("AIRTO")] = _airjet_timeout_minutes;
     doc[F("HJTO")] = _hydrojet_timeout_minutes;
+    doc[F("BRTSTEP")] = _brightness_boost_steps;
+    doc[F("BRTDUR")] = _brightness_boost_duration_s;
     doc[F("LCK")] = dsp->EnabledButtons[LOCK];
     doc[F("TMR")] = dsp->EnabledButtons[TIMER];
     doc[F("AIR")] = dsp->EnabledButtons[BUBBLES];
@@ -1149,6 +1153,18 @@ void BWC::setJSONSettings(const String &message)
     {
         uint8_t val = doc[F("HJTO")];
         _hydrojet_timeout_minutes = (val >= 5 && val <= 60) ? val : 60;
+    }
+    // Brightness boost steps: 1-8, default 1
+    if (doc.containsKey(F("BRTSTEP")))
+    {
+        uint8_t val = doc[F("BRTSTEP")];
+        _brightness_boost_steps = (val >= 1 && val <= 8) ? val : 1;
+    }
+    // Brightness boost duration: 1-60s, default 5
+    if (doc.containsKey(F("BRTDUR")))
+    {
+        uint16_t val = doc[F("BRTDUR")];
+        _brightness_boost_duration_s = (val >= 1 && val <= 60) ? val : 5;
     }
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
     dsp->EnabledButtons[TIMER] = doc[F("TMR")];
@@ -1306,7 +1322,7 @@ void BWC::_updateTimes()
     }
 
     if (_override_dsp_brt_timer > 0)
-        _override_dsp_brt_timer -= (int16_t)elapsedtime_ms;
+        _override_dsp_brt_timer -= (int32_t)elapsedtime_ms;
 
     _energy_power_W = cio->cio_states.heatred * cio->getPower().HEATERPOWER;
     _energy_power_W += cio->cio_states.pump * cio->getPower().PUMPPOWER;
@@ -1450,6 +1466,8 @@ void BWC::_loadSettings()
     _pool_capacity = doc[F("POOLCAP")];
     _airjet_timeout_minutes = doc[F("AIRTO")] | 30;
     _hydrojet_timeout_minutes = doc[F("HJTO")] | 60;
+    _brightness_boost_steps = doc[F("BRTSTEP")] | 1;
+    _brightness_boost_duration_s = doc[F("BRTDUR")] | 5;
     enableWeather = _weather;
     dsp->EnabledButtons[LOCK] = doc[F("LCK")];
     dsp->EnabledButtons[TIMER] = doc[F("TMR")];
@@ -1762,6 +1780,8 @@ void BWC::saveSettings()
     doc[F("POOLCAP")] = _pool_capacity;
     doc[F("AIRTO")] = _airjet_timeout_minutes;
     doc[F("HJTO")] = _hydrojet_timeout_minutes;
+    doc[F("BRTSTEP")] = _brightness_boost_steps;
+    doc[F("BRTDUR")] = _brightness_boost_duration_s;
     if (dsp != nullptr)
     {
         doc[F("LCK")] = dsp->EnabledButtons[LOCK];

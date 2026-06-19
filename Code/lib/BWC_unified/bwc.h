@@ -169,7 +169,9 @@ private:
     bool _scroll = false;
     uint64_t _timestamp_secs; // seconds
     uint8_t _dsp_brightness;
-    int16_t _override_dsp_brt_timer;
+    int32_t _override_dsp_brt_timer;
+    uint8_t _brightness_boost_steps = 1;        // 1-8, steps to add on key press
+    uint16_t _brightness_boost_duration_s = 5;  // 1-60s, hold time after last key press
     std::vector<command_que_item> _command_que;
     std::vector<sNote> _notes;
     int _note_duration;
