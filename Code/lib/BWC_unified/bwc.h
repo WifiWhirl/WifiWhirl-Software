@@ -51,9 +51,10 @@ struct smart_schedule_t
     float last_heating_estimate = 0.0f; // Last calculated heating time in hours
     uint8_t temp_reading_state = 0;     // 0=idle, 1=pump_on, 2=reading
     uint64_t temp_reading_timer = 0;    // Timer for temperature reading sequence
-    bool original_pump_state = false;   // Store original pump state before reading
+    bool temp_reading_started_pump = false; // True only when Smart Schedule turned pump on for reading
     uint8_t accurate_temperature = 0;   // Temperature read after pump circulation
     bool check_completed = false;       // True when all periodic checks are done (heating will start soon)
+    bool target_temp_reached = false;   // True once heater was stopped after reaching target temp
 };
 
 class BWC
@@ -106,6 +107,7 @@ public:
     
     // Smart Schedule methods
     bool setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on);
+    bool updateSmartScheduleKeepHeaterOn(bool keep_heater_on);
     void cancelSmartSchedule();
     void getJSONSmartSchedule(String &rtn);
 

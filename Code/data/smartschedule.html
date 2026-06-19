@@ -95,6 +95,10 @@
               <td>Sicherheitspuffer:</td>
               <td><span id="statusBuffer">--</span></td>
             </tr>
+            <tr>
+              <td>Geschätzte Heizkosten:</td>
+              <td><span id="statusCost">--</span></td>
+            </tr>
             <tr id="statusRemainingRow" style="display: none">
               <td><strong>Verbleibende Heizdauer:</strong></td>
               <td>
@@ -105,6 +109,15 @@
               <td><strong>Heizung Status:</strong></td>
               <td>
                 <strong><span id="statusHeater">--</span></strong>
+              </td>
+            </tr>
+            <tr>
+              <td><label for="activeKeepHeaterOn">Bei Zieltemperatur:</label></td>
+              <td>
+                <select id="activeKeepHeaterOn" onchange="updateKeepHeaterOn()">
+                  <option value="false">Heizung ausschalten</option>
+                  <option value="true">Heizung eingeschaltet lassen</option>
+                </select>
               </td>
             </tr>
             <tr
@@ -158,7 +171,7 @@
       </section>
 
       <!-- Create New Schedule -->
-      <section>
+      <section class="odd-section">
         <h2>Neuen Zeitplan erstellen</h2>
         <table>
           <tr>
@@ -188,11 +201,11 @@
             </td>
           </tr>
           <tr>
-            <td><label for="keepHeaterOn">Heizung nach Erreichen:</label></td>
+            <td><label for="keepHeaterOn">Bei Zieltemperatur:</label></td>
             <td>
               <select id="keepHeaterOn">
-                <option value="false">Ausschalten</option>
-                <option value="true">Eingeschaltet lassen</option>
+                <option value="false">Heizung ausschalten</option>
+                <option value="true">Heizung eingeschaltet lassen</option>
               </select>
             </td>
           </tr>

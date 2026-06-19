@@ -1987,8 +1987,10 @@ bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_
     _smart_schedule.calculated_start_time = 0;
     _smart_schedule.temp_reading_state = 0;
     _smart_schedule.temp_reading_timer = 0;
+    _smart_schedule.temp_reading_started_pump = false;
     _smart_schedule.accurate_temperature = 0; // Will be read during first temp check cycle
     _smart_schedule.check_completed = false;  // Reset completion status
+    _smart_schedule.target_temp_reached = false;
     
     // Calculate initial heating estimate immediately using current sensor temperature.
     // This provides instant UI feedback; the pump measurement cycle will refine it.
@@ -2002,6 +2004,28 @@ bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_
     Serial.print(_smart_schedule.last_heating_estimate);
     Serial.println(F(" hours"));
     
+    return true;
+}
+
+/**
+ * Update smart schedule heater behavior without resetting timing/calculation state
+ * @param keep_heater_on Keep heater on after target temperature is reached
+ * @return true if an active schedule was updated
+ */
+bool BWC::updateSmartScheduleKeepHeaterOn(bool keep_heater_on)
+{
+    if (!_smart_schedule.active)
+        return false;
+
+    if (_smart_schedule.keep_heater_on != keep_heater_on)
+    {
+        _smart_schedule.keep_heater_on = keep_heater_on;
+        _save_smartschedule_needed = true;
+        _new_data_available = true;
+        Serial.print(F("SmartSchedule: keep heater on updated to "));
+        Serial.println(keep_heater_on ? F("true") : F("false"));
+    }
+
     return true;
 }
 
@@ -2059,8 +2083,9 @@ void BWC::_resetSmartScheduleState()
     _smart_schedule.accurate_temperature = 0;
     _smart_schedule.temp_reading_state = 0;
     _smart_schedule.temp_reading_timer = 0;
-    _smart_schedule.original_pump_state = false;
+    _smart_schedule.temp_reading_started_pump = false;
     _smart_schedule.check_completed = false;
+    _smart_schedule.target_temp_reached = false;
     
     _save_smartschedule_needed = true;
     _new_data_available = true;
@@ -2074,7 +2099,7 @@ void BWC::getJSONSmartSchedule(String &rtn)
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    StaticJsonDocument<640> doc;
+    StaticJsonDocument<1024> doc;
     
     doc[F("CONTENT")] = F("SMARTSCHEDULE");
     doc[F("ACTIVE")] = _smart_schedule.active;
@@ -2092,6 +2117,15 @@ void BWC::getJSONSmartSchedule(String &rtn)
         if (buffer_hours < 1.0f) buffer_hours = 1.0f;
     }
     doc[F("BUFFER")] = buffer_hours;
+    float estimated_kWh = 0.0f;
+    float estimated_cost = 0.0f;
+    if (_smart_schedule.last_heating_estimate > 0 && _smart_schedule.last_heating_estimate < 999)
+    {
+        estimated_kWh = _smart_schedule.last_heating_estimate * 2.0f;
+        estimated_cost = estimated_kWh * (float)_price;
+    }
+    doc[F("ESTIMATED_KWH")] = estimated_kWh;
+    doc[F("ESTIMATED_COST")] = estimated_cost;
     doc[F("CHECKCOMPLETED")] = _smart_schedule.check_completed;
     doc[F("CURRENTTIME")] = _timestamp_secs;
     doc[F("CURRENTTEMP")] = cio->cio_states.temperature;
@@ -2209,6 +2243,41 @@ void BWC::_handleSmartSchedule()
         Serial.println(F("SmartSchedule: Schedule completed and deleted"));
         return;
     }
+
+    if (!_smart_schedule.keep_heater_on && _smart_schedule.target_temp_reached)
+    {
+        return;
+    }
+
+    if (!_smart_schedule.keep_heater_on &&
+        _smart_schedule.calculated_start_time > 0 &&
+        _timestamp_secs >= _smart_schedule.calculated_start_time &&
+        cio->cio_states.temperature >= _smart_schedule.target_temp)
+    {
+        bool heater_off_queued = true;
+        if (cio->cio_states.heat)
+        {
+            command_que_item item;
+            item.xtime = 0;
+            item.interval = 0;
+            item.text = "";
+            item.force = false;
+            item.cmd = SETHEATER;
+            item.val = 0;
+            heater_off_queued = add_command(item);
+            if (heater_off_queued)
+            {
+                Serial.println(F("SmartSchedule: Target temperature reached - heater off"));
+            }
+        }
+        if (heater_off_queued)
+        {
+            _smart_schedule.target_temp_reached = true;
+            _save_smartschedule_needed = true;
+            _new_data_available = true;
+        }
+        return;
+    }
     
     // Process temperature reading sequence if active
     if (_smart_schedule.temp_reading_state > 0)
@@ -2263,13 +2332,13 @@ void BWC::_handleSmartSchedule()
  */
 void BWC::_startAccurateTempReading()
 {
-    // Store original pump state
-    _smart_schedule.original_pump_state = cio->cio_states.pump;
+    _smart_schedule.temp_reading_started_pump = false;
     
     // Turn on pump if not already on
     if (!cio->cio_states.pump)
     {
         cio->cio_toggles.pump_change = 1;
+        _smart_schedule.temp_reading_started_pump = true;
     }
     
     // Set state to pump_on and start timer
@@ -2299,8 +2368,8 @@ void BWC::_processAccurateTempReading()
         
     case 2: // Reading complete
         {
-            // Restore pump state if we changed it
-            if (!_smart_schedule.original_pump_state && cio->cio_states.pump)
+            // Restore pump state only if this temp reading turned it on.
+            if (_smart_schedule.temp_reading_started_pump && cio->cio_states.pump)
             {
                 cio->cio_toggles.pump_change = 1; // Turn pump back off
                 Serial.println(F("SmartSchedule: Restoring pump state"));
@@ -2409,6 +2478,7 @@ void BWC::_processAccurateTempReading()
             
             // Reset temp reading state
             _smart_schedule.temp_reading_state = 0;
+            _smart_schedule.temp_reading_started_pump = false;
             
             _save_smartschedule_needed = true;
             _new_data_available = true;
@@ -2489,6 +2559,8 @@ void BWC::_loadSmartSchedule()
     
     // Reset temp reading state (don't persist this)
     _smart_schedule.temp_reading_state = 0;
+    _smart_schedule.temp_reading_started_pump = false;
+    _smart_schedule.target_temp_reached = false;
     
     // If target time has passed, deactivate
     if (_smart_schedule.active && _smart_schedule.target_time <= _timestamp_secs)

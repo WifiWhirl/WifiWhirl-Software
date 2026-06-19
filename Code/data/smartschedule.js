@@ -102,6 +102,7 @@ function displayScheduleStatus(data) {
       document.getElementById("statusEstimate").innerHTML =
         '<span style="color: #ff9800;">Unmöglich zu heizen (Umgebung zu kalt)</span>';
       document.getElementById("statusBuffer").textContent = "--";
+      document.getElementById("statusCost").textContent = "--";
     } else if (data.ESTIMATE > 0) {
       var estimateSeconds = Math.round(data.ESTIMATE * 3600);
       document.getElementById("statusEstimate").textContent =
@@ -110,11 +111,22 @@ function displayScheduleStatus(data) {
       var bufferSeconds = Math.round((data.BUFFER || 0) * 3600);
       document.getElementById("statusBuffer").textContent =
         bufferSeconds > 0 ? formatDuration(bufferSeconds) : "--";
+      var estimatedKwh = Number(data.ESTIMATED_KWH || 0);
+      var estimatedCost = Number(data.ESTIMATED_COST || 0);
+      document.getElementById("statusCost").textContent =
+        estimatedKwh > 0
+          ? estimatedCost.toFixed(2) + " € (" + estimatedKwh.toFixed(2) + " kWh)"
+          : "--";
     } else {
       document.getElementById("statusEstimate").textContent =
         "Bereits auf Temperatur";
       document.getElementById("statusBuffer").textContent = "--";
+      document.getElementById("statusCost").textContent = "0,00 € (0,00 kWh)";
     }
+
+    document.getElementById("activeKeepHeaterOn").value = data.KEEPON
+      ? "true"
+      : "false";
 
     // Display remaining heating time (live countdown while heater is running)
     // Use the same dynamic calculation as the dashboard ("Bereit in" / T2R)
@@ -321,6 +333,31 @@ function setSchedule() {
   };
 
   xhr.send(JSON.stringify(data));
+}
+
+/**
+ * Update heater behavior of the active smart schedule
+ */
+function updateKeepHeaterOn() {
+  const keepHeaterOn =
+    document.getElementById("activeKeepHeaterOn").value === "true";
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/updatesmartschedule/", true);
+  xhr.setRequestHeader("Content-Type", "application/json");
+
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        updateScheduleStatus();
+      } else {
+        alert("❌ Änderung konnte nicht gespeichert werden.");
+        updateScheduleStatus();
+      }
+    }
+  };
+
+  xhr.send(JSON.stringify({ KEEPON: keepHeaterOn }));
 }
 
 /**

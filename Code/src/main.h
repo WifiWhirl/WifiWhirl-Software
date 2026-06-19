@@ -125,6 +125,7 @@ void handleGetTemps();
 void handleUpdate();
 void handleGetSmartSchedule();
 void handleSetSmartSchedule();
+void handleUpdateSmartSchedule();
 void handleCancelSmartSchedule();
 void startMqtt();
 void mqttCallback(char *topic, byte *payload, unsigned int length);

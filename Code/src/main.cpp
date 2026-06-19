@@ -629,6 +629,7 @@ void startHttpServer()
     server->on(F("/hook/"), handleWebhook);
     server->on(F("/getsmartschedule/"), handleGetSmartSchedule);
     server->on(F("/setsmartschedule/"), handleSetSmartSchedule);
+    server->on(F("/updatesmartschedule/"), handleUpdateSmartSchedule);
     server->on(F("/cancelsmartschedule/"), handleCancelSmartSchedule);
     server->on(F("/getpolldata/"), handleGetPollData); // Polling fallback for WebSocket data
     server->on(F("/sendcommand/"), handleSendCommand); // Polling fallback for WebSocket commands
@@ -1072,7 +1073,8 @@ void handle_cmdq_file()
 
         // Validate JSON format - cmdq.json structure:
         // {"LEN":n,"CMD":[...],"VALUE":[...],"XTIME":[...],"INTERVAL":[...],"TXT":[...]}
-        DynamicJsonDocument validateDoc(data.length() + 256);
+        size_t validateCapacity = data.length() + JSON_OBJECT_SIZE(6) + (JSON_ARRAY_SIZE(MAXCOMMANDS) * 5) + 512;
+        DynamicJsonDocument validateDoc(validateCapacity);
         DeserializationError validateError = deserializeJson(validateDoc, data);
         if (validateError)
         {
@@ -1100,6 +1102,12 @@ void handle_cmdq_file()
 
         // Verify arrays have consistent length
         size_t len = root[F("LEN")].as<size_t>();
+        if (len > MAXCOMMANDS)
+        {
+            server->send(400, F("text/plain"), F("Warteschlange enthält zu viele Befehle (max. 20)"));
+            return;
+        }
+
         if (!root[F("CMD")].is<JsonArray>() || !root[F("VALUE")].is<JsonArray>() ||
             !root[F("XTIME")].is<JsonArray>() || !root[F("INTERVAL")].is<JsonArray>())
         {
@@ -1116,6 +1124,18 @@ void handle_cmdq_file()
             timeArr.size() != len || intArr.size() != len)
         {
             server->send(400, F("text/plain"), F("Array-Längen stimmen nicht mit LEN überein"));
+            return;
+        }
+
+        if (root.containsKey(F("TXT")) && !root[F("TXT")].is<JsonArray>())
+        {
+            server->send(400, F("text/plain"), F("TXT muss ein Array sein"));
+            return;
+        }
+
+        if (root.containsKey(F("TXT")) && root[F("TXT")].as<JsonArray>().size() != len)
+        {
+            server->send(400, F("text/plain"), F("TXT-Länge stimmt nicht mit LEN überein"));
             return;
         }
 
@@ -1217,6 +1237,41 @@ void handleSetSmartSchedule()
     else
     {
         server->send(400, F("text/plain"), F("Invalid schedule parameters or NTP not synced"));
+    }
+}
+
+/**
+ * response for /updatesmartschedule/
+ * update editable smart schedule options without recreating the schedule
+ */
+void handleUpdateSmartSchedule()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+
+    StaticJsonDocument<128> doc;
+    String message = server->arg(0);
+    DeserializationError error = deserializeJson(doc, message);
+    if (error)
+    {
+        server->send(400, F("text/plain"), F("Error deserializing message"));
+        return;
+    }
+
+    if (!doc.containsKey(F("KEEPON")))
+    {
+        server->send(400, F("text/plain"), F("Missing KEEPON"));
+        return;
+    }
+
+    bool keep_heater_on = doc[F("KEEPON")];
+    if (bwc->updateSmartScheduleKeepHeaterOn(keep_heater_on))
+    {
+        server->send(200, F("text/plain"), F("Schedule updated successfully"));
+    }
+    else
+    {
+        server->send(404, F("text/plain"), F("No active schedule"));
     }
 }
 

@@ -68,7 +68,7 @@
                 <option value="11">Hydrojet ein/aus</option>
                 <option value="22">Pumpe ein/aus</option>
                 <option value="23">Tastensperre ein/aus</option>
-                <option value="26">Bedientasten ein/aus</option>
+                <option value="26">Bedientasten sperren</option>
                 <option value="12">Displayhelligkeit festlegen</option>
                 <option value="19">Text ausgeben</option>
               </select>
@@ -154,7 +154,7 @@
         </table>
       </section>
 
-      <section style="text-align: left">
+      <section class="odd-section" style="text-align: left">
         <h2>Befehlswarteschlange</h2>
         <table id="cmdq" width="100%" style="border-spacing: 0">
           <tr class="queueeven">
@@ -238,7 +238,7 @@
         "Tastensperre",
         "",
         "",
-        "Bedientasten aktivieren/deaktivieren",
+        "Bedientasten sperren",
       ];
 
       // Initialize page
@@ -339,7 +339,15 @@
           document.getElementById("offinfo").style.display = "inline";
           document.getElementById("valoff").style.display = "inline";
           document.getElementById("displayinfo").style.display = "none";
-          varlabel.innerHTML = "ein-/ausschalten:";
+          if (select.value == 26) {
+            varlabel.innerHTML = "Bedientasten:";
+            document.getElementById("onoffinfo").innerHTML = "sperren";
+            document.getElementById("offinfo").innerHTML = "entsperren";
+          } else {
+            varlabel.innerHTML = "ein-/ausschalten:";
+            document.getElementById("onoffinfo").innerHTML = "ein";
+            document.getElementById("offinfo").innerHTML = "aus";
+          }
           varinput.setAttribute("type", "radio");
           varinput.checked = true;
           varinput.value = 1;
@@ -377,6 +385,9 @@
             'input[name="val"]:checked',
           );
           valueToSend = checkedInput ? parseFloat(checkedInput.value) : 0;
+          if (commandValue === 26) {
+            valueToSend = valueToSend ? 0 : 1;
+          }
         }
         // Safely parse time and interval, providing defaults if parsing fails
         const parsedTime =
@@ -394,6 +405,14 @@
           INTERVAL: intervalToSend,
           TXT: document.getElementById("txt").value,
         };
+      }
+
+      function formatCommandValue(cmd, value) {
+        if (cmd == 26) {
+          return value == 0 ? "sperren" : "entsperren";
+        }
+
+        return value == 1 ? "einschalten" : value == 0 ? "ausschalten" : value;
       }
 
       let dateoptions = {
@@ -440,11 +459,7 @@
                 "<strong>" +
                 commandlist[json["CMD"][i]] +
                 " " +
-                (json["VALUE"][i] == 1
-                  ? "einschalten"
-                  : json["VALUE"][i] == 0
-                    ? "ausschalten"
-                    : json["VALUE"][i]) +
+                formatCommandValue(json["CMD"][i], json["VALUE"][i]) +
                 "</strong><br>" +
                 "Nächste Ausführung: " +
                 new Intl.DateTimeFormat(undefined, dateoptions).format(date) +
