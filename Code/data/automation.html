@@ -253,11 +253,10 @@
           if (this.readyState == 4 && this.status == 200) {
             var json = JSON.parse(req.responseText);
             // Hide Hydrojet command if hardware has no jets
-            const hydroOption = document.querySelector(
-              "#commands option[value='11']",
-            );
-            if (hydroOption)
-              hydroOption.style.display = json.HASJETS ? "" : "none";
+            const select = document.getElementById("commands");
+            const hydroOption = select.querySelector('option[value="11"]');
+            if (hydroOption && !json.HASJETS)
+              hydroOption.remove()
           }
         };
 
