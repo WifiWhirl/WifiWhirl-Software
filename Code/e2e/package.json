@@ -1,0 +1,14 @@
+{
+  "name": "wifiwhirl-real-module-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright E2E tests for a real WifiWhirl module.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.0"
+  }
+}
