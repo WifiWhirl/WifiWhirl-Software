@@ -9,3 +9,6 @@ fw/firmware.bin
 datazip
 data/wifi.json
 data/hwcfg.json
+
+# PlatformIO Override File
+platformio_override.ini
