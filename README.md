@@ -154,6 +154,13 @@ Du möchtest helfen, WifiWhirl zu verbessern? Beiträge sind willkommen!
 
 Bei größeren Änderungen oder neuen Features eröffne bitte zuerst ein [Issue](https://github.com/WifiWhirl/WifiWhirl-Software/issues), um die Idee zu diskutieren.
 
+**Einmalige Einrichtung der Pre-Commit-Hooks** (Secret-Scanning via [gitleaks](https://github.com/gitleaks/gitleaks) und Linting der Python-Build-Skripte via [ruff](https://github.com/astral-sh/ruff)):
+```bash
+pip install pre-commit
+pre-commit install
+```
+Ab dann laufen beide Checks automatisch vor jedem Commit.
+
 ---
 
 ## 📄 Lizenz
