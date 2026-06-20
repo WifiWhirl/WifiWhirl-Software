@@ -98,6 +98,11 @@ async function getWebhookStates(request) {
   return getJsonWithRetry(request, "/getstates/");
 }
 
+async function setConfig(request, config) {
+  const response = await request.post("/setconfig/", { data: config });
+  expect(response.ok(), `/setconfig/ returned ${response.status()}`).toBeTruthy();
+}
+
 async function waitForPolledValue(getter, expected, options = {}) {
   const timeout = options.timeout || 90 * 1000;
   const intervals = options.intervals || [3000, 5000, 7000];
@@ -142,6 +147,7 @@ async function expectAlertFromEvaluate(page, callback, expectedText) {
 }
 
 test.describe("WifiWhirl real module smoke tests", () => {
+  // Read-only status, config, and diagnostics endpoints
   test("read-only backend endpoints respond with expected shapes", async ({ request }) => {
     const statesResponse = await request.get("/gettemps/");
     expect(
@@ -281,6 +287,52 @@ test.describe("WifiWhirl real module smoke tests", () => {
     );
   });
 
+  test("info endpoint reports ESP diagnostics", async ({ request }) => {
+    const response = await request.post("/info/");
+    expect(response.ok(), `/info/ returned ${response.status()}`).toBeTruthy();
+    const body = await response.text();
+    expect(body).toContain("Stack size:");
+    expect(body).toContain("Free Heap:");
+    await waitForEspToSettle();
+  });
+
+  test("static assets and manifest are served", async ({ request }) => {
+    const manifest = await request.get("/manifest.json");
+    expect(manifest.ok(), `/manifest.json returned ${manifest.status()}`).toBeTruthy();
+    const manifestBody = await manifest.json();
+    expect(manifestBody).toEqual(
+      expect.objectContaining({
+        name: expect.any(String),
+      }),
+    );
+
+    for (const asset of ["/main.css", "/function.js", "/logo.png"]) {
+      const response = await request.get(asset);
+      expect(response.ok(), `${asset} returned ${response.status()}`).toBeTruthy();
+      expect(Number(response.headers()["content-length"] || 1)).toBeGreaterThan(0);
+    }
+  });
+
+  test("system info assets and prometheus metrics are served", async ({ request }) => {
+    const infoPage = await request.get("/info.html");
+    expect(infoPage.ok(), `/info.html returned ${infoPage.status()}`).toBeTruthy();
+    await expect(infoPage.text()).resolves.toContain("Softwareinfo");
+
+    for (const asset of ["/favicon.ico", "/Roboto-Regular.woff", "/Roboto-Regular.eot", "/furelise.mel", "/popcorn.mel"]) {
+      const response = await request.get(asset);
+      expect(response.ok(), `${asset} returned ${response.status()}`).toBeTruthy();
+      expect(Number(response.headers()["content-length"] || 1)).toBeGreaterThan(0);
+    }
+
+    const metrics = await request.get("/metrics");
+    expect(metrics.ok(), `/metrics returned ${metrics.status()}`).toBeTruthy();
+    const metricsText = await metrics.text();
+    expect(metricsText).toContain("# HELP");
+    expect(metricsText).toContain("_info");
+    expect(metricsText).toContain("_temperature_celcius");
+  });
+
+  // Webhook and command-queue API
   test("webhook endpoints enforce GET and reject invalid hook payloads", async ({ request }) => {
     for (const path of ["/hook/", "/getstates/", "/gettemps/"]) {
       const response = await request.post(path, { data: {} });
@@ -409,6 +461,82 @@ test.describe("WifiWhirl real module smoke tests", () => {
     }
   });
 
+  test("safe future text command can be added, edited, and deleted", async ({ request }) => {
+    const uniqueText = `e2e${Date.now().toString(36).slice(-8)}`;
+    const editedText = `${uniqueText}x`;
+    let activeText = uniqueText;
+
+    const addResponse = await request.post("/addcommand/", {
+      data: {
+        CMD: 19,
+        VALUE: 1,
+        XTIME: futureTimestamp(),
+        INTERVAL: 0,
+        TXT: uniqueText,
+      },
+    });
+
+    if (addResponse.status() === 409) {
+      test.skip(true, "Command queue is full on the target module.");
+    }
+    expect(addResponse.ok(), `/addcommand/ returned ${addResponse.status()}`).toBeTruthy();
+    await waitForEspToSettle();
+
+    try {
+      let queue = await postJson(request, "/getcommands/");
+      let index = findCommandIndex(
+        queue,
+        (item) => item.cmd === 19 && item.text === uniqueText,
+      );
+      expect(index, "added text command should be present").toBeGreaterThanOrEqual(0);
+
+      const editResponse = await request.post("/editcommand/", {
+        data: {
+          IDX: index,
+          CMD: 19,
+          VALUE: 1,
+          XTIME: futureTimestamp(8 * 24 * 60 * 60),
+          INTERVAL: 0,
+          TXT: editedText,
+        },
+      });
+      expect(editResponse.ok(), `/editcommand/ returned ${editResponse.status()}`).toBeTruthy();
+      activeText = editedText;
+      await waitForEspToSettle();
+
+      queue = await postJson(request, "/getcommands/");
+      index = findCommandIndex(
+        queue,
+        (item) => item.cmd === 19 && item.text === editedText,
+      );
+      expect(index, "edited text command should be present").toBeGreaterThanOrEqual(0);
+
+      const deleteResponse = await request.post("/delcommand/", {
+        data: { IDX: index },
+      });
+      expect(deleteResponse.ok(), `/delcommand/ returned ${deleteResponse.status()}`).toBeTruthy();
+      activeText = "";
+      await waitForEspToSettle();
+
+      queue = await postJson(request, "/getcommands/");
+      expect(
+        findCommandIndex(queue, (item) => item.cmd === 19 && item.text === editedText),
+      ).toBe(-1);
+    } finally {
+      if (activeText) {
+        const queue = await postJson(request, "/getcommands/");
+        const index = findCommandIndex(
+          queue,
+          (item) => item.cmd === 19 && item.text === activeText,
+        );
+        if (index >= 0) {
+          await request.post("/delcommand/", { data: { IDX: index } });
+          await waitForEspToSettle();
+        }
+      }
+    }
+  });
+
   test("command queue can download and rejects invalid restore payload", async ({ request }) => {
     const downloaded = await postJson(request, "/cmdq_file/", { ACT: "download" });
     expect(downloaded).toEqual(expect.any(Object));
@@ -466,6 +594,7 @@ test.describe("WifiWhirl real module smoke tests", () => {
     }
   });
 
+  // Smart schedule API and UI
   test("smart schedule API rejects invalid updates without creating schedules", async ({ request }) => {
     const pastSchedule = await request.post("/setsmartschedule/", {
       data: {
@@ -495,6 +624,89 @@ test.describe("WifiWhirl real module smoke tests", () => {
     await waitForEspToSettle();
   });
 
+  test("smart schedule can be created, verified, and cancelled", async ({ request }) => {
+    const existing = await postJson(request, "/getsmartschedule/");
+    if (existing.ACTIVE) {
+      await request.post("/cancelsmartschedule/");
+      await waitForEspToSettle();
+    }
+
+    const targetTime = futureTimestamp();
+    const targetTemp = 37;
+    let scheduleActive = false;
+
+    try {
+      const setResponse = await request.post("/setsmartschedule/", {
+        data: { TARGETTIME: targetTime, TARGETTEMP: targetTemp, KEEPON: false },
+      });
+      expect(setResponse.ok(), `/setsmartschedule/ returned ${setResponse.status()}`).toBeTruthy();
+      await expect(setResponse.text()).resolves.toContain("Schedule set successfully");
+      scheduleActive = true;
+      await waitForEspToSettle();
+
+      const schedule = await postJson(request, "/getsmartschedule/");
+      expect(schedule).toEqual(
+        expect.objectContaining({
+          ACTIVE: true,
+          TARGETTIME: targetTime,
+          TARGETTEMP: targetTemp,
+          KEEPON: false,
+        }),
+      );
+    } finally {
+      if (scheduleActive) {
+        const cancelResponse = await request.post("/cancelsmartschedule/");
+        expect(cancelResponse.ok(), `/cancelsmartschedule/ returned ${cancelResponse.status()}`).toBeTruthy();
+        await expect(cancelResponse.text()).resolves.toContain("Schedule cancelled");
+        await waitForEspToSettle();
+
+        const scheduleAfterCancel = await postJson(request, "/getsmartschedule/");
+        expect(scheduleAfterCancel.ACTIVE).toBe(false);
+      }
+    }
+  });
+
+  test("smart schedule exposes cost estimate and editable heater target behavior", async ({ page }) => {
+    await page.goto("/smartschedule.html", { waitUntil: "domcontentloaded" });
+
+    await expect(page.locator("#statusCost")).toBeAttached();
+    await expect(page.locator("#activeKeepHeaterOn")).toBeAttached();
+    await expect(page.locator("#keepHeaterOn")).toBeVisible();
+
+    await expect(page.locator("#keepHeaterOn option")).toHaveText([
+      "Heizung ausschalten",
+      "Heizung eingeschaltet lassen",
+    ]);
+  });
+
+  test("smart schedule client-side validation blocks unsafe submissions", async ({ page }) => {
+    await page.goto("/smartschedule.html", { waitUntil: "domcontentloaded" });
+
+    await page.locator("#targetDateTime").fill("");
+    await expectAlertFromEvaluate(
+      page,
+      () => window.setSchedule(),
+      "Datum und Uhrzeit",
+    );
+
+    await page.locator("#targetDateTime").fill("2099-01-01T19:00");
+    await page.locator("#targetTemp").fill("99");
+    await expectAlertFromEvaluate(
+      page,
+      () => window.setSchedule(),
+      "zwischen 20°C und 40°C",
+    );
+
+    await page.locator("#targetDateTime").fill("2000-01-01T19:00");
+    await page.locator("#targetTemp").fill("37");
+    await expectAlertFromEvaluate(
+      page,
+      () => window.setSchedule(),
+      "Zielzeit muss in der Zukunft",
+    );
+  });
+
+  // Hardware-facing state changes (target temp, brightness, lock)
   test("target temperature and brightness can be changed and restored", async ({ request }) => {
     const originalStates = await getPollStates(request);
     const originalTarget = originalStates.TGT;
@@ -585,82 +797,55 @@ test.describe("WifiWhirl real module smoke tests", () => {
     }
   });
 
-  test("safe future text command can be added, edited, and deleted", async ({ request }) => {
-    const uniqueText = `e2e${Date.now().toString(36).slice(-8)}`;
-    const editedText = `${uniqueText}x`;
-    let activeText = uniqueText;
-
-    const addResponse = await request.post("/addcommand/", {
-      data: {
-        CMD: 19,
-        VALUE: 1,
-        XTIME: futureTimestamp(),
-        INTERVAL: 0,
-        TXT: uniqueText,
-      },
-    });
-
-    if (addResponse.status() === 409) {
-      test.skip(true, "Command queue is full on the target module.");
-    }
-    expect(addResponse.ok(), `/addcommand/ returned ${addResponse.status()}`).toBeTruthy();
-    await waitForEspToSettle();
+  // Settings (/getconfig//setconfig/) round trips
+  test("configurable timezone can be changed and restored", async ({ request }) => {
+    const originalConfig = await postJson(request, "/getconfig/");
+    const newTimezone = { TIMEZONE: "UTC0", TIMEZONE_NAME: "UTC" };
 
     try {
-      let queue = await postJson(request, "/getcommands/");
-      let index = findCommandIndex(
-        queue,
-        (item) => item.cmd === 19 && item.text === uniqueText,
-      );
-      expect(index, "added text command should be present").toBeGreaterThanOrEqual(0);
-
-      const editResponse = await request.post("/editcommand/", {
-        data: {
-          IDX: index,
-          CMD: 19,
-          VALUE: 1,
-          XTIME: futureTimestamp(8 * 24 * 60 * 60),
-          INTERVAL: 0,
-          TXT: editedText,
-        },
-      });
-      expect(editResponse.ok(), `/editcommand/ returned ${editResponse.status()}`).toBeTruthy();
-      activeText = editedText;
+      await setConfig(request, { ...originalConfig, ...newTimezone });
       await waitForEspToSettle();
 
-      queue = await postJson(request, "/getcommands/");
-      index = findCommandIndex(
-        queue,
-        (item) => item.cmd === 19 && item.text === editedText,
-      );
-      expect(index, "edited text command should be present").toBeGreaterThanOrEqual(0);
-
-      const deleteResponse = await request.post("/delcommand/", {
-        data: { IDX: index },
-      });
-      expect(deleteResponse.ok(), `/delcommand/ returned ${deleteResponse.status()}`).toBeTruthy();
-      activeText = "";
-      await waitForEspToSettle();
-
-      queue = await postJson(request, "/getcommands/");
-      expect(
-        findCommandIndex(queue, (item) => item.cmd === 19 && item.text === editedText),
-      ).toBe(-1);
+      const updatedConfig = await postJson(request, "/getconfig/");
+      expect(updatedConfig).toEqual(expect.objectContaining(newTimezone));
     } finally {
-      if (activeText) {
-        const queue = await postJson(request, "/getcommands/");
-        const index = findCommandIndex(
-          queue,
-          (item) => item.cmd === 19 && item.text === activeText,
-        );
-        if (index >= 0) {
-          await request.post("/delcommand/", { data: { IDX: index } });
-          await waitForEspToSettle();
-        }
-      }
+      await setConfig(request, originalConfig);
+      await waitForEspToSettle();
+
+      const restoredConfig = await postJson(request, "/getconfig/");
+      expect(restoredConfig).toEqual(
+        expect.objectContaining({
+          TIMEZONE: originalConfig.TIMEZONE,
+          TIMEZONE_NAME: originalConfig.TIMEZONE_NAME,
+        }),
+      );
     }
   });
 
+  test("weather endpoint returns the city name for German and Austrian PLZ", async ({ request }) => {
+    const originalConfig = await postJson(request, "/getconfig/");
+    const plzCodes = ["48268", "1010"];
+
+    try {
+      for (const plz of plzCodes) {
+        await setConfig(request, { ...originalConfig, PLZ: plz });
+        await waitForEspToSettle();
+
+        const weatherResponse = await request.get("/getweather/");
+        expect(
+          weatherResponse.ok(),
+          `/getweather/ for PLZ ${plz} returned ${weatherResponse.status()}`,
+        ).toBeTruthy();
+        const cityName = await weatherResponse.text();
+        expect(cityName.trim().length, `/getweather/ for PLZ ${plz} returned no city name`).toBeGreaterThan(0);
+      }
+    } finally {
+      await setConfig(request, originalConfig);
+      await waitForEspToSettle();
+    }
+  });
+
+  // Pages and frontend UI behavior
   test("dashboard and navigation pages load without unsafe control actions", async ({ page }) => {
     const pages = [
       { path: "/", title: "WifiWhirl" },
@@ -680,44 +865,20 @@ test.describe("WifiWhirl real module smoke tests", () => {
     }
   });
 
-  test("smart schedule exposes cost estimate and editable heater target behavior", async ({ page }) => {
-    await page.goto("/smartschedule.html", { waitUntil: "domcontentloaded" });
+  test("configuration pages use alternating section styling", async ({ page }) => {
+    const pages = [
+      "/config.html",
+      "/automation.html",
+      "/smartschedule.html",
+      "/webconfig.html",
+      "/wifi.html",
+      "/hwconfig.html",
+    ];
 
-    await expect(page.locator("#statusCost")).toBeAttached();
-    await expect(page.locator("#activeKeepHeaterOn")).toBeAttached();
-    await expect(page.locator("#keepHeaterOn")).toBeVisible();
-
-    await expect(page.locator("#keepHeaterOn option")).toHaveText([
-      "Heizung ausschalten",
-      "Heizung eingeschaltet lassen",
-    ]);
-  });
-
-  test("smart schedule client-side validation blocks unsafe submissions", async ({ page }) => {
-    await page.goto("/smartschedule.html", { waitUntil: "domcontentloaded" });
-
-    await page.locator("#targetDateTime").fill("");
-    await expectAlertFromEvaluate(
-      page,
-      () => window.setSchedule(),
-      "Datum und Uhrzeit",
-    );
-
-    await page.locator("#targetDateTime").fill("2099-01-01T19:00");
-    await page.locator("#targetTemp").fill("99");
-    await expectAlertFromEvaluate(
-      page,
-      () => window.setSchedule(),
-      "zwischen 20°C und 40°C",
-    );
-
-    await page.locator("#targetDateTime").fill("2000-01-01T19:00");
-    await page.locator("#targetTemp").fill("37");
-    await expectAlertFromEvaluate(
-      page,
-      () => window.setSchedule(),
-      "Zielzeit muss in der Zukunft",
-    );
+    for (const path of pages) {
+      await page.goto(path, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("section.odd-section").first()).toBeVisible();
+    }
   });
 
   test("automation UI uses the safe Bedientasten sperren wording", async ({ page }) => {
@@ -852,58 +1013,6 @@ test.describe("WifiWhirl real module smoke tests", () => {
         });
         expect(overflow, `${path} overflows at ${viewport.width}px`).toBeLessThanOrEqual(2);
       }
-    }
-  });
-
-  test("static assets and manifest are served", async ({ request }) => {
-    const manifest = await request.get("/manifest.json");
-    expect(manifest.ok(), `/manifest.json returned ${manifest.status()}`).toBeTruthy();
-    const manifestBody = await manifest.json();
-    expect(manifestBody).toEqual(
-      expect.objectContaining({
-        name: expect.any(String),
-      }),
-    );
-
-    for (const asset of ["/main.css", "/function.js", "/logo.png"]) {
-      const response = await request.get(asset);
-      expect(response.ok(), `${asset} returned ${response.status()}`).toBeTruthy();
-      expect(Number(response.headers()["content-length"] || 1)).toBeGreaterThan(0);
-    }
-  });
-
-  test("system info assets and prometheus metrics are served", async ({ request }) => {
-    const infoPage = await request.get("/info.html");
-    expect(infoPage.ok(), `/info.html returned ${infoPage.status()}`).toBeTruthy();
-    await expect(infoPage.text()).resolves.toContain("Softwareinfo");
-
-    for (const asset of ["/favicon.ico", "/Roboto-Regular.woff", "/Roboto-Regular.eot", "/furelise.mel", "/popcorn.mel"]) {
-      const response = await request.get(asset);
-      expect(response.ok(), `${asset} returned ${response.status()}`).toBeTruthy();
-      expect(Number(response.headers()["content-length"] || 1)).toBeGreaterThan(0);
-    }
-
-    const metrics = await request.get("/metrics");
-    expect(metrics.ok(), `/metrics returned ${metrics.status()}`).toBeTruthy();
-    const metricsText = await metrics.text();
-    expect(metricsText).toContain("# HELP");
-    expect(metricsText).toContain("_info");
-    expect(metricsText).toContain("_temperature_celcius");
-  });
-
-  test("configuration pages use alternating section styling", async ({ page }) => {
-    const pages = [
-      "/config.html",
-      "/automation.html",
-      "/smartschedule.html",
-      "/webconfig.html",
-      "/wifi.html",
-      "/hwconfig.html",
-    ];
-
-    for (const path of pages) {
-      await page.goto(path, { waitUntil: "domcontentloaded" });
-      await expect(page.locator("section.odd-section").first()).toBeVisible();
     }
   });
 });
