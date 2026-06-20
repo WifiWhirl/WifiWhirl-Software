@@ -1117,15 +1117,23 @@ void BWC::setJSONSettings(const String &message)
         return;
     }
 
-    // Copy values from the JsonDocument to the variables
-    _price = doc[F("PRICE")];
-    _cl_interval = doc[F("CLINT")];
-    _filter_interval = doc[F("FINT")];
-    _fc_interval = doc[F("FCINT")];
-    _wc_interval = doc[F("WCINT")];
+    // Copy values from the JsonDocument to the variables.
+    // Only assign keys actually present in the POST body, otherwise a partial
+    // update clobbers untouched settings to 0/false.
+    if (doc.containsKey(F("PRICE")))
+        _price = doc[F("PRICE")];
+    if (doc.containsKey(F("CLINT")))
+        _cl_interval = doc[F("CLINT")];
+    if (doc.containsKey(F("FINT")))
+        _filter_interval = doc[F("FINT")];
+    if (doc.containsKey(F("FCINT")))
+        _fc_interval = doc[F("FCINT")];
+    if (doc.containsKey(F("WCINT")))
+        _wc_interval = doc[F("WCINT")];
     if (doc.containsKey(F("PHINT")))
         _ph_interval = doc[F("PHINT")];
-    _audio_enabled = doc[F("AUDIO")];
+    if (doc.containsKey(F("AUDIO")))
+        _audio_enabled = doc[F("AUDIO")];
     if (doc.containsKey(F("TIMEZONE")))
         _timezone = doc[F("TIMEZONE")].as<String>();
     if (_timezone.length() == 0)
@@ -1135,9 +1143,12 @@ void BWC::setJSONSettings(const String &message)
     if (_timezone_name.length() == 0)
         _timezone_name = defaultTimezoneName;
     applyTimezone();
-    _plz = doc[F("PLZ")].as<String>();
-    _weather = doc[F("WEATHER")];
-    _pool_capacity = doc[F("POOLCAP")];
+    if (doc.containsKey(F("PLZ")))
+        _plz = doc[F("PLZ")].as<String>();
+    if (doc.containsKey(F("WEATHER")))
+        _weather = doc[F("WEATHER")];
+    if (doc.containsKey(F("POOLCAP")))
+        _pool_capacity = doc[F("POOLCAP")];
     // Airjet timeout: 5-30 minutes, default 30
     if (doc.containsKey(F("AIRTO")))
     {
@@ -1150,16 +1161,26 @@ void BWC::setJSONSettings(const String &message)
         uint8_t val = doc[F("HJTO")];
         _hydrojet_timeout_minutes = (val >= 5 && val <= 60) ? val : 60;
     }
-    dsp->EnabledButtons[LOCK] = doc[F("LCK")];
-    dsp->EnabledButtons[TIMER] = doc[F("TMR")];
-    dsp->EnabledButtons[BUBBLES] = doc[F("AIR")];
-    dsp->EnabledButtons[UNIT] = doc[F("UNT")];
-    dsp->EnabledButtons[HEAT] = doc[F("HTR")];
-    dsp->EnabledButtons[PUMP] = doc[F("FLT")];
-    dsp->EnabledButtons[DOWN] = doc[F("DN")];
-    dsp->EnabledButtons[UP] = doc[F("UP")];
-    dsp->EnabledButtons[POWER] = doc[F("PWR")];
-    dsp->EnabledButtons[HYDROJETS] = doc[F("HJT")];
+    if (doc.containsKey(F("LCK")))
+        dsp->EnabledButtons[LOCK] = doc[F("LCK")];
+    if (doc.containsKey(F("TMR")))
+        dsp->EnabledButtons[TIMER] = doc[F("TMR")];
+    if (doc.containsKey(F("AIR")))
+        dsp->EnabledButtons[BUBBLES] = doc[F("AIR")];
+    if (doc.containsKey(F("UNT")))
+        dsp->EnabledButtons[UNIT] = doc[F("UNT")];
+    if (doc.containsKey(F("HTR")))
+        dsp->EnabledButtons[HEAT] = doc[F("HTR")];
+    if (doc.containsKey(F("FLT")))
+        dsp->EnabledButtons[PUMP] = doc[F("FLT")];
+    if (doc.containsKey(F("DN")))
+        dsp->EnabledButtons[DOWN] = doc[F("DN")];
+    if (doc.containsKey(F("UP")))
+        dsp->EnabledButtons[UP] = doc[F("UP")];
+    if (doc.containsKey(F("PWR")))
+        dsp->EnabledButtons[POWER] = doc[F("PWR")];
+    if (doc.containsKey(F("HJT")))
+        dsp->EnabledButtons[HYDROJETS] = doc[F("HJT")];
     saveSettings();
     _loadSettings();
 }
