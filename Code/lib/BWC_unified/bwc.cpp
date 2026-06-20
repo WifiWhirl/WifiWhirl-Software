@@ -2074,8 +2074,11 @@ void BWC::cancelSmartSchedule()
         Serial.println(F("SmartSchedule: Cancel - Queued heater off"));
     }
     
-    // Turn off pump if it's running (either from temp reading or heating phase)
-    if (cio->cio_states.pump)
+    // Turn off pump if it's running (either from temp reading or heating phase).
+    // temp_reading_state == 1 means the reading cycle just fired pump_change but the
+    // hardware hasn't settled yet, so cio_states.pump still reads false -> force it off
+    // anyway, otherwise the pump lands on after the schedule is already gone.
+    if (cio->cio_states.pump || _smart_schedule.temp_reading_state == 1)
     {
         item.cmd = SETPUMP;
         item.val = 0;
