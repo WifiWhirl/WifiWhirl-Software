@@ -1,0 +1,8 @@
+# PlatformIO's extra_scripts inject these at build time via Import("env");
+# ruff can't see that, so they'd otherwise look undefined.
+builtins = ["Import", "env"]
+
+[lint.per-file-ignores]
+# Import("env") must be the first statement per PlatformIO convention.
+"embed_files.py" = ["E402"]
+"gzip_littlefs.py" = ["E402"]

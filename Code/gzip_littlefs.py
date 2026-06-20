@@ -18,7 +18,8 @@ Runtime files created by firmware (not included here):
 """
 
 Import("env")
-import shutil, os
+import os
+import shutil
 
 # Files that should be included in the LittleFS filesystem image
 # These are default/initial configuration files
