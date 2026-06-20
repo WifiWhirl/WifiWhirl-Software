@@ -1,4 +1,6 @@
-#include "main.h"
+#include "net/net.h"
+#include "api/api.h"
+#include "web/web.h"
 
 static String mqttTopicMessage;
 static String mqttTopicTimes;

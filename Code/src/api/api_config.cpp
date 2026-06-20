@@ -1,4 +1,6 @@
-#include "main.h"
+#include "api/api.h"
+#include "web/web.h"
+#include "net/net.h"
 
 /**
  * response for /getconfig/

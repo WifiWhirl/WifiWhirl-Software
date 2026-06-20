@@ -1,4 +1,5 @@
-#include "main.h"
+#include "api/api.h"
+#include "web/web.h"
 
 /**
  * response for /getsmartschedule/

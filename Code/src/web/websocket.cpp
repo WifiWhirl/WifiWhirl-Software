@@ -1,4 +1,5 @@
-#include "main.h"
+#include "web/web.h"
+#include "api/api.h"
 
 /**
  * Send status data to web client in JSON format (because it is easy to decode on the other side)

@@ -1,4 +1,7 @@
-#include "main.h"
+#include "web/web.h"
+#include "net/net.h"
+#include "sys/sys.h"
+#include "api/api.h"
 
 /**
  * start a HTTP server with a file read and upload handler

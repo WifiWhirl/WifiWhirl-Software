@@ -1,4 +1,8 @@
 #include "main.h"
+#include "net/net.h"
+#include "web/web.h"
+#include "sys/sys.h"
+#include "api/api.h"
 
 BWC *bwc;
 char *stack_start;
