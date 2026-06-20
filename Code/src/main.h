@@ -74,7 +74,12 @@ extern bool haDiscoveryHasRunOnce;
 // --- Weather state ---
 extern uint64_t ambExpires;
 
+// --- OTA / firmware update server ---
+extern ESP8266HTTPUpdateServer httpUpdater;
+
 command_que_item parseCommandFromJson(const JsonVariantConst &src);
+void handleGetPollData();
+void handleSendCommand();
 void sendWS();
 void getOtherInfo(String &rtn);
 void sendMQTT();
