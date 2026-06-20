@@ -797,6 +797,67 @@ test.describe("WifiWhirl real module smoke tests", () => {
     }
   });
 
+  test("heater turns the pump on automatically, and the pump stays on after the heater is turned off", async ({ request }) => {
+    try {
+      await sendCommand(request, { CMD: 3, VALUE: 1 });
+      await waitForHardwareCommandToApply();
+
+      // "heater" is true whether the unit is still heating (red) or has already
+      // reached the target temperature (green) - either way the heater is on.
+      const heaterOnResult = await waitForPolledValue(
+        async () => Boolean((await getWebhookStates(request)).heater),
+        true,
+      );
+      expect(
+        heaterOnResult.matched,
+        `Heater command was accepted, but the module still reports ${JSON.stringify(heaterOnResult.lastValue)}.`,
+      ).toBeTruthy();
+
+      const pumpOnResult = await waitForPolledValue(
+        async () => Boolean((await getWebhookStates(request)).pump),
+        true,
+      );
+      expect(
+        pumpOnResult.matched,
+        `Heater turned on, but the pump still reports ${JSON.stringify(pumpOnResult.lastValue)}.`,
+      ).toBeTruthy();
+
+      await sendCommand(request, { CMD: 3, VALUE: 0 });
+      await waitForHardwareCommandToApply();
+      const heaterOffResult = await waitForPolledValue(
+        async () => Boolean((await getWebhookStates(request)).heater),
+        false,
+      );
+      expect(
+        heaterOffResult.matched,
+        `Heater-off command was accepted, but the module still reports ${JSON.stringify(heaterOffResult.lastValue)}.`,
+      ).toBeTruthy();
+
+      // Expected behaviour: turning the heater off does not turn the pump off.
+      expect(
+        Boolean((await getWebhookStates(request)).pump),
+        "pump should remain on after the heater is turned off",
+      ).toBe(true);
+    } finally {
+      // The heater must be off before a pump-off command is allowed through.
+      await sendCommand(request, { CMD: 3, VALUE: 0 });
+      await waitForHardwareCommandToApply();
+      await expectPolledValue(
+        async () => Boolean((await getWebhookStates(request)).heater),
+        false,
+        "heater should be off after the test",
+      );
+
+      await sendCommand(request, { CMD: 4, VALUE: 0 });
+      await waitForHardwareCommandToApply();
+      await expectPolledValue(
+        async () => Boolean((await getWebhookStates(request)).pump),
+        false,
+        "pump should be off after the test",
+      );
+    }
+  });
+
   // Settings (/getconfig//setconfig/) round trips
   test("configurable timezone can be changed and restored", async ({ request }) => {
     const originalConfig = await postJson(request, "/getconfig/");
