@@ -133,6 +133,7 @@ void mqttConnect();
 const String& getMqttTopicButton();
 time_t getBootTime();
 void handleESPInfo();
+void handleSupportPackage();
 
 void setupHA();
 void handlePrometheusMetrics();

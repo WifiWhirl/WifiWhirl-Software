@@ -619,6 +619,7 @@ void startHttpServer()
     server->on(F("/restart/"), handleRestart);
     server->on(F("/metrics"), handlePrometheusMetrics); // prometheus metrics
     server->on(F("/info/"), handleESPInfo);
+    server->on(F("/support/"), handleSupportPackage);
     server->on(F("/sethardware/"), handleSetHardware);
     server->on(F("/gethardware/"), handleGetHardware);
     server->on(F("/debug-on/"), []()
