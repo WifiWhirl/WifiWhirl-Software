@@ -4,10 +4,14 @@ These Playwright tests run against a real WifiWhirl module on your network.
 Most are read-only or UI-only. A few perform safe, temporary changes that are
 automatically restored afterwards (e.g. target temperature, display
 brightness, lock state, a queued command, the Smart Schedule, timezone, and
-PLZ). Creating a Smart Schedule can make the module start the pump and
-heater on its own as part of normal device behavior. None of the tests
-click Airjet or Hydrojet controls. This is important when the pump has no
-pool connected. Running the pump/heater dry without a [descaler
+PLZ). One test directly turns the heater and pump on and off to verify their
+interlock (turning the heater on also turns the pump on; turning the heater
+off does not turn the pump off - this is expected behavior) and always
+leaves both off afterwards. Creating a Smart Schedule can likewise make the
+module start the pump and heater on its own as part of normal device
+behavior. None of the tests click Airjet or Hydrojet controls. This is
+important when the pump has no pool connected. Running the pump/heater dry
+without a [descaler
 cartridge](https://www.bestwaystore.de/lay-z-spa-entkalker-fuer-alle-lay-z-spa-pumpeneinheiten/60343-26)
 in the bypass can trigger an E02 error. Insert one to let the pump unit run
 without an actual pool connected.
@@ -57,10 +61,11 @@ docker run --rm \
   wifiwhirl-e2e
 ```
 
-Target temperature, display brightness, and lock changes need more time because
-they go through the pump/display command path. The tests wait 10000 ms after
-each of these commands before checking the result. Increase this separately if
-your module or pump reacts more slowly:
+Target temperature, display brightness, lock, heater, and pump changes need
+more time because they go through the pump/display command path - turning the
+pump or heater off in particular takes a few seconds on real hardware. The
+tests wait 10000 ms after each of these commands before checking the result.
+Increase this separately if your module or pump reacts more slowly:
 
 ```sh
 docker run --rm \
@@ -128,16 +133,17 @@ The suite currently lives in `tests/read-only.spec.js`.
 | 18 | `smart schedule client-side validation blocks unsafe submissions` | Calls `setSchedule()` with missing date, invalid temp, and past date; verifies browser validation alerts prevent submission. | No |
 | 19 | `target temperature and brightness can be changed and restored` | Uses `/sendcommand/` to set a temporary target temperature and display brightness, waits for the real pump/display path, verifies via `/getpolldata/`, then restores values that changed. Skips if the queue is full or the module accepts the command but does not report the changed state. | Yes, temporary target/brightness changes |
 | 20 | `lock can be toggled and restored` | Uses `/sendcommand/` to toggle lock, waits for the real pump/display path, verifies via `/getstates/`, then toggles back to the original state. Skips if the queue is full or the module accepts the command but does not report the changed state. | Yes, temporary lock toggle |
-| 21 | `configurable timezone can be changed and restored` | Changes `TIMEZONE`/`TIMEZONE_NAME` via `/setconfig/`, verifies the change via `/getconfig/`, then restores the original values. | Yes, temporary timezone change |
-| 22 | `weather endpoint returns the city name for German and Austrian PLZ` | Temporarily sets `PLZ` via `/setconfig/` to a German (`48268`) and an Austrian (`1010`) postal code, calls `/getweather/`, and verifies a non-empty city name is returned for each; restores the original `PLZ`. | Yes, temporary `PLZ` change |
-| 23 | `dashboard and navigation pages load without unsafe control actions` | Opens dashboard, config, automation, Smart Schedule, web, WiFi, hardware, and info pages; verifies page shell/header. | No |
-| 24 | `configuration pages use alternating section styling` | Opens config-related pages and verifies at least one `section.odd-section` exists. | No |
-| 25 | `automation UI uses the safe Bedientasten sperren wording` | Verifies command option `26` label and form labels read `Bedientasten sperren`, `sperren`, and `entsperren`. | No |
-| 26 | `automation form serializes safe commands without hardware command IDs` | Checks client-side JSON for command `26` and `PRINTTEXT`; does not send it to the module. | No |
-| 27 | `dark mode toggle persists locally without module writes` | Toggles dark mode in browser localStorage, reloads, verifies persistence, then turns it off. | No |
-| 28 | `web config localStorage controls dashboard section visibility without module writes` | Intercepts web-config API calls in the browser, saves UI section visibility to localStorage, and verifies dashboard section hiding without writing real module config. | No |
-| 29 | `mobile navigation menu opens and closes` | Uses a mobile viewport and verifies the hamburger nav toggles responsive state. | No |
-| 30 | `core pages do not overflow on desktop or mobile viewports` | Opens core pages on mobile and desktop viewport sizes; verifies no horizontal document overflow. | No |
+| 21 | `heater turns the pump on automatically, and the pump stays on after the heater is turned off` | Uses `/sendcommand/` to turn the heater on, verifies the pump turned on automatically, turns the heater off, verifies the pump stays on, then turns the pump off. | Yes, temporary heater/pump on, always turned off afterwards |
+| 22 | `configurable timezone can be changed and restored` | Changes `TIMEZONE`/`TIMEZONE_NAME` via `/setconfig/`, verifies the change via `/getconfig/`, then restores the original values. | Yes, temporary timezone change |
+| 23 | `weather endpoint returns the city name for German and Austrian PLZ` | Temporarily sets `PLZ` via `/setconfig/` to a German (`48268`) and an Austrian (`1010`) postal code, calls `/getweather/`, and verifies a non-empty city name is returned for each; restores the original `PLZ`. | Yes, temporary `PLZ` change |
+| 24 | `dashboard and navigation pages load without unsafe control actions` | Opens dashboard, config, automation, Smart Schedule, web, WiFi, hardware, and info pages; verifies page shell/header. | No |
+| 25 | `configuration pages use alternating section styling` | Opens config-related pages and verifies at least one `section.odd-section` exists. | No |
+| 26 | `automation UI uses the safe Bedientasten sperren wording` | Verifies command option `26` label and form labels read `Bedientasten sperren`, `sperren`, and `entsperren`. | No |
+| 27 | `automation form serializes safe commands without hardware command IDs` | Checks client-side JSON for command `26` and `PRINTTEXT`; does not send it to the module. | No |
+| 28 | `dark mode toggle persists locally without module writes` | Toggles dark mode in browser localStorage, reloads, verifies persistence, then turns it off. | No |
+| 29 | `web config localStorage controls dashboard section visibility without module writes` | Intercepts web-config API calls in the browser, saves UI section visibility to localStorage, and verifies dashboard section hiding without writing real module config. | No |
+| 30 | `mobile navigation menu opens and closes` | Uses a mobile viewport and verifies the hamburger nav toggles responsive state. | No |
+| 31 | `core pages do not overflow on desktop or mobile viewports` | Opens core pages on mobile and desktop viewport sizes; verifies no horizontal document overflow. | No |
 
 ## Safety scope
 
@@ -148,13 +154,14 @@ The tests may:
 - change browser-local state such as dark mode
 - create, edit, and delete one temporary future `PRINTTEXT` queue entry
 - temporarily change and restore target temperature, display brightness, and lock state
+- temporarily turn the heater and pump on and off to verify their interlock,
+  always leaving both off when the test finishes
 - temporarily create and cancel one Smart Schedule, which can make the module
   start the pump and heater on its own as part of normal device behavior
 - temporarily change and restore `PLZ` and `TIMEZONE`/`TIMEZONE_NAME` settings
 
 The tests do not:
 
-- directly turn on/off the pump or heater themselves
 - turn on/off Airjet or Hydrojet
 - restore or reset the automation queue
 - save configuration changes
