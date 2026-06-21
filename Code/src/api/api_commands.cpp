@@ -1,6 +1,12 @@
 #include "api/api.h"
 #include "web/web.h"
 
+/**
+ * Build a command queue item from a JSON command object
+ * Missing optional fields default (XTIME to now, INTERVAL/TXT/FORCE to empty/false)
+ * @param src JSON variant with CMD/VALUE and optional XTIME/INTERVAL/TXT/FORCE
+ * @return the populated command_que_item
+ */
 command_que_item parseCommandFromJson(const JsonVariantConst &src)
 {
     command_que_item item;
@@ -173,6 +179,11 @@ void handleDelCommand()
     server->send(200, F("text/plain"), "");
 }
 
+/**
+ * response for /cmdq_file/
+ * Upload (validate + persist /cmdq.json and reload the queue) or download the
+ * command queue file, selected via the "action"/"ACT" parameter
+ */
 void handle_cmdq_file()
 {
     if (!checkHttpPost(server->method()))

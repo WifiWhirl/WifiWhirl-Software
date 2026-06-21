@@ -14,8 +14,16 @@ static String mqttTopicRebootTime;
 static String mqttTopicRebootReason;
 static String mqttTopicButton;
 
+/**
+ * Accessor for the MQTT button topic (used by the main loop)
+ * @return reference to the cached button topic string
+ */
 const String& getMqttTopicButton() { return mqttTopicButton; }
 
+/**
+ * Build all MQTT topic strings from the configured base topic
+ * Must be called after the base topic is loaded/changed
+ */
 void initMqttTopics()
 {
     mqttTopicMessage      = mqttBaseTopic + "/message";

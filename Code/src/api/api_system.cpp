@@ -58,6 +58,11 @@ void handleUpdate()
     handleFileRead("/update.html");
 }
 
+/**
+ * Estimate the wall-clock time the device booted
+ * Subtracts uptime (millis) from current time
+ * @return boot time as a Unix timestamp
+ */
 time_t getBootTime()
 {
     time_t seconds = millis() / 1000;
@@ -65,6 +70,10 @@ time_t getBootTime()
     return result;
 }
 
+/**
+ * response for /info/
+ * Send ESP8266 runtime diagnostics (heap, stack, sketch size, CPU) as plain text
+ */
 void handleESPInfo()
 {
 #ifdef ESP8266

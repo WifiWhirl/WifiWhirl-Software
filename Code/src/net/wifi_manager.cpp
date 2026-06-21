@@ -479,6 +479,11 @@ void handleResetWifi()
 #endif
 }
 
+/**
+ * Clear stored WiFi credentials and tear down connectivity
+ * Writes empty AP settings, disconnects STA/AP, detaches timers, and persists
+ * BWC settings before the caller reboots
+ */
 void resetWiFi()
 {
     sWifi_info wifi_info;

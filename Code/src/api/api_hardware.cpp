@@ -1,6 +1,10 @@
 #include "api/api.h"
 #include "web/web.h"
 
+/**
+ * response for /gethardware/
+ * Serve the stored hardware configuration (hwcfg.json) from LittleFS
+ */
 void handleGetHardware()
 {
     // if (!checkHttpPost(server->method()))
@@ -16,6 +20,11 @@ void handleGetHardware()
     file.close();
 }
 
+/**
+ * response for /sethardware/
+ * Persist hardware configuration to hwcfg.json; if the CIO model changed,
+ * save settings and restart the ESP to reinitialize the new hardware
+ */
 void handleSetHardware()
 {
     if (!checkHttpPost(server->method()))

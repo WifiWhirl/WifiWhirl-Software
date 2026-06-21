@@ -1,5 +1,10 @@
 #include "net/net.h"
 
+/**
+ * Initialize and start the ArduinoOTA service
+ * Sets hostname/password and registers OTA lifecycle callbacks
+ * (start handler stops all running outputs before flashing)
+ */
 void startOTA()
 {
     ArduinoOTA.setHostname(OTAName);

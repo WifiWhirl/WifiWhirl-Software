@@ -1,6 +1,11 @@
 #include "web/web.h"
 #include "web_files.h"
 
+/**
+ * Map a filename extension to its HTTP content-type
+ * @param filename the requested file name
+ * @return the MIME type string (defaults to text/plain)
+ */
 String getContentType(const String &filename)
 {
     if (filename.endsWith(".html"))

@@ -5,6 +5,11 @@
  * @author svanscho
  */
 
+/**
+ * Serve device state as Prometheus exposition-format metrics
+ * Formats temperature, target, and output states into a text response
+ * sent on the /metrics endpoint
+ */
 void handlePrometheusMetrics()
 {
   size_t const BUFSIZE = 2048;

@@ -40,6 +40,11 @@ uint64_t ambExpires = 0;
 
 ESP8266HTTPUpdateServer httpUpdater;
 
+/**
+ * Arduino entry point: one-time initialization
+ * Mounts LittleFS (formats on failure), constructs the BWC controller, loads
+ * config, attaches the periodic timers, and starts WiFi/NTP/OTA/HTTP/WS/MQTT
+ */
 void setup()
 {
 
@@ -107,6 +112,12 @@ void setup()
     Serial.println(ESP.getFreeHeap()); // 26216
 }
 
+/**
+ * Arduino main loop
+ * Tracks the heap low-water mark, services the pump (paused during HA discovery),
+ * handles HTTP/OTA/MQTT/WebSocket clients, reconnects WiFi, runs periodic NTP/
+ * weather tasks, and triggers a WiFi reset on the button lock-out sequence
+ */
 void loop()
 {
     uint32_t freeheap = ESP.getFreeHeap();
@@ -312,6 +323,10 @@ void loop()
     // handleAUX();
 }
 
+/**
+ * Gracefully stop all services before reboot/OTA
+ * Stops BWC, detaches timers, unmounts LittleFS, and closes the HTTP/WS/MQTT servers
+ */
 void stopall()
 {
     bwc->stop();
@@ -331,7 +346,10 @@ void stopall()
     Serial.println(F("end stopall"));
 }
 
-/*pause: action=true cont: action=false*/
+/**
+ * Pause or resume background timers and BWC processing
+ * @param action true detaches the timers (pause); false re-attaches them (continue)
+ */
 void pause_all(bool action)
 {
     if (action)

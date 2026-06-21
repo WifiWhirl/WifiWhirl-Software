@@ -4,6 +4,12 @@
 namespace
 {
 
+/**
+ * Verify flash health by writing a known payload to LittleFS and reading it back
+ * Removes the temporary test file afterwards
+ * @param detail output string set to "ok" on success or the failure reason
+ * @return true if the write/read round-trip matched
+ */
 bool testFlashWriteRead(String &detail)
 {
     const char *testPath = "/diag_test.tmp";

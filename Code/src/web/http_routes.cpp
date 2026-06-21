@@ -66,6 +66,10 @@ void startHttpServer()
     // Serial.println(F("HTTP > server started"));
 }
 
+/**
+ * Fallback handler for unmatched routes
+ * Attempts to serve the requested URI from LittleFS, else returns 404
+ */
 void handleNotFound()
 {
     // check if the file exists in the flash memory (LittleFS), if so, send it

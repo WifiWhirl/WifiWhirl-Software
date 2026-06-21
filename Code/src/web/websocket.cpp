@@ -37,6 +37,11 @@ void sendWS()
     // Serial.print(asctime(&timeinfo));
 }
 
+/**
+ * Build the "OTHER" status JSON (MQTT state, model, weather, WiFi info, FW, loop rate)
+ * Resets the loop counter after reading it
+ * @param rtn output string receiving the serialized JSON
+ */
 void getOtherInfo(String &rtn)
 {
     StaticJsonDocument<512> doc;
@@ -63,6 +68,10 @@ void getOtherInfo(String &rtn)
     }
 }
 
+/**
+ * (Re)create and start the WebSocket server on port 81
+ * Enables heartbeat and registers the event handler
+ */
 void startWebSocket()
 {
     HeapSelectIram ephemeral;

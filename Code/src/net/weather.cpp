@@ -1,5 +1,11 @@
 #include "net/net.h"
 
+/**
+ * Fetch the ambient temperature for the configured ZIP code from the cloud API
+ * Reads PLZ from settings, calls the weather endpoint, and stores the result
+ * via setAmbientTemperature
+ * @return the location name on success, or an "Error..." string on failure
+ */
 String queryAmbientTemperature()
 {
     // Track heap usage for debugging
@@ -113,6 +119,10 @@ String queryAmbientTemperature()
     }
 }
 
+/**
+ * response for /getweather/
+ * Query ambient temperature and return the location name, or HTTP 500 on error
+ */
 void handleGetWeather()
 {
     String ambient = queryAmbientTemperature();
