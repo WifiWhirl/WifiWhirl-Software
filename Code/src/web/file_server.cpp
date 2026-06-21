@@ -48,8 +48,12 @@ bool serveEmbeddedFile(const EmbeddedFile *file)
     bool isGzipped = pgm_read_byte(&file->isGzipped);
     const uint8_t *data = (const uint8_t *)pgm_read_ptr(&file->data);
 
-    // Set cache header for static assets
-    server->sendHeader(F("Cache-Control"), F("max-age=3600"));
+    // Cache static assets, but never cache HTML: the optional-auth gate redirects
+    // to the login page server-side, so a cached page would bypass it.
+    if (strstr(contentTypeBuf, "html"))
+        server->sendHeader(F("Cache-Control"), F("no-cache"));
+    else
+        server->sendHeader(F("Cache-Control"), F("max-age=3600"));
 
     // Set gzip content-encoding if file is compressed
     if (isGzipped)
@@ -108,6 +112,17 @@ bool handleFileRead(String path)
         return false;
     }
 
+    // Optional global auth: bounce browser navigation to the login page. Only
+    // HTML pages are gated; CSS/JS/images/fonts stay public (no secrets there,
+    // and the login page needs them). Real data is behind the guarded APIs.
+    if (globalAuthEnabled && !isAuthed() &&
+        path.endsWith(".html") && !path.equalsIgnoreCase("/login.html"))
+    {
+        server->sendHeader(F("Location"), F("/login.html"));
+        server->send(302, F("text/plain"), F(""));
+        return false;
+    }
+
     // First, check if file is embedded in firmware (PROGMEM)
     const EmbeddedFile *embeddedFile = findEmbeddedFile(path);
     if (embeddedFile != nullptr)
@@ -125,8 +140,8 @@ bool handleFileRead(String path)
         File file = LittleFS.open(path, "r"); // Open the file
         size_t fsize = file.size();
 
-        // send cache header for static files
-        if (path.endsWith(".css.gz") || path.endsWith(".css") || path.endsWith(".png.gz") || path.endsWith(".ico.gz") || path.endsWith(".js.gz") || path.endsWith(".eot.gz") || path.endsWith(".woff.gz") || path.endsWith(".html.gz"))
+        // send cache header for static files (never HTML, see note above)
+        if (path.endsWith(".css.gz") || path.endsWith(".css") || path.endsWith(".png.gz") || path.endsWith(".ico.gz") || path.endsWith(".js.gz") || path.endsWith(".eot.gz") || path.endsWith(".woff.gz"))
             server->sendHeader(F("Cache-Control"), F("max-age=3600"));
 
         size_t sent = server->streamFile(file, contentType); // Send it to the client

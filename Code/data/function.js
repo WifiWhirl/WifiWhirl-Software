@@ -6,6 +6,18 @@ function topNav() {
     x.className = "topnav";
   }
 }
+
+// Show a Logout link in the nav only when a global-auth session cookie is set
+// (cookie is deliberately not HttpOnly so this check works client-side).
+document.addEventListener("DOMContentLoaded", function () {
+  if (document.cookie.indexOf("WHIRL_SESSION=") === -1) return;
+  var nav = document.getElementById("topnav");
+  if (!nav) return;
+  var a = document.createElement("a");
+  a.href = "/logout";
+  a.textContent = "Abmelden";
+  nav.appendChild(a);
+});
 function validatePassword(id) {
   var x = document.getElementById(id);
   if (x.value == "<Passwort eingeben>") {

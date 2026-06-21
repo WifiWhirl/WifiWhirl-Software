@@ -161,6 +161,7 @@ function connect() {
   connection = new WebSocket("ws://" + location.hostname + ":81/", ["arduino"]);
 
   connection.onopen = function () {
+    document.body.classList.remove("error");
     document.body.classList.add("connected");
     initControlValues = true;
   };

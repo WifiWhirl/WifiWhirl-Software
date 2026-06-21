@@ -28,6 +28,12 @@ extern const char *update_path;
 extern String cloudApi;
 extern String cloudApiKey;
 
+/* Global UI Authentication */
+extern bool globalAuthEnabled;
+extern String globalAuthUser;
+extern String globalAuthSalt; // hex
+extern String globalAuthHash; // hex PBKDF2-HMAC-SHA256(salt, password)
+
 /* Web UI Configuration */
 extern bool showSectionTemperature;
 extern bool showSectionDisplay;

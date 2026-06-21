@@ -1,4 +1,5 @@
 #include "sys/sys.h"
+#include "web/web.h"
 #include <ArduinoJson.h>
 #include <initializer_list>
 
@@ -105,8 +106,8 @@ namespace
  */
 void handleSupportPackage()
 {
-    if (!server->authenticate("support", OTAPassword.c_str()))
-        return server->requestAuthentication();
+    if (!legacyAuthOk("support"))
+        return;
 
     char stack;
     uint32_t stackSize = stack_start - &stack;

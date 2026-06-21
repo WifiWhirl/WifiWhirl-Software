@@ -14,50 +14,61 @@ void startHttpServer()
         delete server;
     }
     server = new ESP8266WebServer(80);
-    server->on(F("/getconfig/"), handleGetConfig);
-    server->on(F("/setconfig/"), handleSetConfig);
-    server->on(F("/getcommands/"), handleGetCommandQueue);
-    server->on(F("/addcommand/"), handleAddCommand);
-    server->on(F("/editcommand/"), handleEditCommand);
-    server->on(F("/delcommand/"), handleDelCommand);
-    server->on(F("/getwebconfig/"), handleGetWebConfig);
-    server->on(F("/setwebconfig/"), handleSetWebConfig);
-    server->on(F("/getdevice/"), handleGetDevice);
-    server->on(F("/setdevice/"), handleSetDevice);
-    server->on(F("/provision/"), handleProvisionDevice); // backend-only factory provisioning
-    server->on(F("/getwifi/"), handleGetWifi);
-    server->on(F("/setwifi/"), handleSetWifi);
-    server->on(F("/scanwifi/"), handleScanWifi);
-    server->on(F("/resetwifi/"), handleResetWifi);
-    server->on(F("/getmqtt/"), handleGetMqtt);
-    server->on(F("/setmqtt/"), handleSetMqtt);
-    server->on(F("/getweather/"), handleGetWeather);
-    server->on(F("/getstates/"), handleGetStates);
-    server->on(F("/gettemps/"), handleGetTemps);
-    server->on(F("/restart/"), handleRestart);
-    server->on(F("/metrics"), handlePrometheusMetrics); // prometheus metrics
-    server->on(F("/support/"), handleSupportPackage);
-    server->on(F("/sethardware/"), handleSetHardware);
-    server->on(F("/gethardware/"), handleGetHardware);
+
+    // Optional global auth: when enabled, guard() requires a valid session cookie
+    // (401 otherwise); when disabled it is a transparent pass-through. The Cookie
+    // header must be collected explicitly or server->header("Cookie") is empty.
+    server->collectHeaders("Cookie");
+
+    // Login/logout are never guarded.
+    server->on(F("/login"), HTTP_POST, handleLogin);
+    server->on(F("/logout"), handleLogout);
+
+    server->on(F("/getconfig/"), guard(handleGetConfig));
+    server->on(F("/setconfig/"), guard(handleSetConfig));
+    server->on(F("/getcommands/"), guard(handleGetCommandQueue));
+    server->on(F("/addcommand/"), guard(handleAddCommand));
+    server->on(F("/editcommand/"), guard(handleEditCommand));
+    server->on(F("/delcommand/"), guard(handleDelCommand));
+    server->on(F("/getwebconfig/"), guard(handleGetWebConfig));
+    server->on(F("/setwebconfig/"), guard(handleSetWebConfig));
+    server->on(F("/getdevice/"), guard(handleGetDevice));
+    server->on(F("/setdevice/"), guard(handleSetDevice));
+    server->on(F("/provision/"), guard(handleProvisionDevice)); // backend-only factory provisioning
+    server->on(F("/getwifi/"), guard(handleGetWifi));
+    server->on(F("/setwifi/"), guard(handleSetWifi));
+    server->on(F("/scanwifi/"), guard(handleScanWifi));
+    server->on(F("/resetwifi/"), guard(handleResetWifi));
+    server->on(F("/getmqtt/"), guard(handleGetMqtt));
+    server->on(F("/setmqtt/"), guard(handleSetMqtt));
+    server->on(F("/getweather/"), guard(handleGetWeather));
+    server->on(F("/getstates/"), guard(handleGetStates));
+    server->on(F("/gettemps/"), guard(handleGetTemps));
+    server->on(F("/restart/"), guard(handleRestart));
+    server->on(F("/metrics"), handlePrometheusMetrics); // machine endpoint: left open (no cookie possible)
+    server->on(F("/support/"), handleSupportPackage);   // self-guards via legacyAuthOk()
+    server->on(F("/sethardware/"), guard(handleSetHardware));
+    server->on(F("/gethardware/"), guard(handleGetHardware));
     server->on(F("/debug-on/"), []()
-               {if(!server->authenticate("debug", OTAPassword.c_str())) { return server->requestAuthentication(); } bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok"); });
+               {if(!legacyAuthOk("debug")) { return; } bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/debug-off/"), []()
-               {if(!server->authenticate("debug", OTAPassword.c_str())) { return server->requestAuthentication(); } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
-    server->on(F("/cmdq_file/"), handle_cmdq_file);
-    server->on(F("/hook/"), handleWebhook);
-    server->on(F("/getsmartschedule/"), handleGetSmartSchedule);
-    server->on(F("/setsmartschedule/"), handleSetSmartSchedule);
-    server->on(F("/updatesmartschedule/"), handleUpdateSmartSchedule);
-    server->on(F("/cancelsmartschedule/"), handleCancelSmartSchedule);
-    server->on(F("/getpolldata/"), handleGetPollData); // Polling fallback for WebSocket data
-    server->on(F("/sendcommand/"), handleSendCommand); // Polling fallback for WebSocket commands
+               {if(!legacyAuthOk("debug")) { return; } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
+    server->on(F("/cmdq_file/"), guard(handle_cmdq_file));
+    server->on(F("/hook/"), handleWebhook); // machine endpoint: left open (no cookie possible)
+    server->on(F("/getsmartschedule/"), guard(handleGetSmartSchedule));
+    server->on(F("/setsmartschedule/"), guard(handleSetSmartSchedule));
+    server->on(F("/updatesmartschedule/"), guard(handleUpdateSmartSchedule));
+    server->on(F("/cancelsmartschedule/"), guard(handleCancelSmartSchedule));
+    server->on(F("/getpolldata/"), guard(handleGetPollData)); // Polling fallback for WebSocket data
+    server->on(F("/sendcommand/"), guard(handleSendCommand)); // Polling fallback for WebSocket commands
     // server->on(F("/getfiles/"), updateFiles);
 
     server->on(F("/update"), HTTP_GET, []()
                {
-      if(!server->authenticate("update", OTAPassword.c_str())) { return server->requestAuthentication(); } handleUpdate(); });
+      if(!legacyAuthOk("update")) { return; } handleUpdate(); });
 
-    // handle Update from web
+    // handle Update from web. The firmware POST keeps its own OTAPassword Basic
+    // Auth prompt even under global auth (the updater library can't read cookies).
     httpUpdater.setup(server, update_path, "update", OTAPassword.c_str());
 
     // if someone requests any other file or page, go to function 'handleNotFound'

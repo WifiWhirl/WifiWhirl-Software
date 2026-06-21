@@ -83,6 +83,13 @@ void startWebSocket()
         delete webSocket;
     }
     webSocket = new WebSocketsServer(81);
+    // When global auth is on, reject handshakes without a valid session cookie.
+    // Browsers send the same-origin cookie automatically in the WS upgrade.
+    if (globalAuthEnabled)
+    {
+        static const char *wsMandatory[] = {"Cookie"};
+        webSocket->onValidateHttpHeader(wsCookieValidator, wsMandatory, 1);
+    }
     webSocket->begin();
     webSocket->enableHeartbeat(3000, 3000, 1);
     webSocket->onEvent(webSocketEvent);

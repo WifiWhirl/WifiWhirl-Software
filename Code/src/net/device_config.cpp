@@ -64,10 +64,14 @@ void saveDeviceUser()
         return;
     }
 
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<384> doc;
     doc[F("hostname")] = deviceName;
     doc[F("apPwd")] = wmApPassword;
     doc[F("otaPwd")] = OTAPassword;
+    doc[F("authEnabled")] = globalAuthEnabled;
+    doc[F("authUser")] = globalAuthUser;
+    doc[F("authSalt")] = globalAuthSalt;
+    doc[F("authHash")] = globalAuthHash;
     serializeJson(doc, file);
     file.close();
 }
@@ -118,7 +122,7 @@ void loadDevice()
     File user = LittleFS.open("/devuser.json", "r");
     if (user)
     {
-        StaticJsonDocument<256> doc;
+        StaticJsonDocument<384> doc;
         if (!deserializeJson(doc, user))
         {
             if (doc.containsKey("hostname"))
@@ -127,6 +131,14 @@ void loadDevice()
                 wmApPassword = doc[F("apPwd")].as<String>();
             if (doc.containsKey("otaPwd"))
                 OTAPassword = doc[F("otaPwd")].as<String>();
+            if (doc.containsKey("authEnabled"))
+                globalAuthEnabled = doc[F("authEnabled")].as<bool>();
+            if (doc.containsKey("authUser"))
+                globalAuthUser = doc[F("authUser")].as<String>();
+            if (doc.containsKey("authSalt"))
+                globalAuthSalt = doc[F("authSalt")].as<String>();
+            if (doc.containsKey("authHash"))
+                globalAuthHash = doc[F("authHash")].as<String>();
         }
         user.close();
     }
@@ -206,6 +218,9 @@ void handleGetDevice()
         doc[F("apPwd")] = wmApPassword;
         doc[F("otaPwd")] = OTAPassword;
     }
+    // expose auth state to the UI (never the salt/hash)
+    doc[F("authEnabled")] = globalAuthEnabled;
+    doc[F("authUser")] = globalAuthUser;
 
     String json;
     if (serializeJson(doc, json) == 0)
@@ -225,7 +240,7 @@ void handleSetDevice()
     if (!checkHttpPost(server->method()))
         return;
 
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<384> doc;
     DeserializationError error = deserializeJson(doc, server->arg(0));
     if (error)
     {
@@ -235,14 +250,55 @@ void handleSetDevice()
 
     String placeholder = F("<Passwort eingeben>");
 
-    if (doc.containsKey("hostname"))
-        deviceName = doc[F("hostname")].as<String>();
-    // skip placeholder-valued password fields so an unchanged masked field
-    // doesn't overwrite the real password (mirrors handleSetWifi)
-    if (doc.containsKey("apPwd") && doc[F("apPwd")].as<String>() != placeholder)
-        wmApPassword = doc[F("apPwd")].as<String>();
-    if (doc.containsKey("otaPwd") && doc[F("otaPwd")].as<String>() != placeholder)
-        OTAPassword = doc[F("otaPwd")].as<String>();
+    // --- Global auth changes (processed first; gates the device secrets below) ---
+    if (doc.containsKey("authEnabled"))
+    {
+        bool wantEnabled = doc[F("authEnabled")].as<bool>();
+        String newUser = doc.containsKey("authUser") ? doc[F("authUser")].as<String>() : globalAuthUser;
+        bool havePwd = doc.containsKey("authPwd") &&
+                       doc[F("authPwd")].as<String>().length() > 0 &&
+                       doc[F("authPwd")].as<String>() != placeholder;
+
+        if (!wantEnabled)
+        {
+            // disable + wipe stored credential
+            globalAuthEnabled = false;
+            globalAuthSalt = "";
+            globalAuthHash = "";
+        }
+        else if (havePwd)
+        {
+            // enable (or rotate password): derive a fresh salt + hash
+            globalAuthUser = newUser;
+            globalAuthSalt = makeSalt();
+            globalAuthHash = hashPassword(globalAuthSalt, doc[F("authPwd")].as<String>());
+            globalAuthEnabled = true;
+        }
+        else if (globalAuthHash.length() > 0)
+        {
+            // already configured: just keep enabled / update username
+            globalAuthUser = newUser;
+            globalAuthEnabled = true;
+        }
+        else
+        {
+            server->send(400, F("text/plain"), F("Passwort erforderlich zum Aktivieren der Anmeldung."));
+            return;
+        }
+    }
+
+    // Device identity/secrets are only configurable when global auth is enabled.
+    if (globalAuthEnabled)
+    {
+        if (doc.containsKey("hostname"))
+            deviceName = doc[F("hostname")].as<String>();
+        // skip placeholder-valued password fields so an unchanged masked field
+        // doesn't overwrite the real password (mirrors handleSetWifi)
+        if (doc.containsKey("apPwd") && doc[F("apPwd")].as<String>() != placeholder)
+            wmApPassword = doc[F("apPwd")].as<String>();
+        if (doc.containsKey("otaPwd") && doc[F("otaPwd")].as<String>() != placeholder)
+            OTAPassword = doc[F("otaPwd")].as<String>();
+    }
 
     saveDeviceUser();
 

@@ -308,22 +308,69 @@
       </section>
 
       <section>
+        <h2>Globale Anmeldung:</h2>
+        <table>
+          <tr style="margin-bottom: 30px">
+            <span>
+              Optionaler Passwortschutz für die gesamte Weboberfläche. Erst bei
+              aktivierter Anmeldung sind Gerätename, Fallback-WLAN- und
+              OTA-Passwort änderbar. Die Tastenfolge POWER → LOCK → TIMER →
+              POWER am Gerät setzt das Modul zurück und entfernt die Anmeldung.
+              Änderungen erfordern einen Neustart.
+            </span>
+          </tr>
+          <tr>
+            <td><label for="authEnabled">Anmeldung aktivieren:</label></td>
+            <td><input type="checkbox" id="authEnabled" /></td>
+          </tr>
+          <tr>
+            <td><label for="authUser">Benutzername:</label></td>
+            <td><input type="text" id="authUser" /></td>
+          </tr>
+          <tr>
+            <td><label for="authPwd">Passwort:</label></td>
+            <td><input type="password" id="authPwd" /></td>
+          </tr>
+          <tr>
+            <td><label for="authPwd2">Passwort bestätigen:</label></td>
+            <td><input type="password" id="authPwd2" /></td>
+          </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button id="saveAuth" class="button" onclick="saveAuthConfig()">
+                Anmeldung speichern
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <section>
         <h2>Geräteeinstellungen:</h2>
         <table>
           <tr style="margin-bottom: 30px">
             <span>Änderungen erfordern einen Neustart.</span>
           </tr>
           <tr>
+            <td colspan="2">
+              <span
+                id="devAuthNote"
+                style="color: #c00; display: none"
+                >Nur mit aktivierter globaler Anmeldung änderbar.</span
+              >
+            </td>
+          </tr>
+          <tr>
             <td><label for="devHostname">Gerätename:</label></td>
-            <td><input type="text" id="devHostname" /></td>
+            <td><input type="text" id="devHostname" disabled /></td>
           </tr>
           <tr>
             <td><label for="devApPwd">Fallback-WLAN-Passwort:</label></td>
-            <td><input type="password" id="devApPwd" /></td>
+            <td><input type="password" id="devApPwd" disabled /></td>
           </tr>
           <tr>
             <td><label for="devOtaPwd">OTA-/Update-Passwort:</label></td>
-            <td><input type="password" id="devOtaPwd" /></td>
+            <td><input type="password" id="devOtaPwd" disabled /></td>
           </tr>
           <tr>
             <td colspan="2" style="text-align: center; padding-top: 10px">
@@ -331,6 +378,7 @@
                 id="saveDevice"
                 class="button"
                 onclick="saveDeviceConfig()"
+                disabled
               >
                 Geräteeinstellungen speichern
               </button>
@@ -416,6 +464,19 @@
       loadNetworkConfig();
       loadDeviceConfig();
 
+      var authWasEnabled = false;
+
+      function setDeviceFieldsEnabled(enabled) {
+        ["devHostname", "devApPwd", "devOtaPwd", "saveDevice"].forEach(
+          function (id) {
+            document.getElementById(id).disabled = !enabled;
+          },
+        );
+        document.getElementById("devAuthNote").style.display = enabled
+          ? "none"
+          : "block";
+      }
+
       function loadDeviceConfig() {
         var req = new XMLHttpRequest();
         req.open("POST", "/getdevice/");
@@ -426,6 +487,11 @@
             document.getElementById("devHostname").value = json.hostname;
             document.getElementById("devApPwd").value = json.apPwd;
             document.getElementById("devOtaPwd").value = json.otaPwd;
+
+            authWasEnabled = !!json.authEnabled;
+            document.getElementById("authEnabled").checked = authWasEnabled;
+            document.getElementById("authUser").value = json.authUser || "";
+            setDeviceFieldsEnabled(authWasEnabled);
           }
         };
       }
@@ -440,6 +506,34 @@
           },
           "/setdevice/",
         );
+      }
+
+      function saveAuthConfig() {
+        var enabled = document.getElementById("authEnabled").checked;
+        var data = { authEnabled: enabled };
+        if (enabled) {
+          var user = document.getElementById("authUser").value;
+          var pwd = document.getElementById("authPwd").value;
+          var pwd2 = document.getElementById("authPwd2").value;
+          if (!user) {
+            alert("Bitte einen Benutzernamen eingeben.");
+            return;
+          }
+          data.authUser = user;
+          if (pwd || pwd2 || !authWasEnabled) {
+            // require/confirm a password when setting one or enabling fresh
+            if (pwd !== pwd2) {
+              alert("Passwörter stimmen nicht überein.");
+              return;
+            }
+            if (!pwd) {
+              alert("Bitte ein Passwort eingeben.");
+              return;
+            }
+            data.authPwd = pwd;
+          }
+        }
+        sendPartialConfig("saveAuth", data, "/setdevice/");
       }
 
       function loadNetworkConfig() {

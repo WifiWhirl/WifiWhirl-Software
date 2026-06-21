@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <title>WifiWhirl | Anmeldung</title>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" sizes="180x180" href="logo.png" />
+    <meta name="theme-color" content="#4051b5" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="main.css" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <script>
+      // match the rest of the UI's dark mode without pulling the app JS
+      if (localStorage.getItem("darkModeStatus") === "On") {
+        document.documentElement.classList.add("darkmode");
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="site">
+      <section>
+        <p class="center">
+          <img src="logo.png" alt="WifiWhirl" style="max-width: 120px" />
+        </p>
+        <h2 class="center">Anmeldung</h2>
+        <p id="error" class="center" style="display: none; color: #c00">
+          Benutzername oder Passwort falsch.
+        </p>
+        <form method="post" action="/login">
+          <table>
+            <tr>
+              <td><label for="user">Benutzername:</label></td>
+              <td><input type="text" id="user" name="user" autofocus /></td>
+            </tr>
+            <tr>
+              <td><label for="pwd">Passwort:</label></td>
+              <td><input type="password" id="pwd" name="pwd" /></td>
+            </tr>
+            <tr>
+              <td colspan="2" style="text-align: center; padding-top: 10px">
+                <button type="submit" class="button">Anmelden</button>
+              </td>
+            </tr>
+          </table>
+        </form>
+      </section>
+    </div>
+
+    <script>
+      if (location.search.indexOf("e=1") !== -1) {
+        document.getElementById("error").style.display = "block";
+      }
+    </script>
+  </body>
+</html>
