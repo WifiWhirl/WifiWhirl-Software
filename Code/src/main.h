@@ -74,66 +74,10 @@ extern bool haDiscoveryHasRunOnce;
 // --- Weather state ---
 extern uint64_t ambExpires;
 
-command_que_item parseCommandFromJson(const JsonVariantConst &src);
-void sendWS();
-void getOtherInfo(String &rtn);
-void sendMQTT();
-void startWiFi();
-void startWiFiConfigPortal(const String &storedSsid = "", const String &storedPwd = "");
-void startNTP();
-void startOTA();
+// --- OTA / firmware update server ---
+extern ESP8266HTTPUpdateServer httpUpdater;
+
+// --- Core lifecycle (main.cpp) ---
+// Per-area function declarations live in net/net.h, web/web.h, sys/sys.h, api/api.h.
 void stopall();
 void pause_all(bool action);
-void startWebSocket();
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len);
-void startHttpServer();
-void handleGetHardware();
-void handleSetHardware();
-void handleNotFound();
-String getContentType(const String &filename);
-bool handleFileRead(String path);
-bool checkHttpPost(HTTPMethod method);
-bool checkHttpGet(HTTPMethod method);
-String queryAmbientTemperature();
-void handleGetWeather();
-void handleGetConfig();
-void handleSetConfig();
-void handleGetCommandQueue();
-void handleAddCommand();
-void handleEditCommand();
-void handleDelCommand();
-void handle_cmdq_file();
-void loadWebConfig();
-void saveWebConfig();
-void handleGetWebConfig();
-void handleSetWebConfig();
-sWifi_info loadWifi();
-void saveWifi(const sWifi_info &wifi_info);
-void handleGetWifi();
-void handleSetWifi();
-void handleScanWifi();
-void handleResetWifi();
-void resetWiFi();
-void loadMqtt();
-void saveMqtt();
-void handleGetMqtt();
-void handleSetMqtt();
-void handleRestart();
-void handleWebhook();
-void handleGetStates();
-void handleGetTemps();
-void handleUpdate();
-void handleGetSmartSchedule();
-void handleSetSmartSchedule();
-void handleUpdateSmartSchedule();
-void handleCancelSmartSchedule();
-void startMqtt();
-void mqttCallback(char *topic, byte *payload, unsigned int length);
-void mqttConnect();
-const String& getMqttTopicButton();
-time_t getBootTime();
-void handleESPInfo();
-void handleSupportPackage();
-
-void setupHA();
-void handlePrometheusMetrics();

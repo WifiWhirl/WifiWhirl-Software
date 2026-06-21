@@ -1,5 +1,11 @@
-#include "main.h"
+#include "net/net.h"
 
+/**
+ * Fetch the ambient temperature for the configured ZIP code from the cloud API
+ * Reads PLZ from settings, calls the weather endpoint, and stores the result
+ * via setAmbientTemperature
+ * @return the location name on success, or an "Error..." string on failure
+ */
 String queryAmbientTemperature()
 {
     // Track heap usage for debugging
@@ -9,7 +15,7 @@ String queryAmbientTemperature()
     // Use standard WiFiClient for HTTP connection
     WiFiClient client;
     HTTPClient http;
-    http.setUserAgent(DEVICE_NAME);
+    http.setUserAgent(deviceName);
 
     // Extract PLZ from settings
     String _plz;
@@ -35,14 +41,14 @@ String queryAmbientTemperature()
         // doc goes out of scope here and is destroyed
     }
 
-    String const weatherURL = String(cloudApi) + "/v1/weather/plz/" + _plz + "/";
+    String const weatherURL = cloudApi + "/v1/weather/plz/" + _plz + "/";
     Serial.print(F("Weather: Connecting to API: "));
     Serial.println(weatherURL);
 
     if (http.begin(client, weatherURL))
     {
         http.addHeader("X-WW-Firmware", FW_VERSION);
-        http.addHeader("X-WW-Apikey", String(cloudApiKey));
+        http.addHeader("X-WW-Apikey", cloudApiKey);
         http.addHeader("Accept", "application/json");
 
         int httpResponseCode = http.GET();
@@ -113,6 +119,10 @@ String queryAmbientTemperature()
     }
 }
 
+/**
+ * response for /getweather/
+ * Query ambient temperature and return the location name, or HTTP 500 on error
+ */
 void handleGetWeather()
 {
     String ambient = queryAmbientTemperature();

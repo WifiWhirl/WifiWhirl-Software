@@ -1,4 +1,6 @@
-#include "main.h"
+#include "net/net.h"
+#include "api/api.h"
+#include "web/web.h"
 
 static sWifi_info _cachedWifi;
 static bool _wifiCacheValid = false;
@@ -12,7 +14,7 @@ void startWiFi()
     // WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.persistent(true);
-    WiFi.hostname(netHostname);
+    WiFi.hostname(netHostname.c_str());
     sWifi_info wifi_info;
     wifi_info = loadWifi();
 
@@ -102,7 +104,7 @@ void startWiFiConfigPortal(const String &storedSsid, const String &storedPwd)
     // Display "net" on pump while in AP mode
     bwc->printStatic("net");
 
-    wm.autoConnect(wmApName, wmApPassword);
+    wm.autoConnect(wmApName.c_str(), wmApPassword.c_str());
 
     unsigned long lastReconnectAttempt = 0;
     const unsigned long reconnectInterval = 10000;
@@ -477,6 +479,11 @@ void handleResetWifi()
 #endif
 }
 
+/**
+ * Clear stored WiFi credentials and tear down connectivity
+ * Writes empty AP settings, disconnects STA/AP, detaches timers, and persists
+ * BWC settings before the caller reboots
+ */
 void resetWiFi()
 {
     sWifi_info wifi_info;

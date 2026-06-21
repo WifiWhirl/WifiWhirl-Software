@@ -307,6 +307,38 @@
         </table>
       </section>
 
+      <section>
+        <h2>Geräteeinstellungen:</h2>
+        <table>
+          <tr style="margin-bottom: 30px">
+            <span>Änderungen erfordern einen Neustart.</span>
+          </tr>
+          <tr>
+            <td><label for="devHostname">Gerätename:</label></td>
+            <td><input type="text" id="devHostname" /></td>
+          </tr>
+          <tr>
+            <td><label for="devApPwd">Fallback-WLAN-Passwort:</label></td>
+            <td><input type="password" id="devApPwd" /></td>
+          </tr>
+          <tr>
+            <td><label for="devOtaPwd">OTA-/Update-Passwort:</label></td>
+            <td><input type="password" id="devOtaPwd" /></td>
+          </tr>
+          <tr>
+            <td colspan="2" style="text-align: center; padding-top: 10px">
+              <button
+                id="saveDevice"
+                class="button"
+                onclick="saveDeviceConfig()"
+              >
+                Geräteeinstellungen speichern
+              </button>
+            </td>
+          </tr>
+        </table>
+      </section>
+
       <section class="odd-section">
         <h2>Fallback WLAN:</h2>
         <table>
@@ -382,6 +414,33 @@
       var apName = "";
 
       loadNetworkConfig();
+      loadDeviceConfig();
+
+      function loadDeviceConfig() {
+        var req = new XMLHttpRequest();
+        req.open("POST", "/getdevice/");
+        req.send();
+        req.onreadystatechange = function () {
+          if (this.readyState == 4 && this.status == 200) {
+            var json = JSON.parse(req.responseText);
+            document.getElementById("devHostname").value = json.hostname;
+            document.getElementById("devApPwd").value = json.apPwd;
+            document.getElementById("devOtaPwd").value = json.otaPwd;
+          }
+        };
+      }
+
+      function saveDeviceConfig() {
+        sendPartialConfig(
+          "saveDevice",
+          {
+            hostname: document.getElementById("devHostname").value,
+            apPwd: document.getElementById("devApPwd").value,
+            otaPwd: document.getElementById("devOtaPwd").value,
+          },
+          "/setdevice/",
+        );
+      }
 
       function loadNetworkConfig() {
         var req = new XMLHttpRequest();
@@ -696,7 +755,7 @@
       /**
        * Helper: send partial config to /setwifi/ and handle restart response
        */
-      function sendPartialConfig(buttonId, data) {
+      function sendPartialConfig(buttonId, data, url) {
         var btn = document.getElementById(buttonId);
         var originalText = btn.innerHTML;
         btn.disabled = true;
@@ -711,7 +770,7 @@
         }
 
         var req = new XMLHttpRequest();
-        req.open("POST", "/setwifi/");
+        req.open("POST", url || "/setwifi/");
 
         req.onload = function () {
           if (req.status == 200) {

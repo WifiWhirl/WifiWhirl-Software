@@ -1,10 +1,15 @@
-#include "main.h"
+#include "sys/sys.h"
 
 /**
  * prometheus related functions and char buffers
  * @author svanscho
  */
 
+/**
+ * Serve device state as Prometheus exposition-format metrics
+ * Formats temperature, target, and output states into a text response
+ * sent on the /metrics endpoint
+ */
 void handlePrometheusMetrics()
 {
   size_t const BUFSIZE = 2048;
@@ -41,7 +46,7 @@ void handlePrometheusMetrics()
            "# TYPE " PROM_NAMESPACE "_unit_state gauge\n"
            "# UNIT " PROM_NAMESPACE "_unit_state\n" PROM_NAMESPACE "_unit_state %d\n");
 
-  snprintf_P(response, BUFSIZE, response_template, FW_VERSION, DEVICE_NAME,
+  snprintf_P(response, BUFSIZE, response_template, FW_VERSION, deviceName.c_str(),
              bwc->cio->cio_states.temperature,
              bwc->cio->cio_states.target,
              bwc->cio->cio_states.heat,
