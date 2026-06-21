@@ -100,7 +100,8 @@ bool handleFileRead(String path)
         path += F("index.html");
     }
     // deny reading credentials
-    if (path.equalsIgnoreCase("/mqtt.json") || path.equalsIgnoreCase("/wifi.json"))
+    if (path.equalsIgnoreCase("/mqtt.json") || path.equalsIgnoreCase("/wifi.json") ||
+        path.equalsIgnoreCase("/device.json") || path.equalsIgnoreCase("/devuser.json"))
     {
         server->send(403, F("text/plain"), F("Permission denied."));
         // Serial.println(F("HTTP > file reading denied (credentials)."));

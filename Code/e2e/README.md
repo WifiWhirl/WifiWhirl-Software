@@ -84,6 +84,17 @@ docker run --rm \
   wifiwhirl-e2e
 ```
 
+The `/support/` endpoint is protected with HTTP basic auth (user `support`, the
+module's OTA password). Set `OTA_PASSWORD` to match your module; it defaults to
+`wifiwhirl`:
+
+```sh
+docker run --rm \
+  -e MODULE_URL=http://192.168.178.42 \
+  -e OTA_PASSWORD=mySecret \
+  wifiwhirl-e2e
+```
+
 ## Run locally without Docker
 
 ```sh
@@ -118,9 +129,9 @@ The suite currently lives in `tests/read-only.spec.js`.
 | 3 | `temperature endpoint supports field filtering` | Calls `/gettemps/?currentC&targetC`; verifies only requested temperature fields are returned. | No |
 | 4 | `polling fallback returns states, times, and other info` | Calls `/getpolldata/`; verifies it returns `[STATES, TIMES, OTHER]` with representative fields such as target temperature, brightness, uptime, firmware, and IP. | No |
 | 5 | `webhook status endpoints expose safe read-only state` | Calls webhook read endpoints `/getstates/` and `/gettemps/`; verifies state and temperature JSON fields and types. | No |
-| 6 | `info endpoint reports ESP diagnostics` | Calls `/info/`; verifies the response contains `Stack size:` and `Free Heap:`. | No |
-| 7 | `static assets and manifest are served` | Fetches `/manifest.json`, `/main.css`, `/function.js`, and `/logo.png`; verifies they are served. | No |
-| 8 | `system info assets and prometheus metrics are served` | Fetches `/info.html`, favicon, fonts, melodies, and `/metrics`; verifies successful responses and Prometheus metric text. | No |
+| 6 | `static assets and manifest are served` | Fetches `/manifest.json`, `/main.css`, `/function.js`, and `/logo.png`; verifies they are served. | No |
+| 7 | `system info assets and prometheus metrics are served` | Fetches `/info.html`, favicon, fonts, melodies, and `/metrics`; verifies successful responses and Prometheus metric text. | No |
+| 8 | `support package requires auth and reports diagnostics` | Verifies `/support/` rejects unauthenticated requests with `401`, then with HTTP basic auth (user `support`, OTA password from `OTA_PASSWORD`) returns the diagnostics JSON including `firmware`, heap, the `esp` runtime block, and `flashHealth`. | No |
 | 9 | `webhook endpoints enforce GET and reject invalid hook payloads` | Verifies `/hook/`, `/getstates/`, and `/gettemps/` reject POST with `405`; verifies `/hook/` rejects missing or invalid `send` JSON with `400`. | No saved state should change |
 | 10 | `webhook can schedule and clean up a safe future text command` | Calls `/hook/?send=...` with a future `PRINTTEXT` command, verifies it appears in the queue, then deletes it. Skips if the queue is full. | Yes, one temporary future text command |
 | 11 | `sendcommand fallback can schedule and clean up a safe future text command` | Calls `/sendcommand/` with a future `PRINTTEXT` command, verifies it appears in the queue, then deletes it. Skips if the queue is full. | Yes, one temporary future text command |

@@ -83,6 +83,7 @@ void setup()
     bootlogTimer.attach(5, []
                         { if(time(nullptr)>57600) {bwc->saveRebootInfo(); bootlogTimer.detach();} });
     // loadWifi();
+    loadDevice();
     loadWebConfig();
     startWiFi();
     startNTP();
@@ -315,6 +316,7 @@ void loop()
     if (bwc->getBtnSeqMatch())
     {
 
+        resetDeviceConfig();
         resetWiFi();
         delay(3000);
         ESP.reset();

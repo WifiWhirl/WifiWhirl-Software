@@ -46,7 +46,7 @@ void handlePrometheusMetrics()
            "# TYPE " PROM_NAMESPACE "_unit_state gauge\n"
            "# UNIT " PROM_NAMESPACE "_unit_state\n" PROM_NAMESPACE "_unit_state %d\n");
 
-  snprintf_P(response, BUFSIZE, response_template, FW_VERSION, DEVICE_NAME,
+  snprintf_P(response, BUFSIZE, response_template, FW_VERSION, deviceName.c_str(),
              bwc->cio->cio_states.temperature,
              bwc->cio->cio_states.target,
              bwc->cio->cio_states.heat,

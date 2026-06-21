@@ -7,24 +7,26 @@
 #include <WiFi.h>
 #endif
 #include "WifiWhirl_Version.h"
-#define DEVICE_NAME "wifiwhirl-2D2701"
+
+/* Device identity (loaded from flash at boot, see device_config.cpp) */
+extern String deviceName;
 
 /* Network Settings */
 extern bool enableWmApFallback;
-extern const char *wmApName;
-extern const char *wmApPassword;
-extern const char *netHostname;
+extern String wmApName;
+extern String wmApPassword;
+extern String netHostname;
 extern const char *defaultTimezone;
 extern const char *defaultTimezoneName;
 
 /* OTA Service Credentials */
-extern const char *OTAName;
-extern const char *OTAPassword;
+extern String OTAName;
+extern String OTAPassword;
 extern const char *update_path;
 
 /* WifiWhirl Cloud Settings */
-extern const char *cloudApi;
-extern const char *cloudApiKey;
+extern String cloudApi;
+extern String cloudApiKey;
 
 /* Web UI Configuration */
 extern bool showSectionTemperature;

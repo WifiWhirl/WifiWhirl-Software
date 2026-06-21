@@ -22,6 +22,9 @@ void startHttpServer()
     server->on(F("/delcommand/"), handleDelCommand);
     server->on(F("/getwebconfig/"), handleGetWebConfig);
     server->on(F("/setwebconfig/"), handleSetWebConfig);
+    server->on(F("/getdevice/"), handleGetDevice);
+    server->on(F("/setdevice/"), handleSetDevice);
+    server->on(F("/provision/"), handleProvisionDevice); // backend-only factory provisioning
     server->on(F("/getwifi/"), handleGetWifi);
     server->on(F("/setwifi/"), handleSetWifi);
     server->on(F("/scanwifi/"), handleScanWifi);
@@ -33,14 +36,13 @@ void startHttpServer()
     server->on(F("/gettemps/"), handleGetTemps);
     server->on(F("/restart/"), handleRestart);
     server->on(F("/metrics"), handlePrometheusMetrics); // prometheus metrics
-    server->on(F("/info/"), handleESPInfo);
     server->on(F("/support/"), handleSupportPackage);
     server->on(F("/sethardware/"), handleSetHardware);
     server->on(F("/gethardware/"), handleGetHardware);
     server->on(F("/debug-on/"), []()
-               {if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok"); });
+               {if(!server->authenticate("debug", OTAPassword.c_str())) { return server->requestAuthentication(); } bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/debug-off/"), []()
-               {if(!server->authenticate("debug", OTAPassword)) { return server->requestAuthentication(); } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
+               {if(!server->authenticate("debug", OTAPassword.c_str())) { return server->requestAuthentication(); } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/cmdq_file/"), handle_cmdq_file);
     server->on(F("/hook/"), handleWebhook);
     server->on(F("/getsmartschedule/"), handleGetSmartSchedule);
@@ -53,10 +55,10 @@ void startHttpServer()
 
     server->on(F("/update"), HTTP_GET, []()
                {
-      if(!server->authenticate("update", OTAPassword)) { return server->requestAuthentication(); } handleUpdate(); });
+      if(!server->authenticate("update", OTAPassword.c_str())) { return server->requestAuthentication(); } handleUpdate(); });
 
     // handle Update from web
-    httpUpdater.setup(server, update_path, "update", OTAPassword);
+    httpUpdater.setup(server, update_path, "update", OTAPassword.c_str());
 
     // if someone requests any other file or page, go to function 'handleNotFound'
     // and check if the file exists

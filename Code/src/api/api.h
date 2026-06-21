@@ -30,4 +30,3 @@ void handleCancelSmartSchedule();
 void handleRestart();
 void handleUpdate();
 time_t getBootTime();
-void handleESPInfo();

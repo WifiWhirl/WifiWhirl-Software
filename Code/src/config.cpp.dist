@@ -1,21 +1,26 @@
 #include "config.h"
 
+#define DEVICE_NAME "wifiwhirl"
+
+/* Device identity (compiled default; overridden from flash at boot) */
+String deviceName = DEVICE_NAME;
+
 /* Network Settings */
 bool enableWmApFallback = true;
-const char *wmApName = DEVICE_NAME;
-const char *wmApPassword = "wifiwhirl";
-const char *netHostname = DEVICE_NAME;
+String wmApName = DEVICE_NAME;
+String wmApPassword = "wifiwhirl";
+String netHostname = DEVICE_NAME;
 const char *defaultTimezone = "CET-1CEST,M3.5.0,M10.5.0/3"; // Europe/Berlin
 const char *defaultTimezoneName = "Europe/Berlin";
 
 /* OTA Service Credentials */
-const char *OTAName = DEVICE_NAME;
-const char *OTAPassword = "wifiwhirl";
+String OTAName = DEVICE_NAME;
+String OTAPassword = "wifiwhirl";
 const char *update_path = "/update";
 
 /* WifiWhirl Cloud Settings */
-const char *cloudApi = "";
-const char *cloudApiKey PROGMEM = "";
+String cloudApi = "";
+String cloudApiKey = "";
 
 /* Web UI Configuration */
 bool showSectionTemperature = false;

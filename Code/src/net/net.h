@@ -14,6 +14,15 @@ void handleScanWifi();
 void handleResetWifi();
 void resetWiFi();
 
+// --- Device identity/secrets (device_config.cpp) ---
+void loadDevice();
+void saveDevice();
+void saveDeviceUser();
+void resetDeviceConfig();
+void handleProvisionDevice();
+void handleGetDevice();
+void handleSetDevice();
+
 // --- MQTT (mqtt_manager.cpp) ---
 void sendMQTT();
 void loadMqtt();
@@ -23,7 +32,7 @@ void handleSetMqtt();
 void startMqtt();
 void mqttCallback(char *topic, byte *payload, unsigned int length);
 void mqttConnect();
-const String& getMqttTopicButton();
+const String &getMqttTopicButton();
 
 // --- Home Assistant (homeassistant.cpp) ---
 void setupHA();

@@ -14,7 +14,7 @@ void startWiFi()
     // WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.persistent(true);
-    WiFi.hostname(netHostname);
+    WiFi.hostname(netHostname.c_str());
     sWifi_info wifi_info;
     wifi_info = loadWifi();
 
@@ -104,7 +104,7 @@ void startWiFiConfigPortal(const String &storedSsid, const String &storedPwd)
     // Display "net" on pump while in AP mode
     bwc->printStatic("net");
 
-    wm.autoConnect(wmApName, wmApPassword);
+    wm.autoConnect(wmApName.c_str(), wmApPassword.c_str());
 
     unsigned long lastReconnectAttempt = 0;
     const unsigned long reconnectInterval = 10000;

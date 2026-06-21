@@ -3,9 +3,14 @@ const { test, expect } = require("@playwright/test");
 const ESP_SETTLE_MS = Number(process.env.ESP_SETTLE_MS || 1500);
 const ESP_HARDWARE_SETTLE_MS = Number(process.env.ESP_HARDWARE_SETTLE_MS || 10000);
 const ESP_REQUEST_RETRIES = Number(process.env.ESP_REQUEST_RETRIES || 3);
+const OTA_PASSWORD = process.env.OTA_PASSWORD || "wifiwhirl";
 
 async function wait(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function basicAuthHeader(user, pass) {
+  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
 }
 
 async function postJson(request, path, body = {}) {
@@ -287,15 +292,6 @@ test.describe("WifiWhirl real module smoke tests", () => {
     );
   });
 
-  test("info endpoint reports ESP diagnostics", async ({ request }) => {
-    const response = await request.post("/info/");
-    expect(response.ok(), `/info/ returned ${response.status()}`).toBeTruthy();
-    const body = await response.text();
-    expect(body).toContain("Stack size:");
-    expect(body).toContain("Free Heap:");
-    await waitForEspToSettle();
-  });
-
   test("static assets and manifest are served", async ({ request }) => {
     const manifest = await request.get("/manifest.json");
     expect(manifest.ok(), `/manifest.json returned ${manifest.status()}`).toBeTruthy();
@@ -330,6 +326,41 @@ test.describe("WifiWhirl real module smoke tests", () => {
     expect(metricsText).toContain("# HELP");
     expect(metricsText).toContain("_info");
     expect(metricsText).toContain("_temperature_celcius");
+  });
+
+  test("support package requires auth and reports diagnostics", async ({ request }) => {
+    // Unauthenticated requests must be rejected
+    const noAuth = await request.get("/support/");
+    expect(noAuth.status(), "/support/ should require authentication").toBe(401);
+
+    // Authenticated request (HTTP basic, user "support", OTA password) returns
+    // the diagnostics bundle as JSON, including the values folded in from the
+    // former /info/ endpoint.
+    const response = await request.get("/support/", {
+      headers: { Authorization: basicAuthHeader("support", OTA_PASSWORD) },
+    });
+    expect(response.ok(), `/support/ returned ${response.status()}`).toBeTruthy();
+
+    const body = await response.json();
+    expect(body).toEqual(
+      expect.objectContaining({
+        firmware: expect.any(String),
+        freeHeap: expect.any(Number),
+        minFreeHeapSeen: expect.any(Number),
+        esp: expect.objectContaining({
+          stackSize: expect.any(Number),
+          coreVersion: expect.any(String),
+          cpuFreqMHz: expect.any(Number),
+          sketchSize: expect.any(Number),
+          freeSketchSpace: expect.any(Number),
+        }),
+        flashHealth: expect.objectContaining({
+          writeReadTest: expect.any(String),
+        }),
+      }),
+    );
+
+    await waitForEspToSettle();
   });
 
   // Webhook and command-queue API

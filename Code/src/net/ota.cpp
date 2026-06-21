@@ -7,8 +7,8 @@
  */
 void startOTA()
 {
-    ArduinoOTA.setHostname(OTAName);
-    ArduinoOTA.setPassword(OTAPassword);
+    ArduinoOTA.setHostname(OTAName.c_str());
+    ArduinoOTA.setPassword(OTAPassword.c_str());
 
     ArduinoOTA.onStart([]()
                        {
