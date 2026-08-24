@@ -108,5 +108,7 @@ protected:
 
 private:
     Buttons _old_button = NOBTN;
+    uint16_t _last_raw_button_code = 0xFFFF; // debounce: previous raw read
+    int _prev_audiofrequency = 0;
     uint8_t _payload[11] = {0xC0, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x0};
 };

@@ -69,12 +69,21 @@ void CIO_6_TYPE1::updateStates()
     //_new_packet_available is true when a data packet has arrived from cio
     if (!_new_packet_available)
         return;
+
+    // Critical section: copy volatile ISR data to local scope atomically
+    noInterrupts();
     _new_packet_available = false;
-    if (_packet_error)
+    uint8_t local_packet_error = _packet_error;
+    _packet_error = 0;
+    uint8_t local_payload[11];
+    memcpy(local_payload, (const void *)_payload, sizeof(local_payload));
+    uint8_t local_brightness = _brightness;
+    interrupts();
+
+    if (local_packet_error)
     {
         bad_packets_count++;
-        packet_error = _packet_error;
-        _packet_error = 0;
+        packet_error = local_packet_error;
         return;
     }
     static uint32_t buttonReleaseTime;
@@ -88,6 +97,15 @@ void CIO_6_TYPE1::updateStates()
     // Store last valid temperature to enable rate-of-change validation
     static uint8_t last_valid_temperature = 25;
     static bool first_temperature_reading = true; // Bypass validation for first reading
+    // A °C<->°F switch makes the reading legitimately jump ~30-50°, which the
+    // rate-of-change check below would reject forever (locking TMP at the stale
+    // value). Treat a unit change like a fresh start so the next reading is taken.
+    static uint8_t last_unit = cio_states.unit;
+    if (cio_states.unit != last_unit)
+    {
+        last_unit = cio_states.unit;
+        first_temperature_reading = true;
+    }
 
 // require two consecutive messages to be equal before registering
 #if FILTER_6W_SPIKES == 1
@@ -95,7 +113,7 @@ void CIO_6_TYPE1::updateStates()
     uint8_t checksum = 0;
     for (int i = 0; i < 11; i++)
     {
-        checksum += _payload[i];
+        checksum += local_payload[i];
     }
     if (checksum != prev_checksum)
     {
@@ -103,13 +121,13 @@ void CIO_6_TYPE1::updateStates()
         return;
     }
 #endif
-    // copy private array to public array
-    for (unsigned int i = 0; i < sizeof(_payload); i++)
+    // copy local snapshot to public array
+    for (unsigned int i = 0; i < sizeof(local_payload); i++)
     {
-        _raw_payload_from_cio[i] = _payload[i];
+        _raw_payload_from_cio[i] = local_payload[i];
     }
     good_packets_count++;
-    brightness = _brightness & 7; // extract only the brightness bits (0-7)
+    brightness = local_brightness & 7;
     cio_states.locked = (_raw_payload_from_cio[LCK_IDX] & (1 << LCK_BIT)) > 0;
     cio_states.power = (_raw_payload_from_cio[PWR_IDX] & (1 << PWR_BIT)) > 0;
     /*If both leds are out, don't change (When TIMER is pressed)*/
@@ -126,6 +144,7 @@ void CIO_6_TYPE1::updateStates()
     cio_states.char1 = (uint8_t)_getChar(_raw_payload_from_cio[DGT1_IDX]);
     cio_states.char2 = (uint8_t)_getChar(_raw_payload_from_cio[DGT2_IDX]);
     cio_states.char3 = (uint8_t)_getChar(_raw_payload_from_cio[DGT3_IDX]);
+    cio_states.dsp_ok = true;
     if (getHasjets())
         cio_states.jets = (_raw_payload_from_cio[HJT_IDX] & (1 << HJT_BIT)) > 0;
     else
@@ -173,6 +192,7 @@ void CIO_6_TYPE1::updateStates()
     if ((capturePhase == readtarget) && (parsedValue > 19))
     {
         cio_states.target = parsedValue;
+        cio_states.tgt_ok = true;
     }
     
     // Handle ACTUAL TEMPERATURE reading with full validation
@@ -193,7 +213,17 @@ void CIO_6_TYPE1::updateStates()
             return; // Exit if temperature is outside reasonable operating range
         }
         
-        // VALIDATION LAYER 3: Rate-of-change validation (max 10° change per cycle)
+        // VALIDATION LAYER 3: 
+        if (parsedValue == cio_states.target && !first_temperature_reading)
+        {
+            uint8_t target_delta = (parsedValue > last_valid_temperature)
+                ? (parsedValue - last_valid_temperature)
+                : (last_valid_temperature - parsedValue);
+            if (target_delta > 2)
+                return;
+        }
+
+        // VALIDATION LAYER 4: Rate-of-change validation (max 10° change per cycle)
         // Skip on first reading to allow any valid starting temperature
         if (!first_temperature_reading)
         {
@@ -210,6 +240,7 @@ void CIO_6_TYPE1::updateStates()
         last_valid_temperature = parsedValue;
         first_temperature_reading = false;
         cio_states.temperature = parsedValue;
+        cio_states.tmp_ok = true;
     }
 
     return;

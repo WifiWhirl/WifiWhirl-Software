@@ -9,3 +9,15 @@ fw/firmware.bin
 datazip
 data/wifi.json
 data/hwcfg.json
+
+# PlatformIO Override File
+platformio_override.ini
+
+# Dynamically generated frontend files
+data/index.html
+data/app-*.js
+data/app-*.css
+data/chunk-*.js
+# firmware signing key (never commit)
+private.key
+public.key

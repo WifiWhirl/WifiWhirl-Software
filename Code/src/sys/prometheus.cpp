@@ -1,0 +1,91 @@
+#include "sys/sys.h"
+#include "net/net.h"
+
+/**
+ * prometheus related functions and char buffers
+ * @author svanscho
+ */
+
+namespace
+{
+  String prometheusEscapeLabel(const String &value)
+  {
+    String out;
+    out.reserve(value.length() + 8);
+    for (size_t i = 0; i < value.length(); i++)
+    {
+      char c = value[i];
+      switch (c)
+      {
+      case '\\': out += F("\\\\"); break;
+      case '"': out += F("\\\""); break;
+      case '\n': out += F("\\n"); break;
+      default:
+        out += ((uint8_t)c < 0x20) ? ' ' : c;
+        break;
+      }
+    }
+    return out;
+  }
+}
+
+/**
+ * Serve device state as Prometheus exposition-format metrics
+ * Formats temperature, target, and output states into a text response
+ * sent on the /metrics endpoint
+ */
+void handlePrometheusMetrics()
+{
+  // Same optional basic-auth credentials as /hook/.
+  if (!checkWebhookAuth())
+    return;
+
+  size_t const BUFSIZE = 2048;
+  char response[BUFSIZE];
+  char const *response_template =
+      PSTR("# HELP " PROM_NAMESPACE "_info Metadata about the device.\n"
+           "# TYPE " PROM_NAMESPACE "_info gauge\n"
+           "# UNIT " PROM_NAMESPACE "_info \n" PROM_NAMESPACE "_info{version=\"%s\",name=\"%s\"} 1\n"
+           "# HELP " PROM_NAMESPACE "_temperature_celcius Water temperature.\n"
+           "# TYPE " PROM_NAMESPACE "_temperature_celcius gauge\n"
+           "# UNIT " PROM_NAMESPACE "_temperature_celcius \u00B0C\n" PROM_NAMESPACE "_temperature_celcius %d\n"
+           "# HELP " PROM_NAMESPACE "_target_temperature_celcius Water target temperature.\n"
+           "# TYPE " PROM_NAMESPACE "_target_temperature_celcius gauge\n"
+           "# UNIT " PROM_NAMESPACE "_target_temperature_celcius \u00B0C\n" PROM_NAMESPACE "_target_temperature_celcius %d\n"
+           "# HELP " PROM_NAMESPACE "_heater_state Heater state.\n"
+           "# TYPE " PROM_NAMESPACE "_heater_state gauge\n"
+           "# UNIT " PROM_NAMESPACE "_heater_state\n" PROM_NAMESPACE "_heater_state %d\n"
+           "# HELP " PROM_NAMESPACE "_pump_state Pump state.\n"
+           "# TYPE " PROM_NAMESPACE "_pump_state gauge\n"
+           "# UNIT " PROM_NAMESPACE "_pump_state\n" PROM_NAMESPACE "_pump_state %d\n"
+           "# HELP " PROM_NAMESPACE "_jets_state Jets state.\n"
+           "# TYPE " PROM_NAMESPACE "_jets_state gauge\n"
+           "# UNIT " PROM_NAMESPACE "_jets_state\n" PROM_NAMESPACE "_jets_state %d\n"
+           "# HELP " PROM_NAMESPACE "_bubbles_state Bubbles state.\n"
+           "# TYPE " PROM_NAMESPACE "_bubbles_state gauge\n"
+           "# UNIT " PROM_NAMESPACE "_bubbles_state\n" PROM_NAMESPACE "_bubbles_state %d\n"
+           "# HELP " PROM_NAMESPACE "_power_state Bubbles state.\n"
+           "# TYPE " PROM_NAMESPACE "_power_state gauge\n"
+           "# UNIT " PROM_NAMESPACE "_power_state\n" PROM_NAMESPACE "_power_state %d\n"
+           "# HELP " PROM_NAMESPACE "_locked_state Locked state.\n"
+           "# TYPE " PROM_NAMESPACE "_locked_state gauge\n"
+           "# UNIT " PROM_NAMESPACE "_locked_state\n" PROM_NAMESPACE "_locked_state %d\n"
+           "# HELP " PROM_NAMESPACE "_unit_state Unit state.\n"
+           "# TYPE " PROM_NAMESPACE "_unit_state gauge\n"
+           "# UNIT " PROM_NAMESPACE "_unit_state\n" PROM_NAMESPACE "_unit_state %d\n");
+
+  String escapedVersion = prometheusEscapeLabel(FW_VERSION);
+  String escapedName = prometheusEscapeLabel(deviceName);
+
+  snprintf_P(response, BUFSIZE, response_template, escapedVersion.c_str(), escapedName.c_str(),
+             bwc->cio->cio_states.temperature,
+             bwc->cio->cio_states.target,
+             bwc->cio->cio_states.heat,
+             bwc->cio->cio_states.pump,
+             bwc->cio->cio_states.jets,
+             bwc->cio->cio_states.bubbles,
+             bwc->cio->cio_states.power,
+             bwc->cio->cio_states.locked,
+             bwc->cio->cio_states.unit);
+  server->send(200, F("text/plain; charset=utf-8"), response);
+}

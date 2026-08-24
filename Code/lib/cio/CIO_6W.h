@@ -18,6 +18,8 @@ public:
     CIO_6W();
     virtual ~CIO_6W(){};
     Power getPower() { return power; }
+    Power getDefaultPower() override { return _powerDefault; }
+    void setPower(const Power &p) override { power = p; }
     void handleToggles();
     bool getHasgod() { return false; }
     virtual bool getHasjets() = 0;
@@ -32,7 +34,8 @@ protected:
 
     /*These must be declared for the API to work*/
 public:
-    Power power = {1900, 40, 800, 2, 400};
+    const Power _powerDefault = {1900, 40, 800, 2, 400};
+    Power power = _powerDefault;
 
 public:
     uint8_t brightness;
@@ -43,7 +46,7 @@ protected:
     const uint8_t DSP_DIM_BASE = 0x80;
     const uint8_t DSP_DIM_ON = 0x8;
     volatile bool _new_packet_available;
-    bool _packet_transm_active;
+    volatile bool _packet_transm_active;
     volatile uint16_t _button_code;
     uint8_t _pressed_button = NOBTN;
     // sToggles _requested_states; //not used

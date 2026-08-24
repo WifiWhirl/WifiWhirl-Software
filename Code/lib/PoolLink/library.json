@@ -1,0 +1,7 @@
+{
+  "name": "PoolLink",
+  "version": "2.0.0",
+  "description": "PoolLink cloud protocol for WifiWhirl - encrypted TCP transport, ChaCha20-Poly1305 (BearSSL on ESP8266, bundled RFC 8439 implementation on ESP32)",
+  "frameworks": "arduino",
+  "platforms": ["espressif8266", "espressif32"]
+}

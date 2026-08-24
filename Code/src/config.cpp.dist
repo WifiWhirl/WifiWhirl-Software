@@ -1,0 +1,73 @@
+#include "config.h"
+
+#define DEVICE_NAME "wifiwhirl"
+
+/* Device identity (compiled default; overridden from flash at boot) */
+String deviceName = DEVICE_NAME;
+
+/* Network Settings */
+String wmApName = DEVICE_NAME;
+String wmApPassword = "wifiwhirl";
+String netHostname = DEVICE_NAME;
+const char *defaultTimezone = "CET-1CEST,M3.5.0,M10.5.0/3"; // Europe/Berlin
+const char *defaultTimezoneName = "Europe/Berlin";
+
+/* OTA Service Credentials */
+String OTAName = DEVICE_NAME;
+String OTAPassword = "wifiwhirl";
+const char *update_path = "/update";
+
+/* PoolLink cloud connection - SEEDED ONCE per device at manufacturing; the end
+ * user can only enable/disable the link and pair it to an account, never edit
+ * these. A blank cloudPskHex means "no cloud key": the cloud menu stays hidden
+ * and the PoolLink link never starts. */
+bool   cloudEnabled = false;                       // set true on cloud-provisioned units
+String cloudHost    = "";        // PoolLink TCP server
+int    cloudPort    = ;
+String cloudWebUrl  = ""; // cloud web app (device "Connect" target)
+String cloudPskHex  = "";                          // 64 hex chars, UNIQUE per device; migrated to /cloudpsk at boot
+
+/* Web firmware self-update (opt-in; device fetches <webUpdateUrl>/<env>.json) */
+bool webUpdateEnabled = false;
+String webUpdateUrl = "http://fw.wifiwhirl.de";
+
+/* First-run Setup Assistant flag (persisted in /devuser.json) */
+bool setupComplete = false;
+
+/* Expert mode flag (persisted in /devuser.json) */
+bool expertMode = false;
+
+/* Global UI Authentication (optional, off by default) */
+bool globalAuthEnabled = false;
+String globalAuthUser = "";
+String globalAuthSalt = "";
+String globalAuthHash = "";
+
+/* Webhook Basic Authentication (optional, off by default) */
+bool webhookEnabled = false;
+bool webhookAuthEnabled = false;
+String webhookAuthUser = "";
+String webhookAuthPassword = "";
+
+/* Web UI Configuration */
+bool showSectionTemperature = true;
+bool showSectionDisplay = true;
+bool showSectionControl = true;
+bool showSectionButtons = true;
+bool showSectionTimer = true;
+bool showSectionTotals = true;
+bool showSectionEnergy = true;
+bool showSectionWaterQuality = true;
+bool showWQCyanuric = false;
+bool showWQAlkalinity = false;
+const bool hidePasswords = true;
+
+/* MQTT Server */
+bool useMqtt = false;
+String mqttServer = "192.168.0.20";
+int mqttPort = 1883;
+String mqttUsername = "Benutzername";
+String mqttPassword = "Passwort";
+String mqttClientId = DEVICE_NAME;
+String mqttBaseTopic = DEVICE_NAME;
+int mqttTelemetryInterval = 600;

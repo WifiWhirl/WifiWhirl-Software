@@ -1,0 +1,45 @@
+{
+  "dir": "ltr",
+  "name": "WifiWhirl",
+  "short_name": "WifiWhirl",
+  "description": "Control and monitor your WifiWhirl spa module.",
+  "description_localized": {
+    "de": "Steuere und überwache dein WifiWhirl Spa-Modul.",
+    "en": "Control and monitor your WifiWhirl spa module.",
+    "fr": "Contrôlez et surveillez votre module spa WifiWhirl.",
+    "nl": "Bedien en bewaak je WifiWhirl spa-module.",
+    "pl": "Steruj i monitoruj moduł spa WifiWhirl."
+  },
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#edf7f6",
+  "background_color": "#edf7f6",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

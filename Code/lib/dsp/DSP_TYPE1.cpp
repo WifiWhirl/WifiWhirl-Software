@@ -95,10 +95,19 @@ Buttons DSP_6_TYPE1::getPressedButton()
     delayMicroseconds(30);
     if (newButtonCode != 0xFFFF)
         good_packets_count++;
-    newButton = buttonCodeToIndex(newButtonCode);
-    _old_button = newButton;
     _raw_payload_from_dsp[0] = newButtonCode >> 8;
     _raw_payload_from_dsp[1] = newButtonCode & 0xFF;
+
+    newButton = buttonCodeToIndex(newButtonCode);
+    // 0x0000 is POWER's code but also the value an idle/failed read yields, so a lone
+    // zero frame fires a phantom POWER press (pump turns on by itself). Require two
+    // consecutive zero reads to accept POWER. Any other garbage code already decodes
+    // to NOBTN, so every real button registers immediately - no added latency.
+    bool unconfirmed_power = (newButtonCode == 0x0000 && _last_raw_button_code != 0x0000);
+    _last_raw_button_code = newButtonCode;
+    if (unconfirmed_power)
+        return _old_button; // first zero - wait one read to confirm
+    _old_button = newButton;
     return newButton;
 }
 
@@ -159,10 +168,14 @@ void DSP_6_TYPE1::handleStates()
     {
         clearpayload();
     }
-    if (audiofrequency)
-        tone(getAUDIO(), audiofrequency);
-    else
-        noTone(getAUDIO());
+    if (audiofrequency != _prev_audiofrequency)
+    {
+        if (audiofrequency)
+            tone(getAUDIO(), audiofrequency);
+        else
+            noTone(getAUDIO());
+        _prev_audiofrequency = audiofrequency;
+    }
 
     uploadPayload(dsp_states.brightness);
 }

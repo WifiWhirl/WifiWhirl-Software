@@ -6,10 +6,10 @@ Since web assets are now embedded in the firmware (via embed_files.py),
 this script only copies configuration files that should remain on the filesystem.
 
 Files on LittleFS:
-- hwcfg.json: Default hardware configuration (can be modified by user)
+- wifi.json: factory bench WLAN seed, only present during factory flashing
 
 Runtime files created by firmware (not included here):
-- wifi.json: WiFi credentials
+- hwcfg.json: hardware/pump model, written by the Setup Assistant
 - mqtt.json: MQTT settings
 - settings.json: Pool/spa settings
 - cmdq.json: Command queue
@@ -20,10 +20,20 @@ Runtime files created by firmware (not included here):
 Import("env")
 import shutil, os
 
-# Files that should be included in the LittleFS filesystem image
-# These are default/initial configuration files
+# Files that should be included in the LittleFS filesystem image.
+#
+# hwcfg.json is deliberately NOT here: _loadHardware() (bwc.cpp) falls back to
+# MIAMI2021 when it is missing, and the Setup Assistant writes the real pump
+# model via POST /sethardware/ on first connect. Shipping a default would also
+# reset a customer's pump model on any filesystem reflash.
+#
+# wifi.json is the factory bench WLAN seed written by ultimate_tool so a freshly
+# flashed, unprovisioned module joins the network and can be reached at
+# POST /provision/. It is gitignored and absent for release/update builds, in
+# which case it is simply skipped below (and the image ends up empty, which is
+# why update packages ship firmware only).
 FILESYSTEM_FILES = [
-    "hwcfg.json",
+    "wifi.json",
 ]
 
 def copy_config_files(source, target, env):
