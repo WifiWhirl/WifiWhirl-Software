@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Arduino.h>
 #include <ArduinoOTA.h>
 #include <DNSServer.h>
@@ -7,151 +9,81 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-// Update Server
 #include <ESP8266HTTPUpdateServer.h>
-// #include <WiFiClientSecure.h>
 #include <time.h>
+typedef ESP8266WebServer WebServerT;
+typedef ESP8266HTTPUpdateServer HTTPUpdateServerT;
 
 #else
 
 #include <WebServer.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <Update.h>
+#include <esp_random.h>
+#include <ctime> // std::time used in api_commands.cpp (ESP8266 core pulls it in implicitly)
+typedef WebServer WebServerT;
 
 #endif
 
-// Keeping for later integrations
-// #include <OneWire.h>
-// #include <DallasTemperature.h>
-
 #include <LittleFS.h>
-#include <PubSubClient.h> // ** Requires library 2.8.0 or higher ** https://github.com/knolleary/pubsubclient
+#include <PubSubClient.h>
 #include <Ticker.h>
-#include <WebSocketsServer.h>
-// #include <ESP_WiFiManager.h>
-#include <WiFiManager.h>
-#define ESP_WiFiManager WiFiManager
+#ifdef ESP8266
 #include <umm_malloc/umm_heap_select.h>
+#endif
 
 #include "bwc.h"
 #include "config.h"
 
-/**  */
-Ticker bootlogTimer;
-/**  */
-Ticker periodicTimer;
-Ticker startComplete;
-/**  */
-bool periodicTimerFlag = false;
-/**  */
-int periodicTimerInterval = 60;
-/** get or set the state of the network beeing connected */
-bool wifiConnected = false;
+// --- Core application state ---
+extern BWC *bwc;
+extern char *stack_start;
+extern uint32_t heap_water_mark;
 
-/** a WiFi Manager for configurations via access point */
-// ESP_WiFiManager wm;
+// --- Timers & periodic tasks ---
+extern Ticker bootlogTimer;
+extern Ticker periodicTimer;
+extern Ticker startComplete;
+extern bool periodicTimerFlag;
+extern int periodicTimerInterval;
 
-/** a webserver object that listens on port 80 */
-#if defined(ESP8266)
-ESP8266WebServer *server;
-#elif defined(ESP32)
-WebServer server(80);
+// --- WiFi state ---
+extern bool wifiConnected;
+// True only while the SoftAP "Setup Assistant" captive portal is running
+// (set in startSetupPortal). Read by handleNotFound and handleAuthStatus.
+extern bool apSetupMode;
+
+// --- HTTP server ---
+extern WebServerT *server;
+
+// --- MQTT runtime state ---
+extern WiFiClient *aWifiClient;
+extern PubSubClient *mqttClient;
+extern int mqtt_connect_count;
+extern String prevButtonName;
+extern Ticker updateMqttTimer;
+extern bool sendMQTTFlag;
+extern bool enableMqtt;
+
+// --- Home Assistant discovery state ---
+extern bool haDiscoveryInProgress;
+extern unsigned long haDiscoveryLastCompleted;
+extern bool haDiscoveryHasRunOnce;
+
+// --- OTA / firmware update server ---
+// ESP8266 uses the core's HTTPUpdateServer; ESP32's bundled one #includes the
+// absent SPIFFS.h, so its web upload is wired through Update in http_routes.cpp.
+#ifdef ESP8266
+extern HTTPUpdateServerT httpUpdater;
 #endif
 
-/** a websocket object that listens on port 81 */
-WebSocketsServer *webSocket;
-/**  */
-Ticker updateWSTimer;
-/**  */
-bool sendWSFlag = false;
-
-/** a WiFi client beeing used by the MQTT client */
-WiFiClient *aWifiClient;
-/** a MQTT client */
-PubSubClient *mqttClient;
-/**  */
-bool checkMqttConnection = false;
-/** Count of how may times we've connected to the MQTT server since booting (should always be 1 or more) */
-int mqtt_connect_count;
-/**  */
-String prevButtonName = "";
-/**  */
-bool prevunit = 1;
-/**  */
-Ticker updateMqttTimer;
-/**  */
-bool sendMQTTFlag = false;
-bool enableMqtt = false;
-bool enableWeather = false;
-/** Flag to block MQTT publishing during Home Assistant discovery to prevent memory corruption */
-bool haDiscoveryInProgress = false;
-/** Timestamp of last HA discovery completion - prevents immediate re-discovery after disconnect */
-unsigned long haDiscoveryLastCompleted = 0;
-/** Flag to track if this is first discovery after boot - don't restart after first one */
-bool haDiscoveryHasRunOnce = false;
-
-/** used for handleAUX() */
-bool runonce = true;
-uint64_t ambExpires = 0;
-
-void sendWS();
-void getOtherInfo(String &rtn);
-void sendMQTT();
-void startWiFi();
-void startWiFiConfigPortal(const String &storedSsid = "", const String &storedPwd = "");
-void startNTP();
-void startOTA();
+// --- Core lifecycle (main.cpp) ---
+// Per-area function declarations live in net/net.h, web/web.h, sys/sys.h, api/api.h.
 void stopall();
 void pause_all(bool action);
-void startWebSocket();
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len);
-void startHttpServer();
-void handleGetHardware();
-void handleSetHardware();
-void handleNotFound();
-String getContentType(const String &filename);
-bool handleFileRead(String path);
-bool checkHttpPost(HTTPMethod method);
-String queryAmbientTemperature();
-void handleGetWeather();
-void handleGetConfig();
-void handleSetConfig();
-void handleGetCommandQueue();
-void handleAddCommand();
-void handleEditCommand();
-void handleDelCommand();
-void handle_cmdq_file();
-void copyFile(String source, String dest);
-void loadWebConfig();
-void saveWebConfig();
-void handleGetWebConfig();
-void handleSetWebConfig();
-sWifi_info loadWifi();
-void saveWifi(const sWifi_info &wifi_info);
-void handleGetWifi();
-void handleSetWifi();
-void handleScanWifi();
-void handleResetWifi();
-void resetWiFi();
-void loadMqtt();
-void saveMqtt();
-void handleGetMqtt();
-void handleSetMqtt();
-void handleRestart();
-void handleWebhook();
-void handleGetStates();
-void handleGetTemps();
-void handleUpdate();
-void handleGetSmartSchedule();
-void handleSetSmartSchedule();
-void handleCancelSmartSchedule();
-void startMqtt();
-void mqttCallback(char *topic, byte *payload, unsigned int length);
-void mqttConnect();
-time_t getBootTime();
-void handleESPInfo();
 
-// Keeping for later integrations
-// void setTemperatureFromSensor();
-
-void setupHA();
-void handlePrometheusMetrics();
+// Send a {"restart":true,"reason":"<code>"} JSON reply, persist settings, stop
+// services, and reboot. Shared by the wifi/mqtt/hardware config handlers; the
+// reason is a stable code the SPA localizes (see frontend showRestart()).
+void restartWithReason(const char *reasonCode);

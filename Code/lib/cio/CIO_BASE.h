@@ -21,6 +21,10 @@ public:
     std::vector<uint8_t> getRawPayload();
     virtual String getModel() = 0;
     virtual Power getPower() = 0;
+    /* Expert-mode overrides: setPower replaces the live wattage table,
+     * getDefaultPower returns the compiled values for "reset to defaults". */
+    virtual void setPower(const Power &p) {}
+    virtual Power getDefaultPower() { return getPower(); }
     virtual bool getHasgod() = 0;
     virtual bool getHasjets() = 0;
     virtual bool getHasair() = 0;

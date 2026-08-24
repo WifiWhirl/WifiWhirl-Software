@@ -1,0 +1,26 @@
+{
+  "name": "wifiwhirl-frontend",
+  "private": true,
+  "version": "2.0.0",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@preact-icons/pi": "npm:@jsr/preact-icons__pi@^1.0.13",
+    "@preact/signals": "^2.9.2",
+    "preact": "^10.29.2",
+    "sortablejs": "^1.15.7"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.5",
+    "@types/sortablejs": "^1.15.9",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0"
+  }
+}

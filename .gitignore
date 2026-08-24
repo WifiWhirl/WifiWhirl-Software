@@ -30,7 +30,21 @@
 *.exe
 *.out
 *.app
-Code/.vscode/extensions.json
 
+# VS Code
+Code/.vscode/extensions.json
 .pio
 .vscode
+
+# Temp Docs
+!README.MD
+*.md
+.*ignore
+changelog_*.md
+changelog_*.txt
+
+# Testing
+generate_swagger.py
+
+# Demo
+Code/demo

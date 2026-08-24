@@ -20,6 +20,6 @@ String CIO::debug()
     // s = "QLen: " + String(_button_que_len);
     for (unsigned int i = 0; i < _raw_payload_from_cio.size(); i++)
         s += ' ' + String(_raw_payload_from_cio[i]);
-    s += F(" good pkt:") + String(good_packets_count);
+    s += String(F(" good pkt:")) + String(good_packets_count);
     return s;
 }

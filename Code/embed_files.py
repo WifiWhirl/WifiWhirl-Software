@@ -12,6 +12,7 @@ Import("env")
 import os
 import gzip
 import pathlib
+import re
 
 # Files to exclude from embedding (these remain on LittleFS)
 EXCLUDE_FILES = [
@@ -19,7 +20,7 @@ EXCLUDE_FILES = [
 ]
 
 # File extensions that should be gzip compressed
-COMPRESS_EXTENSIONS = ["js", "css", "html", "ico", "eot", "woff", "txt", "json"]
+COMPRESS_EXTENSIONS = ["js", "css", "html", "ico", "svg", "eot", "woff", "txt", "json"]
 
 # Content type mapping
 CONTENT_TYPES = {
@@ -36,10 +37,24 @@ CONTENT_TYPES = {
     "mel": "text/plain",
 }
 
+HASHED_FRONTEND_ASSET_RE = re.compile(r"^(app|chunk)-[\w-]+\.(js|css)$")
+
 def get_content_type(filename):
     """Get MIME content type for a file based on its extension."""
     ext = pathlib.Path(filename).suffix[1:].lower()
     return CONTENT_TYPES.get(ext, "application/octet-stream")
+
+def get_cache_control(filename, content_type):
+    """Get Cache-Control policy for an embedded file."""
+    ext = pathlib.Path(filename).suffix[1:].lower()
+
+    if content_type == "text/html":
+        return "no-cache, no-store, must-revalidate"
+    if HASHED_FRONTEND_ASSET_RE.match(filename):
+        return "public, max-age=31536000, immutable"
+    if ext in ("css", "js", "ico", "png", "svg", "eot", "woff", "json"):
+        return "public, max-age=3600"
+    return "no-cache"
 
 def sanitize_name(s):
     """Convert any string to valid C identifier."""
@@ -131,6 +146,7 @@ def generate_embedded_files_header(source, target, env):
         ext = pathlib.Path(filename).suffix[1:].lower()
         should_compress = ext in COMPRESS_EXTENSIONS
         content_type = get_content_type(filename)
+        cache_control = get_cache_control(filename, content_type)
         
         # Read file content
         with open(filepath, "rb") as f:
@@ -172,6 +188,7 @@ def generate_embedded_files_header(source, target, env):
             "var_name": var_name,
             "size": embedded_size,
             "content_type": content_type,
+            "cache_control": cache_control,
             "is_gzipped": is_gzipped,
         })
     
@@ -182,6 +199,7 @@ def generate_embedded_files_header(source, target, env):
     header_lines.append("    const uint8_t* data;")
     header_lines.append("    size_t size;")
     header_lines.append("    const char* contentType;")
+    header_lines.append("    const char* cacheControl;")
     header_lines.append("    bool isGzipped;")
     header_lines.append("};")
     header_lines.append("")
@@ -200,6 +218,14 @@ def generate_embedded_files_header(source, target, env):
         ct_var = f"ct_{sanitize_name(ct)}"
         header_lines.append(f"const char {ct_var}[] PROGMEM = \"{ct}\";")
     header_lines.append("")
+
+    # Generate cache-control strings in PROGMEM
+    header_lines.append("// Cache-Control values in PROGMEM")
+    unique_cache_controls = sorted(set(e["cache_control"] for e in file_entries))
+    for cc in unique_cache_controls:
+        cc_var = f"cc_{sanitize_name(cc)}"
+        header_lines.append(f"const char {cc_var}[] PROGMEM = \"{cc}\";")
+    header_lines.append("")
     
     # Generate file registry array
     header_lines.append(f"// File registry ({len(file_entries)} files)")
@@ -210,8 +236,9 @@ def generate_embedded_files_header(source, target, env):
     for entry in file_entries:
         path_var = f"path_{sanitize_name(entry['path'][1:])}"
         ct_var = f"ct_{sanitize_name(entry['content_type'])}"
+        cc_var = f"cc_{sanitize_name(entry['cache_control'])}"
         gzipped_str = "true" if entry["is_gzipped"] else "false"
-        header_lines.append(f"    {{{path_var}, {entry['var_name']}, {entry['size']}, {ct_var}, {gzipped_str}}},")
+        header_lines.append(f"    {{{path_var}, {entry['var_name']}, {entry['size']}, {ct_var}, {cc_var}, {gzipped_str}}},")
     
     header_lines.append("};")
     header_lines.append("")

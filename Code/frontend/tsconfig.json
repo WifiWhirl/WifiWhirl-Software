@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // @preact-icons is published from Deno: its .d.ts re-exports raw .tsx source
+    // (common/_dist/mod.d.ts -> ../lib/iconBase.tsx), which imports Deno-style
+    // "npm:preact@^10.22.1" specifiers. skipLibCheck cannot help - iconBase.tsx
+    // is source, not a declaration file - so tsc followed it and reported ten
+    // errors from inside node_modules. vite.config.ts already rewrites exactly
+    // these specifiers with resolve.alias; this is the same fix for the type
+    // checker. Typecheck-only: vite does not read tsconfig paths (no
+    // vite-tsconfig-paths plugin), so the build is untouched.
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "npm:preact@*/jsx-runtime": ["./node_modules/preact/jsx-runtime"],
+      "npm:preact@*/hooks": ["./node_modules/preact/hooks"],
+      "npm:preact@*": ["./node_modules/preact"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

@@ -102,7 +102,8 @@ enum Models : uint8_t
 {
     PRE2021,
     MIAMI2021,
-    MALDIVES2021
+    MALDIVES2021,
+    MSPA
 };
 
 struct Power
@@ -142,6 +143,13 @@ struct sStates
     // bool fullpower = false;
     uint8_t no_of_heater_elements_on = 2;
     bool godmode = false;
+    // Has the pump ever told us these, or are we still reporting the defaults
+    // above? The cloud sends null instead of a plausible-looking 25 °C.
+    // Deliberately outside operator==: these are reporting metadata, not state,
+    // and must not count as a change for the local UI or the state machine.
+    bool tmp_ok = false;
+    bool tgt_ok = false;
+    bool dsp_ok = false;
 
     // String toString()
     // {
