@@ -232,7 +232,10 @@ export async function refreshAuthStatus(): Promise<void> {
     // Only firmware that reports the flag (=== false) triggers onboarding; older
     // firmware omits it and the wizard stays hidden. Only show it while global
     // auth is off (a fresh device) so it never pre-empts the login gate.
-    setupNeeded.value = status.setupComplete === false && !status.enabled;
+    // apMode counts too: a device that dropped into its SoftAP needs the guided
+    // WiFi step regardless of setupComplete. Without this an existing user landed
+    // on the normal WiFi page, which cannot recover a device from that state.
+    setupNeeded.value = (status.setupComplete === false || !!status.apMode) && !status.enabled;
     expertMode.value = !!status.expertMode;
     cloudAvailable.value = !!status.cloudAvailable;
   } catch {

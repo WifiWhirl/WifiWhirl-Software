@@ -367,6 +367,26 @@ bool parseCommandValidated(const JsonVariantConst &src, command_que_item &item, 
 }
 
 /**
+ * Why the station is not associated, as a stable code for the web app.
+ * "nossid" - network not found, "badpwd" - rejected, "down" - anything else.
+ */
+static const __FlashStringHelper *staFailReason()
+{
+    switch (WiFi.status())
+    {
+    case WL_NO_SSID_AVAIL:
+        return F("nossid");
+    case WL_CONNECT_FAILED: // ESP32 reports auth failures here
+#ifdef ESP8266
+    case WL_WRONG_PASSWORD:
+#endif
+        return F("badpwd");
+    default:
+        return F("down");
+    }
+}
+
+/**
  * Build the "OTHER" status JSON (MQTT state, model, weather, WiFi info, FW, loop rate)
  * Resets the loop counter after reading it. Used by the poll endpoint and MQTT.
  * @param rtn output string receiving the serialized JSON
@@ -379,9 +399,17 @@ static void buildOtherInfo(JsonObject doc)
     doc[F("HASGOD")] = bwc->hasgod;
     doc[F("MODEL")] = bwc->getModel();
     doc[F("WEATHER")] = bwc->getWeather();
-    doc[F("RSSI")] = WiFi.RSSI();
-    doc[F("IP")] = WiFi.localIP().toString();
-    doc[F("SSID")] = WiFi.SSID();
+    // Gate on the actual link: WiFi.RSSI() returns the sentinel 31 when the STA
+    // is not associated, which the UI used to render as "31 dBm - sehr gut".
+    // Keys stay present unconditionally - homeassistant.cpp maps value_json.RSSI.
+    bool staConnected = (WiFi.status() == WL_CONNECTED);
+    doc[F("RSSI")] = staConnected ? WiFi.RSSI() : 0;
+    doc[F("IP")] = staConnected ? WiFi.localIP().toString() : String();
+    doc[F("SSID")] = staConnected ? WiFi.SSID() : String();
+    // Platform-independent reason code, not the raw wl_status_t: the enum values
+    // differ between ESP8266 (WL_WRONG_PASSWORD=6, WL_DISCONNECTED=7) and ESP32
+    // (WL_DISCONNECTED=6, no WL_WRONG_PASSWORD), so mapping has to happen here.
+    doc[F("STA")] = staConnected ? F("up") : staFailReason();
     doc[F("FW")] = FW_VERSION;
     doc[F("BUILDENV")] = PIO_ENV_NAME;
     doc[F("NEWFW")] = updateAvailableVersion(); // "" unless a newer version is known
@@ -391,14 +419,14 @@ static void buildOtherInfo(JsonObject doc)
 
 static size_t writeOtherInfo(Print &out)
 {
-    StaticJsonDocument<640> doc;
+    StaticJsonDocument<704> doc; // 704: fits the OTHER payload incl. the STA key
     buildOtherInfo(doc.to<JsonObject>());
     return serializeJson(doc, out);
 }
 
 void getOtherInfo(String &rtn)
 {
-    StaticJsonDocument<640> doc;
+    StaticJsonDocument<704> doc; // 704: fits the OTHER payload incl. the STA key
     buildOtherInfo(doc.to<JsonObject>());
 
     if (serializeJson(doc, rtn) == 0)

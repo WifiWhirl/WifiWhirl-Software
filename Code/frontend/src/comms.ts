@@ -13,7 +13,13 @@ export interface OtherMsg {
   BUILDENV?: string;
   /** Newer firmware version found by the daily check; "" / absent when up to date. */
   NEWFW?: string;
+  /** 0 when the STA is not associated: the firmware suppresses the sentinel. */
   RSSI: number;
+  /** Live station values; empty strings while not associated. */
+  IP?: string;
+  SSID?: string;
+  /** Link reason code: 'up' | 'nossid' | 'badpwd' | 'down'. Mapped firmware-side. */
+  STA?: string;
   HASJETS: boolean;
   WEATHER: boolean;
   CLOUD?: string;

@@ -247,7 +247,7 @@ struct sNote
 
 struct sWifi_info
 {
-    bool enableAp;
+    bool enableAp = false;
     bool enableWmApFallback = true;
     String apSsid;
     String apPwd;

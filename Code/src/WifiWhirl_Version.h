@@ -1,4 +1,4 @@
-#define FW_VERSION "2.0.0"
+#define FW_VERSION "2.1.0"
 
 // Active PlatformIO build environment, injected at build time by
 // inject_build_info.py. Fallback for builds without that script (e.g. IDE

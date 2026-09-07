@@ -4,6 +4,8 @@
 export interface WifiCfg {
   enableAp?: boolean;
   apSsid?: string;
+  /** True when a password is on file, so "leave empty to keep it" has something to keep. */
+  hasApPwd?: boolean;
   enableWM?: boolean;
   enableStaticIp4?: boolean;
   ip4Address?: string;

@@ -165,7 +165,10 @@ void startWiFi()
     }
     else
     {
-        startSetupPortal();
+        // Always hand over whatever is stored. A portal without credentials can
+        // never call WiFi.begin(), so the device would sit in the AP forever with
+        // no way back through the UI.
+        startSetupPortal(wifi_info.apSsid, wifi_info.apPwd);
     }
 
     if (WiFi.status() == WL_CONNECTED)
@@ -338,7 +341,6 @@ sWifi_info loadWifi()
         return wifi_info;
     }
 
-    wifi_info.enableAp = doc[F("enableAp")];
     if (doc.containsKey("enableWM"))
         wifi_info.enableWmApFallback = doc[F("enableWM")];
     wifi_info.apSsid = doc[F("apSsid")].as<String>();
@@ -351,6 +353,11 @@ sWifi_info loadWifi()
     wifi_info.ip4DnsPrimary_str = doc[F("ip4DnsPrimary")].as<String>();
     wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
     wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
+
+    // Derived, never trusted from the file: the stored flag could latch false
+    // while a valid SSID was on record, which sent startWiFi() down the
+    // credential-less portal branch with no way back through the UI.
+    wifi_info.enableAp = wifi_info.apSsid.length() > 0;
 
     _cachedWifi = wifi_info;
     _wifiCacheValid = true;
@@ -461,6 +468,9 @@ void handleGetWifi()
     doc[F("enableAp")] = wifi_info.enableAp;
     doc[F("enableWM")] = wifi_info.enableWmApFallback;
     doc[F("apSsid")] = wifi_info.apSsid;
+    // Boolean only, never the key itself: the UI needs to know whether "leave
+    // empty to keep the current password" has anything left to keep.
+    doc[F("hasApPwd")] = wifi_info.apPwd.length() > 0;
     // Passwords are never sent to the client. The fields are omitted rather
     // than masked with a sentinel string: the UI starts them blank and only
     // submits one when the user types a new value, so there is no magic
@@ -512,8 +522,6 @@ void handleSetWifi()
     sWifi_info old_info = loadWifi();
     sWifi_info wifi_info = old_info;
 
-    if (doc.containsKey(F("enableAp")))
-        wifi_info.enableAp = doc[F("enableAp")];
     if (doc.containsKey(F("enableWM")))
         wifi_info.enableWmApFallback = doc[F("enableWM")];
     if (doc.containsKey(F("apSsid")))
@@ -539,6 +547,11 @@ void handleSetWifi()
     if (doc.containsKey(F("ip4NTP")))
         wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
 
+    // Derived, never taken from the request: the WiFi page has no control for
+    // this and used to echo a stored `false` straight back, latching the device
+    // into the credential-less portal branch.
+    wifi_info.enableAp = wifi_info.apSsid.length() > 0;
+
     String validationError;
     if (!validateWifiInfo(wifi_info, validationError))
     {
@@ -548,8 +561,7 @@ void handleSetWifi()
 
     // Detect what changed: NTP can be applied live, everything else needs a reboot
     bool ntpChanged = (wifi_info.ip4NTP_str != old_info.ip4NTP_str);
-    bool networkChanged = (wifi_info.enableAp != old_info.enableAp) ||
-                          (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
+    bool networkChanged = (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
                           (wifi_info.apSsid != old_info.apSsid) ||
                           (wifi_info.apPwd != old_info.apPwd) ||
                           (wifi_info.enableStaticIp4 != old_info.enableStaticIp4) ||
@@ -559,7 +571,7 @@ void handleSetWifi()
                           (wifi_info.ip4DnsPrimary_str != old_info.ip4DnsPrimary_str) ||
                           (wifi_info.ip4DnsSecondary_str != old_info.ip4DnsSecondary_str);
 
-    if (!ntpChanged && !networkChanged)
+    if (!ntpChanged && !networkChanged && !apSetupMode)
     {
         // Nothing changed, no need to save or restart
         Serial.println(F("WiFi: No changes detected"));

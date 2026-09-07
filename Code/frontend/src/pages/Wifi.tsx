@@ -13,7 +13,7 @@ import { validHostnameOrIp, validIpv4 } from '../util/validation';
 
 // Defaults fill any field the firmware omits, so form inputs are never bound to undefined.
 const WIFI_DEFAULTS: Required<WifiCfg> = {
-  enableAp: false, apSsid: '', enableWM: false, enableStaticIp4: false,
+  enableAp: false, apSsid: '', hasApPwd: false, enableWM: false, enableStaticIp4: false,
   ip4Address: '', ip4Subnet: '', ip4Gateway: '', ip4DnsPrimary: '',
   ip4DnsSecondary: '', ip4NTP: '',
 };
@@ -24,11 +24,16 @@ const WIFI_DEFAULTS: Required<WifiCfg> = {
 export function Wifi() {
   const [d, setD] = useState<Required<WifiCfg> | null>(null);
   const [pwd, setPwd] = useState('');
+  const [storedSsid, setStoredSsid] = useState('');
   const [networks, setNetworks] = useState<WifiNetwork[] | null>(null);
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'error'>('idle');
   const ssidId = useId();
 
-  useEffect(() => { postJson<WifiCfg>('/getwifi/').then((j) => setD({ ...WIFI_DEFAULTS, ...j })).catch(() => {}); }, []);
+  useEffect(() => {
+    postJson<WifiCfg>('/getwifi/')
+      .then((j) => { const cfg = { ...WIFI_DEFAULTS, ...j }; setD(cfg); setStoredSsid(cfg.apSsid); })
+      .catch(() => {});
+  }, []);
   if (!d) return <PageSkeleton cards={4} rows={2} />;
   const set = (k: keyof WifiCfg, v: unknown) => setD({ ...d, [k]: v });
 
@@ -36,7 +41,7 @@ export function Wifi() {
     // enableWM lives on the Expert page now; /setwifi/ merges by key, so leaving
     // it out here keeps the stored fallback setting untouched.
     const p: Record<string, unknown> = {
-      enableAp: d.enableAp, apSsid: d.apSsid,
+      apSsid: d.apSsid,
       enableStaticIp4: d.enableStaticIp4, ip4Address: d.ip4Address,
       ip4Subnet: d.ip4Subnet, ip4Gateway: d.ip4Gateway,
       ip4DnsPrimary: d.ip4DnsPrimary, ip4DnsSecondary: d.ip4DnsSecondary,
@@ -47,8 +52,14 @@ export function Wifi() {
   };
 
   const validate = (): string | null => {
-    if (d.enableAp && (!d.apSsid.trim() || d.apSsid.length > 32)) return t('wifi.errSsid');
+    if (!d.apSsid.trim() || d.apSsid.length > 32) return t('wifi.errSsid');
     if (pwd && (pwd.length < 8 || pwd.length > 63)) return t('wifi.errPassword');
+    // "Leave empty to keep the current password" keeps nothing when none is
+    // stored, and never applies to a network we have no key for. Networks the
+    // scan reported as open are exempt - those have no password to give.
+    const scanned = networks?.find((n) => n.ssid === d.apSsid);
+    const knownOpen = scanned ? !isEncrypted(scanned.enc) : false;
+    if (!pwd && !knownOpen && (!d.hasApPwd || d.apSsid !== storedSsid)) return t('wifi.errPasswordRequired');
     if (d.enableStaticIp4) {
       if (!validIpv4(d.ip4Address) ||
           !validIpv4(d.ip4Subnet) ||
@@ -86,25 +97,30 @@ export function Wifi() {
     set('apSsid', ssid);
   }
 
-  // Live signal strength from the poll loop; the page is state-first, so the
-  // hero answers "how good is my spa's Wi-Fi right now?" before any form.
-  const rssi = lastOther.value?.RSSI;
+  // Live link state from the poll loop; the page is state-first, so the hero
+  // answers "is my spa actually on the network right now?" before any form.
+  // Everything here must come from the poll - reading the stored config instead
+  // reported "connected" while the module sat unreachable in its own SoftAP.
+  const other = lastOther.value;
+  const online = !!other?.IP;
+  const rssi = online ? other?.RSSI : undefined;
 
   return (
     <>
       <h1>{t('nav.wifi')}</h1>
       <LinkHero
         eyebrow={t('wifi.heroEyebrow')}
-        state={rssi != null ? t('wifi.stateConnected') : t('wifi.stateUnknown')}
-        tone={rssi != null ? 'on' : 'pending'}
+        state={online ? t('wifi.stateConnected') : other ? t('wifi.stateDisconnected') : t('wifi.stateUnknown')}
+        tone={online ? 'on' : other ? 'off' : 'pending'}
         remoteIcon={wifiSignalIconName(rssi != null ? signalBars(rssi) : 0)}
         remoteLabel={t('wifi.nodeRouter')}
         stats={[
-          { label: t('wifi.statSsid'), value: d.apSsid.trim() || '-' },
+          { label: t('wifi.statSsid'), value: other?.SSID || '-' },
           { label: t('wifi.statSignal'), value: rssi != null ? `${rssi} dBm · ${signalLabel(rssi)}` : '-' },
-          { label: t('wifi.statIp'), value: d.enableStaticIp4 ? d.ip4Address.trim() || '-' : t('wifi.dhcp') },
+          { label: t('wifi.statIp'), value: other?.IP || '-' },
         ]}
       />
+      {other && !online && <p class="scan-status error">{staReason(other.STA)}</p>}
       <Card title={t('wifi.ap')}>
         <div class="row wifi-ssid-row">
           <label for={ssidId}>{t('wifi.ssid')}</label>
@@ -179,6 +195,13 @@ export function Wifi() {
       </div>
     </>
   );
+}
+
+/** Firmware reason code -> text; only shown while disconnected. */
+function staReason(sta: string | undefined): string {
+  if (sta === 'nossid') return t('wifi.reasonNoSsid');
+  if (sta === 'badpwd') return t('wifi.reasonBadPassword');
+  return t('wifi.reasonGeneric');
 }
 
 function isEncrypted(enc: WifiNetwork['enc']): boolean {

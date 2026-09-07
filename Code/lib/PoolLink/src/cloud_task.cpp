@@ -477,7 +477,7 @@ bool CloudTask::_sendQueueData()
     if (json.length() == 0)
         return true;  // nothing to send
     if (json.length() > POOLLINK_MAX_PAYLOAD) {
-        // ponytail: oversized queues (>~15 entries) are dropped, not chunked;
+        // oversized queues (>~15 entries) are dropped, not chunked;
         // add a paged message type if real queues ever grow that large.
         Serial.println(F("[Cloud] queue snapshot too large, skipped"));
         return true;
