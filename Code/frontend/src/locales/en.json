@@ -425,6 +425,7 @@
   "ss.errNoDateTime": "Please enter date and time.",
   "ss.errTempRange": "Target temperature must be between 20°C and 40°C.",
   "ss.errFuture": "Target time must be in the future.",
+  "ss.tooLate": "The time until the target time is probably not enough to reach the target temperature. Heating starts immediately.",
   "ss.activated": "Schedule activated!",
   "ss.errActivate": "Failed to activate.",
   "ss.confirmCancel": "Do you really want to cancel the schedule?",

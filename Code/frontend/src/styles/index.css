@@ -1277,7 +1277,8 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 }
 .ss-stat.heat b, .ss-metric.info b { color: var(--heat); }
 .ss-stat.ok b, .ss-metric.ok b { color: var(--ok); }
-.ss-cancel { margin-top: 14px; }
+.ss-cancel, .ss-hero .note { margin-top: 14px; }
+.ss-hero .note { margin-bottom: 0; }
 .ss-timeline {
   position: relative;
   padding-top: 12px;

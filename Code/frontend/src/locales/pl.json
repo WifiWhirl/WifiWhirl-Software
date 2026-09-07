@@ -394,6 +394,7 @@
   "ss.errNoDateTime": "Podaj datę i godzinę.",
   "ss.errTempRange": "Temperatura docelowa musi być między 20°C a 40°C.",
   "ss.errFuture": "Czas docelowy musi być w przyszłości.",
+  "ss.tooLate": "Czas do godziny docelowej prawdopodobnie nie wystarczy, aby osiągnąć temperaturę docelową. Ogrzewanie startuje natychmiast.",
   "ss.activated": "Harmonogram aktywowany!",
   "ss.errActivate": "Aktywacja nie powiodła się.",
   "ss.confirmCancel": "Czy na pewno chcesz anulować harmonogram?",

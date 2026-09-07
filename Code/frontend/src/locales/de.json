@@ -425,6 +425,7 @@
   "ss.errNoDateTime": "Bitte gib Datum und Uhrzeit ein.",
   "ss.errTempRange": "Die Zieltemperatur muss zwischen 20°C und 40°C liegen.",
   "ss.errFuture": "Die Zielzeit muss in der Zukunft liegen.",
+  "ss.tooLate": "Die Zeit bis zur Zielzeit reicht voraussichtlich nicht aus, um die Zieltemperatur zu erreichen. Die Heizung startet sofort.",
   "ss.activated": "Zeitplan aktiviert!",
   "ss.errActivate": "Fehler beim Aktivieren.",
   "ss.confirmCancel": "Möchtest du den Zeitplan wirklich abbrechen?",

@@ -394,6 +394,7 @@
   "ss.errNoDateTime": "Saisis la date et l'heure.",
   "ss.errTempRange": "La température cible doit être comprise entre 20°C et 40°C.",
   "ss.errFuture": "L'heure cible doit être dans le futur.",
+  "ss.tooLate": "Le temps restant jusqu'à l'heure cible ne suffira probablement pas pour atteindre la température cible. Le chauffage démarre immédiatement.",
   "ss.activated": "Planification activée !",
   "ss.errActivate": "Échec de l'activation.",
   "ss.confirmCancel": "Veux-tu vraiment annuler la planification ?",

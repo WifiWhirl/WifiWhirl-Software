@@ -30,6 +30,11 @@ const isC = () => lastStates.value?.UNT !== false; // unknown states -> assume Â
 // (green). Fall back to HEATER for firmware without the split keys.
 const heatingRed = (d: Sched) => d.HEATERRED ?? !!d.HEATER;
 const reachedGrn = (d: Sched) => !!d.HEATERGRN && !d.HEATERRED;
+// Firmware estimate (+ safety buffer) exceeds the time left -> target likely
+// missed; heater then starts immediately. 999 = unreachable at this ambient.
+export const tooLate = (d: Sched) =>
+  !d.HEATERGRN && (d.ESTIMATE ?? 0) > 0 &&
+  ((d.ESTIMATE ?? 0) >= 999 || ((d.ESTIMATE ?? 0) + (d.BUFFER ?? 0)) * 3600 > (d.TIMEREMAINING ?? 0));
 
 function defaultDateTime(): string {
   const d = new Date();
@@ -132,6 +137,7 @@ export function SmartSchedule() {
             <ScheduleStat label={t('ss.heater')} value={data.HEATER ? t('ss.heaterOn') : t('ss.heaterOff')}
               tone={heatingRed(data) ? 'heat' : reachedGrn(data) ? 'ok' : undefined} />
           </div>
+          {tooLate(data) && <p class="note warn">{t('ss.tooLate')}</p>}
           <button class="btn danger ss-cancel" onClick={cancel}>{t('ss.cancel')}</button>
         </Card>
 

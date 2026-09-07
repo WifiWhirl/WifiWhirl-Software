@@ -394,6 +394,7 @@
   "ss.errNoDateTime": "Voer datum en tijd in.",
   "ss.errTempRange": "De doeltemperatuur moet tussen 20°C en 40°C liggen.",
   "ss.errFuture": "De doeltijd moet in de toekomst liggen.",
+  "ss.tooLate": "De tijd tot de doeltijd is waarschijnlijk niet voldoende om de doeltemperatuur te bereiken. De verwarming start direct.",
   "ss.activated": "Schema geactiveerd!",
   "ss.errActivate": "Activeren mislukt.",
   "ss.confirmCancel": "Weet je zeker dat je het schema wilt annuleren?",
