@@ -1222,9 +1222,11 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
   flex: 0 0 auto;
   min-width: 98px;
   min-height: 98px;
-  display: grid;
-  place-items: center;
-  align-content: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 12px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--accent-line) 72%, var(--border));
   background: color-mix(in srgb, var(--surface) 78%, var(--accent-soft));
