@@ -1855,20 +1855,6 @@ input[aria-invalid="true"] {
 }
 .model-pick.on .tile-ic { background: rgba(255,255,255,0.16); color: var(--accent-ink); }
 
-/* Dashboard rhythm. */
-.control-card {
-  background: color-mix(in srgb, var(--surface) 92%, var(--surface-3));
-}
-.control-bank {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 34%, var(--surface)), var(--surface)),
-    repeating-linear-gradient(118deg, rgba(70, 87, 184, 0.06) 0 1px, transparent 1px 18px);
-}
-.water-card {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 60%, var(--surface)), var(--surface)),
-    repeating-linear-gradient(105deg, rgba(23, 128, 139, 0.08) 0 1px, transparent 1px 20px);
-}
 .metric-card .row span,
 .metric-card .row b {
   font-variant-numeric: tabular-nums;
