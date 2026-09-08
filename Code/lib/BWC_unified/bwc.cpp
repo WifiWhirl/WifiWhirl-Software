@@ -453,6 +453,15 @@ void BWC::loop()
         _scroll = false;
     }
     cio->updateStates();
+    // Boot restore once the CIO has parsed a frame and learned the target
+    // (6-wire boards read it only after their first UP self-press). Fall back
+    // after 60 s so pump/heater still get restored if the panel stays dark.
+    if (_restore_states_pending &&
+        ((cio->good_packets_count > 0 && cio->cio_states.target != 0) || millis() > 60000))
+    {
+        _restore_states_pending = false;
+        _restoreStates();
+    }
     dsp->dsp_states = cio->cio_states;
 
     /*Modify and use dsp->dsp_states here if we want to show text or something*/
@@ -2665,6 +2674,14 @@ void BWC::_restoreStates()
     item.interval = 0;
     item.text = "";
     add_command(item);
+    // SETTARGET before SETUNIT: SETUNIT converts the pending web target into
+    // the new unit; the old order re-converted it into the previous unit.
+    item.cmd = SETTARGET;
+    item.val = tgt;
+    item.xtime = 0;
+    item.interval = 0;
+    item.text = "";
+    add_command(item);
     item.cmd = SETUNIT;
     item.val = unt;
     item.xtime = 0;
@@ -2679,12 +2696,6 @@ void BWC::_restoreStates()
     add_command(item);
     item.cmd = SETHEATER;
     item.val = htr;
-    item.xtime = 0;
-    item.interval = 0;
-    item.text = "";
-    add_command(item);
-    item.cmd = SETTARGET;
-    item.val = tgt;
     item.xtime = 0;
     item.interval = 0;
     item.text = "";
@@ -2756,8 +2767,11 @@ void BWC::loadCommandQueue()
     Serial.println(F("Calling _loadSettings()..."));
     _loadSettings();
     _restoreCountersFromRtc();
-    Serial.println(F("Calling _restoreStates()..."));
-    _restoreStates();
+    // Restore is deferred to loop(): SETTARGET converts °C/°F against
+    // cio_states.unit, which is still the constructor default here. Restoring
+    // now turned a saved 38 °C into 100 °F and the module pressed UP/DOWN to
+    // 40/20 until someone touched a temperature button.
+    _restore_states_pending = true;
     Serial.println(F("Calling _loadSmartSchedule()..."));
     _loadSmartSchedule();
 }

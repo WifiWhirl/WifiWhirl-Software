@@ -322,6 +322,7 @@ private:
     bool _ambient_set = false;
     bool _new_data_available = false;
     bool _dsp_tgt_used = true;
+    bool _restore_states_pending = false; // states.txt restore deferred until the CIO has reported a valid frame
     uint8_t _web_target = 20;
     bool _static_text_active = false;
     char _static_char1 = ' ';
