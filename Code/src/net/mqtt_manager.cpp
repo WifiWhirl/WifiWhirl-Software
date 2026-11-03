@@ -13,6 +13,110 @@ static String mqttTopicCommandBatch;
 static String mqttTopicRebootTime;
 static String mqttTopicRebootReason;
 static String mqttTopicButton;
+static String mqttTopicSchedule;
+static String mqttTopicScheduleSet;
+
+// Smart Schedule from Home Assistant. Temperature, time and "after"
+// are staged here and only applied on "start", as the tester asked; the
+// state topic shows the staged values (or the running schedule's).
+// staged values live in RAM only, a reboot drops unstarted edits
+static uint8_t ssPendTemp;  // °C, 0 = not set
+static time_t ssPendTime;   // epoch, 0 = not set
+static uint8_t ssPendAfter; // 0 everything off, 1 filter pump only, 2 heater holds
+static const char SS_AFTER0[] PROGMEM = "Alles aus";
+static const char SS_AFTER1[] PROGMEM = "Nur Filterpumpe";
+static const char SS_AFTER2[] PROGMEM = "Heizung hält Temperatur";
+static const char *const SS_AFTER[] PROGMEM = {SS_AFTER0, SS_AFTER1, SS_AFTER2};
+
+void publishSmartSchedule()
+{
+    if (!mqttClient || !mqttClient->connected())
+        return;
+    String js;
+    bwc->getJSONSmartSchedule(js);
+    StaticJsonDocument<128> filter;
+    filter[F("ACTIVE")] = true;
+    filter[F("TARGETTIME")] = true;
+    filter[F("TARGETTEMP")] = true;
+    filter[F("KEEPON")] = true;
+    filter[F("KEEPPUMP")] = true;
+    filter[F("STARTTIME")] = true;
+    filter[F("ESTIMATED_COST")] = true;
+    StaticJsonDocument<192> ss;
+    deserializeJson(ss, js, DeserializationOption::Filter(filter));
+    bool active = ss["ACTIVE"] | false;
+    if (active && !ssPendTemp)
+    {
+        ssPendTemp = ss["TARGETTEMP"] | 0;
+        ssPendTime = ss["TARGETTIME"] | (time_t)0;
+        ssPendAfter = (ss["KEEPON"] | false) ? 2 : (ss["KEEPPUMP"] | false) ? 1 : 0;
+    }
+    StaticJsonDocument<192> out;
+    out[F("ACTIVE")] = active;
+    out[F("TEMP")] = ssPendTemp ? ssPendTemp : 38;
+    char buf[24] = "";
+    if (ssPendTime)
+    {
+        struct tm tmv;
+        localtime_r(&ssPendTime, &tmv);
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tmv);
+    }
+    out[F("TIME")] = buf;
+    out[F("AFTER")] = FPSTR((PGM_P)pgm_read_ptr(&SS_AFTER[ssPendAfter]));
+    time_t start = ss["STARTTIME"] | (time_t)0;
+    if (active && start > 0)
+    {
+        struct tm tmv;
+        gmtime_r(&start, &tmv);
+        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tmv);
+        out[F("START")] = buf;
+    }
+    else
+        out[F("START")] = nullptr;
+    out[F("COST")] = active ? (float)(ss["ESTIMATED_COST"] | 0.0f) : 0.0f;
+    String payload;
+    serializeJson(out, payload);
+    mqttClient->publish(mqttTopicSchedule.c_str(), payload.c_str(), true);
+}
+
+static void handleScheduleSet(JsonObjectConst o)
+{
+    if (o.containsKey(F("TEMP")))
+    {
+        int v = o[F("TEMP")] | 0;
+        if (v >= 20 && v <= 40)
+            ssPendTemp = v;
+    }
+    if (o.containsKey(F("TIME")))
+    {
+        struct tm tmv = {};
+        if (sscanf(o[F("TIME")] | "", "%d-%d-%d %d:%d", &tmv.tm_year, &tmv.tm_mon, &tmv.tm_mday, &tmv.tm_hour, &tmv.tm_min) == 5)
+        {
+            tmv.tm_year -= 1900;
+            tmv.tm_mon -= 1;
+            tmv.tm_isdst = -1;
+            ssPendTime = mktime(&tmv); // local time of the module's timezone
+        }
+    }
+    if (o.containsKey(F("AFTER")))
+    {
+        const char *a = o[F("AFTER")] | "";
+        for (uint8_t i = 0; i < 3; i++)
+            if (!strcmp_P(a, (PGM_P)pgm_read_ptr(&SS_AFTER[i])))
+                ssPendAfter = i;
+    }
+    const char *action = o[F("ACTION")] | "";
+    if (!strcmp_P(action, PSTR("start")) && ssPendTime)
+        bwc->setSmartSchedule(ssPendTime, ssPendTemp ? ssPendTemp : 38, ssPendAfter == 2, 0, ssPendAfter == 1);
+    else if (!strcmp_P(action, PSTR("cancel")))
+    {
+        bwc->cancelSmartSchedule();
+        ssPendTemp = 0;
+        ssPendTime = 0;
+        ssPendAfter = 0;
+    }
+    publishSmartSchedule();
+}
 
 // on a weak link a write can time out half way. PubSubClient then
 // returns false but keeps the socket, so the next publish follows the packet
@@ -153,6 +257,8 @@ void initMqttTopics()
     mqttTopicRebootTime   = mqttBaseTopic + "/reboot_time";
     mqttTopicRebootReason = mqttBaseTopic + "/reboot_reason";
     mqttTopicButton       = mqttBaseTopic + "/button";
+    mqttTopicSchedule     = mqttBaseTopic + "/smartschedule";
+    mqttTopicScheduleSet  = mqttBaseTopic + "/smartschedule/set";
 }
 
 /**
@@ -178,6 +284,8 @@ void sendMQTT()
     json.clear();
     getOtherInfo(json);
     mqttClient->publish(mqttTopicOther.c_str(), json.c_str(), true);
+
+    publishSmartSchedule();
 }
 
 /**
@@ -618,6 +726,13 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
             bwc->add_command(item);
     }
 
+    if (topicStr.equals(mqttTopicScheduleSet))
+    {
+        StaticJsonDocument<192> doc;
+        if (!deserializeJson(doc, payload, length) && doc.is<JsonObject>())
+            handleScheduleSet(doc.as<JsonObjectConst>());
+        return;
+    }
     if (topicStr.equals(mqttTopicCommandBatch))
     {
         DynamicJsonDocument doc(1024);
@@ -673,6 +788,7 @@ void mqttConnect()
 
         mqttClient->subscribe(mqttTopicCommand.c_str());
         mqttClient->subscribe(mqttTopicCommandBatch.c_str());
+        mqttClient->subscribe(mqttTopicScheduleSet.c_str());
         mqttClient->loop();
 
         mqttClient->publish(mqttTopicRebootTime.c_str(), (bwc->reboot_time_str + 'Z').c_str(), true);

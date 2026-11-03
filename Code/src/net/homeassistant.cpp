@@ -110,6 +110,64 @@ struct HaEntityConfig
  * usage minimal on the constrained ESP micro-controller.
  */
 //--------------------------------------------------------------------------------------------------
+// Smart Schedule entity strings in flash: the table only holds pointers, and
+// plain literals cost ~1 KB of RAM for these 8 rows
+static const char SS0[] PROGMEM = "number";
+static const char SS1[] PROGMEM = "_ss_temp";
+static const char SS2[] PROGMEM = "Smart Schedule Zieltemperatur";
+static const char SS3[] PROGMEM = "number.";
+static const char SS4[] PROGMEM = "/smartschedule";
+static const char SS5[] PROGMEM = "{{ value_json.TEMP }}";
+static const char SS6[] PROGMEM = "/smartschedule/set";
+static const char SS7[] PROGMEM = "{\"TEMP\":{{ value | int }}}";
+static const char SS8[] PROGMEM = "mdi:thermometer";
+static const char SS9[] PROGMEM = "°C";
+static const char SS10[] PROGMEM = "20";
+static const char SS11[] PROGMEM = "40";
+static const char SS12[] PROGMEM = "box";
+static const char SS13[] PROGMEM = "text";
+static const char SS14[] PROGMEM = "_ss_time";
+static const char SS15[] PROGMEM = "Smart Schedule Zielzeit (JJJJ-MM-TT HH:MM)";
+static const char SS16[] PROGMEM = "text.";
+static const char SS17[] PROGMEM = "{{ value_json.TIME }}";
+static const char SS18[] PROGMEM = "{\"TIME\":\"{{ value }}\"}";
+static const char SS19[] PROGMEM = "mdi:calendar-clock";
+static const char SS20[] PROGMEM = "select";
+static const char SS21[] PROGMEM = "_ss_after";
+static const char SS22[] PROGMEM = "Smart Schedule nach der Zielzeit";
+static const char SS23[] PROGMEM = "select.";
+static const char SS24[] PROGMEM = "{{ value_json.AFTER }}";
+static const char SS25[] PROGMEM = "{\"AFTER\":\"{{ value }}\"}";
+static const char SS26[] PROGMEM = "mdi:pump";
+static const char SS27[] PROGMEM = "button";
+static const char SS28[] PROGMEM = "_ss_start";
+static const char SS29[] PROGMEM = "Smart Schedule starten";
+static const char SS30[] PROGMEM = "button.";
+static const char SS31[] PROGMEM = "mdi:play";
+static const char SS32[] PROGMEM = "{\"ACTION\":\"start\"}";
+static const char SS33[] PROGMEM = "_ss_cancel";
+static const char SS34[] PROGMEM = "Smart Schedule abbrechen";
+static const char SS35[] PROGMEM = "mdi:stop";
+static const char SS36[] PROGMEM = "{\"ACTION\":\"cancel\"}";
+static const char SS37[] PROGMEM = "binary_sensor";
+static const char SS38[] PROGMEM = "_ss_active";
+static const char SS39[] PROGMEM = "Smart Schedule aktiv";
+static const char SS40[] PROGMEM = "binary_sensor.";
+static const char SS41[] PROGMEM = "{{ 'ON' if value_json.ACTIVE else 'OFF' }}";
+static const char SS42[] PROGMEM = "mdi:calendar-check";
+static const char SS43[] PROGMEM = "sensor";
+static const char SS44[] PROGMEM = "_ss_heat_start";
+static const char SS45[] PROGMEM = "Smart Schedule Heizstart";
+static const char SS46[] PROGMEM = "sensor.";
+static const char SS47[] PROGMEM = "{{ as_datetime(value_json.START) if value_json.START else None }}";
+static const char SS48[] PROGMEM = "mdi:clock-start";
+static const char SS49[] PROGMEM = "timestamp";
+static const char SS50[] PROGMEM = "_ss_cost";
+static const char SS51[] PROGMEM = "Smart Schedule Kosten";
+static const char SS52[] PROGMEM = "{{ value_json.COST }}";
+static const char SS53[] PROGMEM = "mdi:cash";
+static const char SS54[] PROGMEM = "€";
+static const char SS55[] PROGMEM = "monetary";
 static const HaEntityConfig entities[] PROGMEM = {
     // Control entities
     {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRTBASE }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
@@ -196,6 +254,16 @@ static const HaEntityConfig entities[] PROGMEM = {
     {"sensor", "_cl_time", "Chlor zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.CLVTIME | int) }}", nullptr, nullptr, "mdi:flask-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_cya_time", "Cyanursäure zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.CYATIME | int) }}", nullptr, nullptr, "mdi:shield-sun-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_alk_time", "Alkalität zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.ALKTIME | int) }}", nullptr, nullptr, "mdi:water", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+
+    // Smart Schedule: inputs are staged in the module, "Starten" applies them
+    {SS0, SS1, SS2, SS3, SS4, SS5, SS6, SS7, SS8, SS9, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS10, SS11, SS12, nullptr},
+    {SS13, SS14, SS15, SS16, SS4, SS17, SS6, SS18, SS19, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {SS20, SS21, SS22, SS23, SS4, SS24, SS6, SS25, SS26, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {SS27, SS28, SS29, SS30, nullptr, nullptr, SS6, nullptr, SS31, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS32, nullptr, nullptr, nullptr, nullptr},
+    {SS27, SS33, SS34, SS30, nullptr, nullptr, SS6, nullptr, SS35, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS36, nullptr, nullptr, nullptr, nullptr},
+    {SS37, SS38, SS39, SS40, SS4, SS41, nullptr, nullptr, SS42, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {SS43, SS44, SS45, SS46, SS4, SS47, nullptr, nullptr, SS48, nullptr, SS49, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {SS43, SS50, SS51, SS46, SS4, SS52, nullptr, nullptr, SS53, SS54, SS55, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
 
 };
 
@@ -589,6 +657,13 @@ bool setupHA()
         else if (strcmp(ram_buffer, "_cya_value") == 0 || strcmp(ram_buffer, "_alk_value") == 0)
         {
             doc[FPSTR(_step_key)] = 1;
+        }
+        else if (strcmp(ram_buffer, "_ss_after") == 0)
+        {
+            JsonArray options = doc.createNestedArray(F("options")); // must match SS_AFTER in mqtt_manager.cpp
+            options.add(F("Alles aus"));
+            options.add(F("Nur Filterpumpe"));
+            options.add(F("Heizung hält Temperatur"));
         }
 
         // Set up availability topic for connection status monitoring
