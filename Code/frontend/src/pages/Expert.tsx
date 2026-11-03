@@ -185,6 +185,9 @@ export function Expert() {
             <p class="hint" style="margin-top:16px">{t('expert.calInfo')}</p>
             <p class="hint">{t('expert.calHow')}</p>
             {(active || finished) && <CalTimeline cal={cal} step={step} finished={finished} />}
+            {/* the last run ended without a result: say why, not only in the dialog
+                someone watching the page got */}
+            {!active && cal?.ERROR && <p class="hint warn">{t(`expert.calAbort.${cal.ERROR}`)}</p>}
             {(active || finished) && cal?.LOWDIFF && <p class="hint warn">{t('expert.calLowDiff')}</p>}
             {!active && !!cal?.PLANNED && (
               <div class="actions">
