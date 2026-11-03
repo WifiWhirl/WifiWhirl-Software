@@ -83,6 +83,7 @@ private:
     static uint64_t   _rx_seq_last;
 
     static uint32_t   _last_ping_ms;
+    static uint32_t   _last_rx_ms;   // last frame from the server (dead-link check)
     static uint32_t   _last_connect_attempt_ms;
     static uint8_t    _backoff_index;
 
@@ -103,7 +104,7 @@ private:
     static void     _doConnecting();
     static void     _doHandshake();
     static void     _doConnected();
-    static void     _disconnect(const char* reason);
+    static void     _disconnect(const __FlashStringHelper* reason);
 
     static bool     _sendHello();
     static bool     _receiveHelloAck();

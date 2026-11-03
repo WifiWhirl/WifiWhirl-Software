@@ -9,7 +9,7 @@ void DSP::setRawPayload(const std::vector<uint8_t> &pl)
     // Serial.println();
 }
 
-std::vector<uint8_t> DSP::getRawPayload()
+const std::vector<uint8_t> &DSP::getRawPayload()
 {
     return _raw_payload_from_dsp;
 }

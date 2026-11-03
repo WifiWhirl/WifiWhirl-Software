@@ -78,8 +78,9 @@ void handlePrometheusMetrics()
   String escapedName = prometheusEscapeLabel(deviceName);
 
   snprintf_P(response, BUFSIZE, response_template, escapedVersion.c_str(), escapedName.c_str(),
-             bwc->cio->cio_states.temperature,
-             bwc->cio->cio_states.target,
+             // the metrics are Celsius; the states are in the display unit
+             bwc->cio->cio_states.unit ? bwc->cio->cio_states.temperature : (int)round(F2C(bwc->cio->cio_states.temperature)),
+             bwc->cio->cio_states.unit ? bwc->cio->cio_states.target : (int)round(F2C(bwc->cio->cio_states.target)),
              bwc->cio->cio_states.heat,
              bwc->cio->cio_states.pump,
              bwc->cio->cio_states.jets,

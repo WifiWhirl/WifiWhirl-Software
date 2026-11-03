@@ -99,8 +99,8 @@ static bool validateCommandValue(Commands cmd, int64_t value, uint64_t xtime, St
     switch (cmd)
     {
     case SETTARGET:
-        if (!((value > 0 && value < 41) || (value > 50 && value < 105)))
-            error = F("VALUE out of range for SETTARGET");
+        if (!((value >= 20 && value <= 40) || (value >= 68 && value <= 104)))
+            error = F("VALUE out of range for SETTARGET (20-40 C or 68-104 F)");
         break;
     case SETUNIT:
     case SETBUBBLES:
@@ -138,7 +138,7 @@ static bool validateCommandValue(Commands cmd, int64_t value, uint64_t xtime, St
             error = F("VALUE out of range for SETCLVALUE");
         break;
     case SETCYAVALUE:
-        if (value < 0 || value > 1000)
+        if (value < 0 || value > 2000)
             error = F("VALUE out of range for SETCYAVALUE");
         break;
     case SETALKVALUE:
@@ -232,6 +232,10 @@ static bool parseCommandObject(const JsonVariantConst &src, command_que_item &it
             error = F("Missing or invalid VALUE");
             return false;
         }
+        // TOGGLEPWR/TOGGLELCK without VALUE keep toggling (0/1 = wanted state)
+        if ((cmdValue == TOGGLEPWR || cmdValue == TOGGLELCK) &&
+            (!obj.containsKey(F("VALUE")) || obj[F("VALUE")].isNull()))
+            value = 2;
         if (obj.containsKey(F("XTIME")) && !obj[F("XTIME")].isNull() &&
             !readIntegerOrBool(obj[F("XTIME")], xtimeValue))
         {
@@ -276,6 +280,13 @@ static bool parseCommandFromJsonStrict(const JsonVariantConst &src, command_que_
     return parseCommandObject(src, item, true, error);
 }
 
+#define QUEUE_CHANGED "Queue changed, reload it"
+// 409 for a stale index (the client reloads), 400 for bad input
+static int queueIndexStatus(const String &error)
+{
+    return error == F(QUEUE_CHANGED) ? 409 : 400;
+}
+
 static bool readQueueIndex(const JsonObjectConst &obj, uint8_t &index, String &error)
 {
     int64_t indexValue = 0;
@@ -287,6 +298,16 @@ static bool readQueueIndex(const JsonObjectConst &obj, uint8_t &index, String &e
         return false;
     }
     index = (uint8_t)indexValue;
+    // Optional ATCMD/ATXTIME: the entry the client saw at IDX. Entries move when
+    // one runs or is re-sorted, so a bare index could hit the neighbour.
+    if (obj.containsKey(F("ATCMD")) || obj.containsKey(F("ATXTIME")))
+    {
+        if (!bwc->command_at_matches(index, obj[F("ATCMD")].as<uint8_t>(), obj[F("ATXTIME")].as<uint64_t>()))
+        {
+            error = F(QUEUE_CHANGED);
+            return false;
+        }
+    }
     return true;
 }
 
@@ -581,7 +602,7 @@ void handleEditCommand()
     JsonObjectConst obj = doc.as<JsonObjectConst>();
     if (!readQueueIndex(obj, index, parseError))
     {
-        server->send(400, F("text/plain"), parseError);
+        server->send(queueIndexStatus(parseError), F("text/plain"), parseError);
         return;
     }
     if (!bwc->edit_command(index, item))
@@ -617,7 +638,7 @@ void handleDelCommand()
     JsonObjectConst obj = doc.as<JsonObjectConst>();
     if (!readQueueIndex(obj, index, parseError))
     {
-        server->send(400, F("text/plain"), parseError);
+        server->send(queueIndexStatus(parseError), F("text/plain"), parseError);
         return;
     }
     if (!bwc->del_command(index))
@@ -675,7 +696,7 @@ void handleSetCommandQueue()
     if (hasCmd && (!readQueueIndex(obj, index, parseError) ||
                    !readRequired01Field(obj, F("EN"), enabled, parseError)))
     {
-        server->send(400, F("text/plain"), parseError);
+        server->send(queueIndexStatus(parseError), F("text/plain"), parseError);
         return;
     }
 

@@ -166,7 +166,16 @@ void DSP_6_TYPE1::handleStates()
     }
     else
     {
+        // Standby: no LEDs, but text still shows (boot IP and version). The
+        // module used to press POWER at every boot, which hid this.
+        uint8_t d1 = _payload[getDGT1_IDX()], d2 = _payload[getDGT2_IDX()], d3 = _payload[getDGT3_IDX()];
         clearpayload();
+        if (text.length())
+        {
+            _payload[getDGT1_IDX()] = d1;
+            _payload[getDGT2_IDX()] = d2;
+            _payload[getDGT3_IDX()] = d3;
+        }
     }
     if (audiofrequency != _prev_audiofrequency)
     {

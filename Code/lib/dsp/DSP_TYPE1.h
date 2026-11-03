@@ -11,6 +11,7 @@ public:
     void setup(int dsp_data_pin, int dsp_clk_pin, int dsp_cs_pin, int dsp_audio_pin);
     void stop();
     void handleStates() override;
+    uint8_t payloadByte(int i) const { return _payload[i]; } // what goes to the panel (host tests)
 
 protected:
     void uploadPayload(uint8_t brightness) override;

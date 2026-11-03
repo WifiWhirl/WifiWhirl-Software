@@ -422,7 +422,10 @@ void BWC::setup(void)
     dsp->setup(pins[3], pins[4], pins[5], pins[6]);
     hasjets = cio->getHasjets();
     hasgod = cio->getHasgod();
-    cio->cio_toggles.power_change = 1;
+    // No POWER press here: it was queued before the first frame, with
+    // the power state still "off", so every boot switched a running pool off
+    // (unlock() switched it on again later) or woke a pool in standby. A pool
+    // that ran before a power cut is switched on by the boot restore.
     begin();
 }
 
@@ -453,11 +456,18 @@ void BWC::loop()
         _scroll = false;
     }
     cio->updateStates();
+    if (cio->cio_states.target)
+        _last_target = cio->cio_states.target;
     // Boot restore once the CIO has parsed a frame and learned the target
     // (6-wire boards read it only after their first UP self-press). Fall back
     // after 60 s so pump/heater still get restored if the panel stays dark.
+    // After a power cut (was on, now in standby) the pump never shows a target:
+    // restore at the first frame instead of after 60 s, like the old boot-time
+    // POWER press.
     if (_restore_states_pending &&
-        ((cio->good_packets_count > 0 && cio->cio_states.target != 0) || millis() > 60000))
+        ((cio->good_packets_count > 0 && cio->cio_states.target != 0) ||
+         (_saved_power && cio->good_packets_count > 0 && !cio->cio_states.power) ||
+         millis() > 60000))
     {
         _restore_states_pending = false;
         _restoreStates();
@@ -501,7 +511,11 @@ void BWC::loop()
 
     if (dsp->dsp_toggles.unit_change)
     {
-        cio->cio_states.unit ? cio->cio_toggles.target = C2F(cio->cio_toggles.target) : cio->cio_toggles.target = F2C(cio->cio_toggles.target);
+        cio->cio_toggles.target = cio->cio_states.unit ? round(C2F(cio->cio_toggles.target)) : round(F2C(cio->cio_toggles.target));
+        // keep the web target in the new unit too: converting it for this one
+        // pass only made the next pass walk the target down to the minimum
+        if (!_dsp_tgt_used)
+            _web_target = cio->cio_toggles.target;
     }
 
     /*Host mode: cap target set from the physical panel. Downward correction is
@@ -531,9 +545,15 @@ void BWC::loop()
 
     if (_save_settings_needed)
         saveSettings();
-    if (_save_cmdq_needed)
+    if (_save_cmdq_needed && (int32_t)(millis() - _save_cmdq_retry_at) >= 0)
         _saveCommandQueue();
-    if (_save_states_needed)
+    // Not before the boot restore has read states.txt: the first frames change
+    // every state from the constructor defaults, and saving then replaced the
+    // file with "target 0, pump/heater as the board is now", so the restore
+    // never restored anything.
+    // Not while the target is unknown (0) either: a pool booted in standby is
+    // never asked for it, and the save replaced the real one with 0.
+    if (_save_states_needed && !_restore_states_pending && cio->cio_states.target != 0)
         _saveStates();
     if (_save_smartschedule_needed)
         _saveSmartSchedule();
@@ -673,7 +693,33 @@ void BWC::pause_all(bool action)
     dsp->pause_all(action);
 }
 
+// Next run of a repeating command strictly after `now` (or at `now` if
+// allow_now). Whole-day intervals step in local time, so "daily 08:00" stays
+// 08:00 across DST changes instead of drifting by an hour.
+static uint64_t nextRunAfter(uint64_t xtime, uint32_t interval, uint64_t now, bool allow_now)
+{
+    uint64_t k = now >= xtime ? (now - xtime) / interval + (allow_now && (now - xtime) % interval == 0 ? 0 : 1) : 0;
+    if (interval % 86400 != 0 || k == 0)
+        return xtime + k * interval;
+    time_t t = (time_t)xtime;
+    struct tm tm;
+    localtime_r(&t, &tm);
+    int days = interval / 86400;
+    tm.tm_mday += (int)(k * days);
+    tm.tm_isdst = -1; // let mktime pick DST for the new date
+    uint64_t next = (uint64_t)mktime(&tm);
+    while (next < now || (next == now && !allow_now)) // the DST hour can leave it behind
+    {
+        tm.tm_mday += days;
+        tm.tm_isdst = -1;
+        next = (uint64_t)mktime(&tm);
+    }
+    return next;
+}
+
 /*Sort by xtime, ascending*/
+// Used with std::stable_sort: commands due at the same time (a command_batch,
+// the boot restore) must keep their order, e.g. heater off before pump off.
 bool BWC::_compare_command(const command_que_item &i1, const command_que_item &i2)
 {
     return i1.xtime < i2.xtime;
@@ -697,7 +743,9 @@ void BWC::_handleCommandQ()
     {
         if (!_command_que[i].enabled)
             continue;
-        if (!run_scheduled && _command_que[i].scheduled)
+        // RESETQ is not an automation: "clear queue" must work while the queue is
+        // off, instead of waiting and wiping newer entries later
+        if (!run_scheduled && _command_que[i].scheduled && _command_que[i].cmd != RESETQ)
             continue;
         if (_timestamp_secs < _command_que[i].xtime)
             return;
@@ -712,18 +760,24 @@ void BWC::_handleCommandQ()
     /* time for next command? */
     if (_timestamp_secs < _command_que[0].xtime)
         return;
+    // a heater-off sent just before (same batch / automation) is still
+    // on its way to the pump, and the guard below would drop this pump-off.
+    // Wait for it (before the interval re-queue, which must run only once).
+    if (_command_que[0].cmd == SETPUMP && _command_que[0].val == 0 && cio->cio_states.heat &&
+        (int32_t)(_heater_off_pending_until - millis()) > 0)
+        return;
     // If interval > 0 then append to commandQ with updated xtime.
     if (_command_que[0].interval > 0)
     {
         // Advance to the next future fire time in one step. A stale xtime with a
         // small interval would otherwise spin this loop for billions of iterations
         // after the NTP clock jump -> watchdog reboot. (Same fix as loadCommandQueue.)
+        // The copy must lie strictly in the future: with "xtime < now" a
+        // command due this very second was re-queued unchanged and fired again on
+        // every loop() pass until the second ticked over.
         uint64_t now = (uint64_t)time(nullptr);
-        if (_command_que[0].xtime < now)
-        {
-            uint64_t k = (now - _command_que[0].xtime + _command_que[0].interval - 1) / _command_que[0].interval;
-            _command_que[0].xtime += k * _command_que[0].interval;
-        }
+        _command_que[0].xtime = nextRunAfter(_command_que[0].xtime, _command_que[0].interval,
+                                             now >= _command_que[0].xtime ? now : _command_que[0].xtime, false);
         _command_que.push_back(_command_que[0]);
     }
 
@@ -768,19 +822,26 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
     dsp->text += String(" ") + txt;
     switch (cmd)
     {
+    // VALUE 0/1 is the wanted state (schedule "off at 23:00", HA switch),
+    // so an already-off unit is not switched on. Any other VALUE toggles.
     case TOGGLEPWR:
     {
-        cio->cio_toggles.power_change = 1;
+        if (val < 0 || val > 1 || val != cio->cio_states.power)
+            cio->cio_toggles.power_change = 1;
         break;
     }
     case TOGGLELCK:
     {
-        cio->cio_toggles.locked_pressed = 1;
+        if (val < 0 || val > 1 || val != cio->cio_states.locked)
+            cio->cio_toggles.locked_pressed = 1;
         break;
     }
     case SETTARGET:
     {
-        if (!((val > 0 && val < 41) || (val > 50 && val < 105)))
+        bool restored = _restore_target_pending; // see below
+        _restore_target_pending = false;
+        // the pump's range: anything else made the CIO press DOWN/UP forever
+        if (!((val >= 20 && val <= 40) || (val >= 68 && val <= 104)))
             break;
         bool implied_unit_is_celsius = (val < 41);
         bool required_unit = cio->cio_states.unit;
@@ -794,10 +855,14 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         _dsp_tgt_used = false;
         _web_target = cio->cio_toggles.target;
         
-        // Update smart schedule target temp if active (store in Celsius)
-        if (_smart_schedule.active)
+        // Update smart schedule target temp if active (store in Celsius).
+        // Not for the boot restore's SETTARGET: that is the tub's old
+        // target from states.txt, not a user decision, and would replace the
+        // schedule's target after every reboot. Only plausible targets (20-40 C).
+        uint8_t new_temp_c = implied_unit_is_celsius ? val : round(F2C(val));
+        if (_smart_schedule.active && !restored && new_temp_c >= 20 && new_temp_c <= 40)
         {
-            uint8_t temp_celsius = implied_unit_is_celsius ? val : round(F2C(val));
+            uint8_t temp_celsius = new_temp_c;
             if (temp_celsius != _smart_schedule.target_temp)
             {
                 _smart_schedule.target_temp = temp_celsius;
@@ -818,6 +883,10 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
             cio->cio_toggles.target = round(C2F(cio->cio_toggles.target));
         if ((uint8_t)val != cio->cio_states.unit)
             cio->cio_toggles.unit_change = 1;
+        // an unknown target (0) is no web target: the walk then pressed DOWN
+        // forever, down to the pump's 20 °C minimum
+        if (cio->cio_toggles.target == 0)
+            break;
         _dsp_tgt_used = false;
         _web_target = cio->cio_toggles.target;
         break;
@@ -826,12 +895,20 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
             cio->cio_toggles.bubbles_change = 1;
         break;
     case SETHEATER:
+    {
+        bool own_off = _schedule_heater_off_pending; // see below
+        _schedule_heater_off_pending = false;
         if (val != cio->cio_states.heat)
         {
             cio->cio_toggles.heat_change = 1;
+            if (val == 0)
+                _heater_off_pending_until = millis() + 10000; // see the SETPUMP guard
+            else
+                _heater_off_pending_until = millis();
             // If user manually turns off heater while smart schedule is active and heating,
             // cancel the schedule to prevent it from overriding the user's decision
-            if (val == 0 && _smart_schedule.active && _smart_schedule.calculated_start_time > 0 &&
+            // (not when the schedule itself switched it off at the target)
+            if (val == 0 && !own_off && _smart_schedule.active && _smart_schedule.calculated_start_time > 0 &&
                 _timestamp_secs >= _smart_schedule.calculated_start_time)
             {
                 Serial.println(F("SmartSchedule: Cancelled due to manual heater off"));
@@ -843,6 +920,7 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
             }
         }
         break;
+    }
     case SETPUMP:
         if (val != cio->cio_states.pump)
             cio->cio_toggles.pump_change = 1;
@@ -920,8 +998,9 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         }
         break;
     case SETCYAVALUE:
-        // Cyanuric acid value * 10 (e.g. 300 = 30.0 mg/L), valid range 0-1000 (0.0-100.0 mg/L)
-        if (val >= 0 && val <= 1000)
+        // Cyanuric acid value * 10 (e.g. 300 = 30.0 mg/L), valid range 0-2000 (0.0-200.0 mg/L,
+        // what the dashboard offers: higher readings are real)
+        if (val >= 0 && val <= 2000)
         {
             _last_cya_value = (uint16_t)val;
             _cya_timestamp_s = _timestamp_secs;
@@ -1007,7 +1086,7 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
             item.xtime = _timestamp_secs + 60;
             /*We can't use addcommand() because it will copy xtime to val again*/
             _command_que.push_back(item);
-            std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+            std::stable_sort(_command_que.begin(), _command_que.end(), _compare_command);
         }
     }
     break;
@@ -1040,7 +1119,7 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
         ESP.restart();
     }
     /*If we pushed back an item, we need to re-sort the que*/
-    std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+    std::stable_sort(_command_que.begin(), _command_que.end(), _compare_command);
     return false;
 }
 
@@ -1081,6 +1160,7 @@ void BWC::_handleStateChanges()
     }
 
     if (
+        cio->cio_states.power != _prev_cio_states.power ||
         cio->cio_states.unit != _prev_cio_states.unit ||
         cio->cio_states.pump != _prev_cio_states.pump ||
         cio->cio_states.heat != _prev_cio_states.heat ||
@@ -1533,7 +1613,7 @@ bool BWC::add_command(command_que_item command_item)
         command_item.interval = 0;
     }
     _command_que.push_back(command_item);
-    std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+    std::stable_sort(_command_que.begin(), _command_que.end(), _compare_command);
     return true;
 }
 
@@ -1550,7 +1630,7 @@ bool BWC::edit_command(uint8_t index, command_que_item command_item)
     }
     // add parameters to _command_que[index] and sort the array on xtime.
     _command_que.at(index) = command_item;
-    std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+    std::stable_sort(_command_que.begin(), _command_que.end(), _compare_command);
     return true;
 }
 
@@ -1567,6 +1647,13 @@ void BWC::set_command_queue_enabled(bool enabled)
 {
     _command_queue_enabled = enabled;
     _save_cmdq_needed = true;
+}
+
+// Does the entry at index still hold this command? The UI addresses entries by
+// position, which shifts when one runs, repeats or is re-sorted.
+bool BWC::command_at_matches(uint8_t index, uint8_t cmd, uint64_t xtime)
+{
+    return index < _command_que.size() && _command_que[index].cmd == cmd && _command_que[index].xtime == xtime;
 }
 
 bool BWC::del_command(uint8_t index)
@@ -1612,7 +1699,10 @@ void BWC::_buildJSONStates(JsonObject doc)
     doc[F("ERR")] = cio->cio_states.error;
     doc[F("HLCAL")] = _hlcal.active;
     doc[F("GOD")] = (uint8_t)cio->cio_states.godmode;
-    doc[F("TGT")] = cio->cio_states.target;
+    // A pool in standby never shows its target: report the last known one
+    // instead of 0, the web UI greys it out while PWR is off.
+    uint8_t tgt = cio->cio_states.target ? cio->cio_states.target : _last_target;
+    doc[F("TGT")] = tgt;
     doc[F("TMP")] = cio->cio_states.temperature;
     doc[F("AMBC")] = _ambient_temp;
     doc[F("AMBF")] = round(C2F(_ambient_temp));
@@ -1620,18 +1710,18 @@ void BWC::_buildJSONStates(JsonObject doc)
     {
         // celsius
         doc[F("AMB")] = _ambient_temp;
-        doc[F("TGTC")] = cio->cio_states.target;
+        doc[F("TGTC")] = tgt;
         doc[F("TMPC")] = cio->cio_states.temperature;
-        doc[F("TGTF")] = round(C2F((float)cio->cio_states.target));
+        doc[F("TGTF")] = round(C2F((float)tgt));
         doc[F("TMPF")] = round(C2F((float)cio->cio_states.temperature));
     }
     else
     {
         // farenheit
         doc[F("AMB")] = round(C2F(_ambient_temp));
-        doc[F("TGTF")] = cio->cio_states.target;
+        doc[F("TGTF")] = tgt;
         doc[F("TMPF")] = cio->cio_states.temperature;
-        doc[F("TGTC")] = round(F2C((float)cio->cio_states.target));
+        doc[F("TGTC")] = round(F2C((float)tgt));
         doc[F("TMPC")] = round(F2C((float)cio->cio_states.temperature));
     }
 }
@@ -1992,6 +2082,11 @@ void BWC::buildCloudSnapshot(JsonObject doc, size_t* state_len_out)
 
 void BWC::getButtonName(String &rtn)
 {
+    // Pretty names, same order as enum Buttons. Here, not in enums.h: a
+    // "const String" array in a header became one 132-byte copy per .cpp,
+    // 38 copies = 5 KB of RAM the MQTT socket was short of.
+    static const char *const ButtonNames[] = {"NOBTN", "LOCK", "TIMER", "BUBBLES", "UNIT", "HEAT",
+                                              "PUMP", "DOWN", "UP", "POWER", "HYDROJETS"};
     rtn = ButtonNames[dsp->dsp_toggles.pressed_button];
 }
 
@@ -2063,8 +2158,8 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
         !readBoundedString(obj, F("TIMEZONE_NAME"), 64, timezoneName, errorMessage) ||
         !readBooleanSetting(obj, F("WEATHER"), weather, errorMessage) ||
         !readBoundedInteger(obj, F("POOLCAP"), 1, 100000, poolCapacity, errorMessage) ||
-        !readBoundedInteger(obj, F("AIRTO"), 5, 30, airjetTimeout, errorMessage) ||
-        !readBoundedInteger(obj, F("HJTO"), 5, 60, hydrojetTimeout, errorMessage) ||
+        !readBoundedInteger(obj, F("AIRTO"), 1, 30, airjetTimeout, errorMessage) ||
+        !readBoundedInteger(obj, F("HJTO"), 1, 60, hydrojetTimeout, errorMessage) ||
         !readBooleanSetting(obj, F("GSTMODE"), hostMode, errorMessage) ||
         !readBoundedInteger(obj, F("GSTMAXTGT"), 20, 40, hostMaxTarget, errorMessage) ||
         !readBoundedInteger(obj, F("GSTHTRTO"), 0, 1440, hostHeaterTimeout, errorMessage) ||
@@ -2303,8 +2398,10 @@ void BWC::_checkJetTimeouts()
     {
         uint32_t elapsed_ms = now - _bubbles_change_timestamp_ms;
         uint32_t timeout_ms = (uint32_t)_airjet_timeout_minutes * 60UL * 1000UL;
-        if (elapsed_ms >= timeout_ms)
+        // once per timeout, not on every loop() until the pump reports it
+        if (elapsed_ms >= timeout_ms && (int32_t)(now - _airjet_off_queued_until) >= 0)
         {
+            _airjet_off_queued_until = now + 10000;
             // Queue command to turn off airjets
             command_que_item item;
             item.cmd = SETBUBBLES;
@@ -2322,8 +2419,9 @@ void BWC::_checkJetTimeouts()
     {
         uint32_t elapsed_ms = now - _jets_change_timestamp_ms;
         uint32_t timeout_ms = (uint32_t)_hydrojet_timeout_minutes * 60UL * 1000UL;
-        if (elapsed_ms >= timeout_ms)
+        if (elapsed_ms >= timeout_ms && (int32_t)(now - _hydrojet_off_queued_until) >= 0)
         {
+            _hydrojet_off_queued_until = now + 10000;
             // Queue command to turn off hydrojets
             command_que_item item;
             item.cmd = SETJETS;
@@ -2674,6 +2772,15 @@ void BWC::_restoreStates()
     item.interval = 0;
     item.text = "";
     add_command(item);
+    // On before the rest: after a power cut the pool comes up in standby. Only
+    // if it was on; switched off on the panel it stays off. Files
+    // from older firmware have no PWR: nothing to switch.
+    if ((doc[F("PWR")] | 0) == 1)
+    {
+        item.cmd = TOGGLEPWR;
+        item.val = 1; // wanted state
+        add_command(item);
+    }
     // SETTARGET before SETUNIT: SETUNIT converts the pending web target into
     // the new unit; the old order re-converted it into the previous unit.
     item.cmd = SETTARGET;
@@ -2681,7 +2788,8 @@ void BWC::_restoreStates()
     item.xtime = 0;
     item.interval = 0;
     item.text = "";
-    add_command(item);
+    if (add_command(item))
+        _restore_target_pending = true; // see SETTARGET
     item.cmd = SETUNIT;
     item.val = unt;
     item.xtime = 0;
@@ -2704,13 +2812,15 @@ void BWC::_restoreStates()
     file.close();
 }
 
+// After a cmdq.json upload: the queue only. The boot part of loadCommandQueue()
+// re-read settings.json, folded the RTC counters in again (counting the unsaved
+// milliseconds twice, days per upload) and re-ran the boot restore.
 void BWC::reloadCommandQueue()
 {
-    loadCommandQueue();
-    return;
+    loadCommandQueue(true);
 }
 
-void BWC::loadCommandQueue()
+void BWC::loadCommandQueue(bool queue_only)
 {
     File file = LittleFS.open("/cmdq.json", "r");
     if (file)
@@ -2743,12 +2853,11 @@ void BWC::loadCommandQueue()
                 uint64_t now = (uint64_t)time(nullptr);
                 if (item.interval > 0 && item.xtime < now)
                 {
-                    uint64_t k = (now - item.xtime + item.interval - 1) / item.interval;
-                    item.xtime += k * item.interval;
+                    item.xtime = nextRunAfter(item.xtime, item.interval, now, true);
                 }
                 _command_que.push_back(item);
             }
-            std::sort(_command_que.begin(), _command_que.end(), _compare_command);
+            std::stable_sort(_command_que.begin(), _command_que.end(), _compare_command);
         }
         file.close();
     }
@@ -2756,6 +2865,8 @@ void BWC::loadCommandQueue()
     {
         Serial.println(F("FS: /cmdq.json not found - continuing without command queue"));
     }
+    if (queue_only)
+        return;
 
     /*
      * Settings, states and smart-schedule must ALWAYS load, regardless of
@@ -2772,6 +2883,18 @@ void BWC::loadCommandQueue()
     // now turned a saved 38 °C into 100 °F and the module pressed UP/DOWN to
     // 40/20 until someone touched a temperature button.
     _restore_states_pending = true;
+    // the target is shown before the restore runs (up to 60 s in standby)
+    File states = LittleFS.open("/states.txt", "r");
+    if (states)
+    {
+        StaticJsonDocument<256> sdoc;
+        if (!deserializeJson(sdoc, states))
+        {
+            _last_target = sdoc[F("TGT")] | 0;
+            _saved_power = (sdoc[F("PWR")] | 0) == 1;
+        }
+        states.close();
+    }
     Serial.println(F("Calling _loadSmartSchedule()..."));
     _loadSmartSchedule();
 }
@@ -2825,6 +2948,7 @@ void BWC::_saveStates()
     StaticJsonDocument<256> doc;
 
     // Set the values in the document
+    doc[F("PWR")] = cio->cio_states.power;
     doc[F("UNT")] = cio->cio_states.unit;
     doc[F("HTR")] = cio->cio_states.heat;
     doc[F("FLT")] = cio->cio_states.pump;
@@ -2864,7 +2988,8 @@ void BWC::_saveCommandQueue()
     {
         Serial.printf("CMDQ: out of memory, keeping the stored queue (heap=%u)\n",
                       (unsigned)ESP.getFreeHeap());
-        _save_cmdq_needed = true; // retry on the next save tick
+        _save_cmdq_needed = true; // retry later: loop() checks every pass
+        _save_cmdq_retry_at = millis() + 5000;
         return;
     }
 
@@ -2912,6 +3037,15 @@ void BWC::saveSettings()
     ESP.wdtFeed();
 #endif
     _save_settings_needed = false;
+    // Allocate before truncating the file: out of memory, "w" + an empty
+    // document wrote "null" and the next boot reset all settings.
+    // The periodic save ticker tries again.
+    DynamicJsonDocument doc(2048);
+    if (doc.capacity() == 0)
+    {
+        Serial.printf_P(PSTR("FS: out of memory, keeping /settings.json (heap=%u)\n"), (unsigned)ESP.getFreeHeap());
+        return;
+    }
     File file = LittleFS.open("/settings.json", "w");
     if (!file)
     {
@@ -2919,7 +3053,6 @@ void BWC::saveSettings()
         return;
     }
 
-    DynamicJsonDocument doc(2048);
     _heatingtime += _heatingtime_ms / 1000;
     _pumptime += _pumptime_ms / 1000;
     _airtime += _airtime_ms / 1000;
@@ -3579,6 +3712,7 @@ void BWC::_handleSmartSchedule()
             heater_off_queued = add_command(item);
             if (heater_off_queued)
             {
+                _schedule_heater_off_pending = true; // not a manual cancel
                 Serial.println(F("SmartSchedule: Target temperature reached - heater off"));
             }
         }
@@ -3602,8 +3736,10 @@ void BWC::_handleSmartSchedule()
     if (_smart_schedule.calculated_start_time > 0 && 
         _timestamp_secs >= _smart_schedule.calculated_start_time)
     {
-        if (!cio->cio_states.heat)
+        // once per start, not on every loop() until the pump reports the heater on
+        if (!cio->cio_states.heat && (int32_t)(millis() - _schedule_heat_queued_until) >= 0)
         {
+            _schedule_heat_queued_until = millis() + 10000;
             command_que_item item;
             item.xtime = 0;
             item.interval = 0;
@@ -3711,8 +3847,9 @@ void BWC::_processAccurateTempReading()
                 _smart_schedule.calculated_start_time = _timestamp_secs;
                 _smart_schedule.check_completed = true; // No more checks needed
                 
-                if (!cio->cio_states.heat)
+                if (!cio->cio_states.heat && (int32_t)(millis() - _schedule_heat_queued_until) >= 0)
                 {
+                    _schedule_heat_queued_until = millis() + 10000;
                     command_que_item item;
                     item.xtime = 0;
                     item.interval = 0;
@@ -3858,7 +3995,10 @@ void BWC::_loadSmartSchedule()
     // the completion path in _handleSmartSchedule() re-arms it on the next loop
     // (and handles heater/pump off first), so a power outage over the target
     // time doesn't kill the recurrence.
-    if (_smart_schedule.active && _smart_schedule.target_time <= _timestamp_secs &&
+    // time(nullptr), not _timestamp_secs: loop() has not set that yet.
+    // Before NTP the clock is ~0, so nothing expires here; loop() completes
+    // an overdue schedule once the time is valid.
+    if (_smart_schedule.active && _smart_schedule.target_time <= (uint64_t)time(nullptr) &&
         _smart_schedule.repeat_days == 0)
     {
         _smart_schedule.active = false;

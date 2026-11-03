@@ -43,8 +43,36 @@ struct SessionSlot
 static SessionSlot sessions[SESSION_SLOTS];
 static uint8_t nextSlot = 0;
 static bool sessionsLoaded = false;
-static uint8_t failedLoginCount = 0;
-static uint32_t loginBlockedUntilMs = 0;
+// Login throttle per client: one global counter let any LAN host keep
+// the owner locked out with 5 bad logins per cooldown.
+// 4 slots, the least recently used one is recycled.
+struct LoginThrottle
+{
+    uint32_t ip;
+    uint8_t failedLoginCount;
+    uint32_t loginBlockedUntilMs;
+    uint32_t lastMs;
+};
+static LoginThrottle throttles[4];
+
+static LoginThrottle &throttleFor(uint32_t ip)
+{
+    LoginThrottle *oldest = &throttles[0];
+    for (LoginThrottle &t : throttles)
+    {
+        if (t.ip == ip)
+            return t;
+        if (t.lastMs < oldest->lastMs)
+            oldest = &t;
+    }
+    *oldest = LoginThrottle{ip, 0, 0, millis()};
+    return *oldest;
+}
+
+static uint32_t clientIp()
+{
+    return (uint32_t)server->client().remoteIP();
+}
 
 // --- helpers ---------------------------------------------------------------
 
@@ -399,39 +427,39 @@ static String cookieToken()
     return tokenFromCookieHeader(server->header("Cookie"));
 }
 
-static bool loginThrottleActive(uint32_t nowMs)
+static bool loginThrottleActive(LoginThrottle &t, uint32_t nowMs)
 {
-    return loginBlockedUntilMs != 0 && (int32_t)(nowMs - loginBlockedUntilMs) < 0;
+    return t.loginBlockedUntilMs != 0 && (int32_t)(nowMs - t.loginBlockedUntilMs) < 0;
 }
 
-static uint32_t loginRetryAfterSeconds(uint32_t nowMs)
+static uint32_t loginRetryAfterSeconds(LoginThrottle &t, uint32_t nowMs)
 {
-    if (!loginThrottleActive(nowMs))
+    if (!loginThrottleActive(t, nowMs))
         return 0;
-    return (loginBlockedUntilMs - nowMs + 999) / 1000;
+    return (t.loginBlockedUntilMs - nowMs + 999) / 1000;
 }
 
-static void recordFailedLogin()
+static void recordFailedLogin(LoginThrottle &t)
 {
     uint32_t nowMs = millis();
     // If a previous block has elapsed, start a fresh failure window. Otherwise the
     // count stays pinned at the threshold and every later single failure re-arms a
     // full cooldown -> one bad login per cooldown throttles logins forever.
-    if (loginBlockedUntilMs != 0 && !loginThrottleActive(nowMs))
+    if (t.loginBlockedUntilMs != 0 && !loginThrottleActive(t, nowMs))
     {
-        failedLoginCount = 0;
-        loginBlockedUntilMs = 0;
+        t.failedLoginCount = 0;
+        t.loginBlockedUntilMs = 0;
     }
-    if (failedLoginCount < 255)
-        failedLoginCount++;
-    if (failedLoginCount >= LOGIN_THROTTLE_AFTER_FAILURES)
-        loginBlockedUntilMs = nowMs + LOGIN_THROTTLE_COOLDOWN_MS;
+    if (t.failedLoginCount < 255)
+        t.failedLoginCount++;
+    if (t.failedLoginCount >= LOGIN_THROTTLE_AFTER_FAILURES)
+        t.loginBlockedUntilMs = nowMs + LOGIN_THROTTLE_COOLDOWN_MS;
 }
 
-static void resetLoginThrottle()
+static void resetLoginThrottle(LoginThrottle &t)
 {
-    failedLoginCount = 0;
-    loginBlockedUntilMs = 0;
+    t.failedLoginCount = 0;
+    t.loginBlockedUntilMs = 0;
 }
 
 // --- public guard / endpoints ---------------------------------------------
@@ -441,12 +469,32 @@ bool isAuthed()
     return !globalAuthEnabled || validSession(cookieToken());
 }
 
-// Wrap a handler so it 401s when global auth is on and the caller has no session.
-// When auth is off this is a transparent pass-through (no behavior change).
+// A browser on another site (any page opened in the LAN) may send requests to
+// the module; with auth off nothing stopped them. Browsers always send
+// Origin on cross-site POSTs; same-origin requests carry our own host, and
+// non-browser clients (curl, Home Assistant, scripts) send no Origin at all.
+static bool crossSiteRequest()
+{
+    if (server->method() == HTTP_GET || !server->hasHeader(F("Origin")))
+        return false;
+    String origin = server->header(F("Origin")); // "http://host[:port]" or "null"
+    int scheme = origin.indexOf(F("://"));
+    if (scheme < 0)
+        return true;
+    return !origin.substring(scheme + 3).equalsIgnoreCase(server->header(F("Host")));
+}
+
+// Wrap a handler so it 401s when global auth is on and the caller has no session,
+// and 403s cross-site browser requests.
 WebServerT::THandlerFunction guard(WebServerT::THandlerFunction handler)
 {
     return [handler]()
     {
+        if (crossSiteRequest())
+        {
+            server->send(403, F("text/plain"), F("Cross-site request rejected."));
+            return;
+        }
         if (!isAuthed())
         {
             server->send(401, F("text/plain"), F("Authentication required."));
@@ -491,9 +539,11 @@ void handleLogin()
     }
 
     uint32_t nowMs = millis();
-    if (loginThrottleActive(nowMs))
+    LoginThrottle &throttle = throttleFor(clientIp());
+    throttle.lastMs = nowMs;
+    if (loginThrottleActive(throttle, nowMs))
     {
-        uint32_t retryAfter = loginRetryAfterSeconds(nowMs);
+        uint32_t retryAfter = loginRetryAfterSeconds(throttle, nowMs);
         server->sendHeader(F("Retry-After"), String(retryAfter));
         server->send(429, F("application/json"), String(F("{\"ok\":false,\"retryAfter\":")) + retryAfter + "}");
         return;
@@ -509,18 +559,20 @@ void handleLogin()
     String authUserLc = globalAuthUser;
     authUserLc.toLowerCase();
 
-    bool ok = secureEquals(userLc, authUserLc) &&
-              globalAuthHash.length() > 0 &&
-              secureEquals(hashPassword(globalAuthSalt, pwd), globalAuthHash);
+    // Hash first, always: with "user && hash" PBKDF2 (hundreds of ms) only ran
+    // for the right user name, so the response time told which name is valid.
+    String pwdHash = hashPassword(globalAuthSalt, pwd);
+    bool userOk = secureEquals(userLc, authUserLc);
+    bool ok = userOk && globalAuthHash.length() > 0 && secureEquals(pwdHash, globalAuthHash);
 
     if (!ok)
     {
-        recordFailedLogin();
+        recordFailedLogin(throttle);
         server->send(401, F("application/json"), F("{\"ok\":false}"));
         return;
     }
 
-    resetLoginThrottle();
+    resetLoginThrottle(throttle);
     bool keepLoggedIn = keep == F("1") || keep == F("true") || keep == F("on");
     String tok = addSession(keepLoggedIn);
     String cookie = String(COOKIE_NAME) + "=" + tok + "; Path=/; HttpOnly; SameSite=Strict";

@@ -31,8 +31,10 @@ void CIO_6W::handleToggles()
         return;
     }
 
-    // if(requestedStates.unit != _requested_states.unit)
-    if (cio_toggles.unit_change)
+    // Not in standby: the dark panel shows no unit LED, the unit is only the °F
+    // default, so the boot restore's SETUNIT pressed POWER (unlock) and UNIT.
+    // The board keeps its unit over standby anyway.
+    if (cio_toggles.unit_change && cio_states.power)
     {
         unlock();
         item.btncode = getButtonCode(UNIT);
@@ -87,35 +89,45 @@ void CIO_6W::handleToggles()
         _qButton(item);
     }
 
-    if (cio_states.target == 0 && _button_que_len == 0)
+    // Unknown target: press UP once to read it, but not in standby: unlock()
+    // presses POWER, which switched a standby pool on after every reboot
+    if (cio_states.target == 0 && cio_states.power && _button_que_len == 0)
     {
         unlock();
+        // a tap, not a hold: a held key auto-repeats and changed the target
         item.btncode = getButtonCode(UP);
         item.p_state = &sStates::target;
         item.value = 999;
-        item.duration_ms = 700;
+        item.duration_ms = 200;
         _qButton(item);
         item.btncode = getButtonCode(NOBTN);
         item.p_state = &sStates::char1;
         item.value = 0xFF;
-        item.duration_ms = 500;
+        item.duration_ms = 1000;
         _qButton(item);
     }
 
-    if ((cio_toggles.target != cio_states.target) && (_button_que_len == 0))
+    // Walk only from a known target (0 = not read yet) and only while the pool is
+    // on: unlock() presses POWER, so a walk still running when the user switched
+    // the pool off switched it straight back on. It resumes at power on.
+    if ((cio_toggles.target != cio_states.target) && cio_states.target != 0 && cio_states.power &&
+        (_button_que_len == 0))
     {
         unlock();
         Buttons dir;
         cio_toggles.target > cio_states.target ? dir = UP : dir = DOWN;
+        // One tap per step, then wait for the display: holding the key up to
+        // 800 ms let the panel's auto-repeat step past the target.
+        // 200 ms tap / 600 ms wait guessed, the panel's repeat delay is unmeasured.
         item.btncode = getButtonCode(dir);
         item.p_state = &sStates::target;
         item.value = cio_toggles.target;
-        item.duration_ms = 800;
+        item.duration_ms = 200;
         _qButton(item);
         item.btncode = getButtonCode(NOBTN);
         item.p_state = &sStates::char1;
         item.value = 0xFF;
-        item.duration_ms = 400;
+        item.duration_ms = 600;
         _qButton(item);
     }
 
@@ -198,6 +210,16 @@ void CIO_6W::_handleButtonQ(void)
     elapsedTime = millis() - prevMillis;
     prevMillis = millis();
     uint8_t waitlimit = 0;
+    // after a press, keep the button released long enough for the pump
+    // to poll NOBTN (~20 ms cycle). Otherwise the next press of the same button
+    // starts on the next loop() pass, the pump sees one long press, and the
+    // second toggle is lost.
+    if ((int32_t)(_release_until - millis()) > 0)
+        return;
+    // No presses before the first decoded frame: the states are still the
+    // defaults (power 0), so unlock() pressed POWER on a running pool
+    if (!cio_states.dsp_ok)
+        return;
     if (_button_que_len == 0)
         // {
         //     /*Buttonqueue is empty, so let the touchbuttons from display/bwc through*/
@@ -228,6 +250,8 @@ void CIO_6W::_handleButtonQ(void)
         waitlimit = 0;
         while (_packet_transm_active && ++waitlimit < 10)
             delay(1);
+        if (_button_code != getButtonCode(NOBTN))
+            _release_until = millis() + 100; // a press ended (not an already-met item)
         _button_code = getButtonCode(NOBTN);
     }
     else

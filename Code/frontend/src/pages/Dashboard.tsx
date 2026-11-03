@@ -92,7 +92,7 @@ export function Dashboard() {
           <div class="overview-panel">
             <span class="target-label">{t('dashboard.targetTemp')}</span>
             <Thermostat value={s.TGT} current={s.TMP} min={unit ? 20 : 68} max={unit ? 40 : 104}
-              unit={u} heating={heating} onChange={(v) => sendCommand('setTargetSelector', v)} />
+              unit={u} heating={heating} off={!s.PWR} onChange={(v) => sendCommand('setTargetSelector', v)} />
             {tm && <p class="th-ready">{t('dashboard.readyIn')}: <b>{t2rText(tm.T2R)}</b></p>}
           </div>
         </div>
@@ -116,9 +116,9 @@ export function Dashboard() {
       <Card title={t('dashboard.buttons')} className="control-bank">
         <div class="tile-grid">
           <ControlTile icon="power" label={t('dashboard.power')} on={s.PWR}
-            stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('togglePWR')} />
+            stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('togglePWR', !s.PWR)} />
           <ControlTile icon="lock" label={t('dashboard.lock')} on={s.LCK}
-            stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('toggleLCK')} />
+            stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('toggleLCK', !s.LCK)} />
           <ControlTile icon="airjet" label={t('dashboard.airjet')} on={s.AIR}
             stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('toggleBubbles', !s.AIR)} />
           <ControlTile icon="heater" label={t('dashboard.heater')} on={heaterOn} tone={heating || !heaterOn ? 'heat' : 'ok'}

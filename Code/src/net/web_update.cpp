@@ -132,6 +132,10 @@ static bool verifyRsa(const uint8_t *digest, const uint8_t *sig, size_t sigLen)
 #endif
 
 // Download + verify + flash. Returns true on success (caller then reboots).
+// set once stopall() ran: BWC (cio/dsp), LittleFS and the server are gone, so
+// a failure after this point must reboot instead of returning to loop()
+static bool servicesStopped = false;
+
 static bool performWebUpdate(const String &url, String &err)
 {
     WiFiClient client;
@@ -175,6 +179,8 @@ static bool performWebUpdate(const String &url, String &err)
 #endif
 #endif
 
+    bwc->saveSettings(); // stopall() unmounts LittleFS: keep counters/energy
+    servicesStopped = true;
     stopall();
     if (!Update.begin(beginSize))
     {
@@ -456,6 +462,12 @@ void handleDoUpdate()
     if (!performWebUpdate(binUrl, err))
     {
         server->send(500, F("text/plain"), String(F("update failed: ")) + err);
+        if (servicesStopped)
+        {
+            // loop() would use the deleted cio (null deref -> exception reset)
+            delay(500);
+            ESP.restart();
+        }
         return;
     }
 

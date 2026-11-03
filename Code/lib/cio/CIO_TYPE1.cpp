@@ -1,5 +1,6 @@
 #include "CIO_TYPE1.h"
 #include "ports.h"
+#include "util.h"
 
 CIO_6_TYPE1 *pointerToClassCIO61;
 
@@ -73,10 +74,9 @@ void CIO_6_TYPE1::updateStates()
     // Critical section: copy volatile ISR data to local scope atomically
     noInterrupts();
     _new_packet_available = false;
-    uint8_t local_packet_error = _packet_error;
-    _packet_error = 0;
+    uint8_t local_packet_error = _ready_packet_error;
     uint8_t local_payload[11];
-    memcpy(local_payload, (const void *)_payload, sizeof(local_payload));
+    memcpy(local_payload, (const void *)_ready_payload, sizeof(local_payload));
     uint8_t local_brightness = _brightness;
     interrupts();
 
@@ -97,10 +97,12 @@ void CIO_6_TYPE1::updateStates()
     // Store last valid temperature to enable rate-of-change validation
     static uint8_t last_valid_temperature = 25;
     static bool first_temperature_reading = true; // Bypass validation for first reading
+    static uint32_t last_valid_temperature_ms = 0;
     // A °C<->°F switch makes the reading legitimately jump ~30-50°, which the
     // rate-of-change check below would reject forever (locking TMP at the stale
     // value). Treat a unit change like a fresh start so the next reading is taken.
     static uint8_t last_unit = cio_states.unit;
+    static uint8_t temperature_unit = 255; // unit of the last accepted reading, 255 = none yet
     if (cio_states.unit != last_unit)
     {
         last_unit = cio_states.unit;
@@ -133,6 +135,16 @@ void CIO_6_TYPE1::updateStates()
     /*If both leds are out, don't change (When TIMER is pressed)*/
     if (_raw_payload_from_cio[C_IDX] & (1 << C_BIT) || _raw_payload_from_cio[F_IDX] & (1 << F_BIT))
         cio_states.unit = (_raw_payload_from_cio[C_IDX] & (1 << C_BIT)) > 0;
+    // After a unit switch the display shows the target for a while, so the next
+    // reading comes seconds later. Until then TMP kept the old unit's number:
+    // 73 "°C" in the web UI and on MQTT (seen on a real unit). Convert it in the
+    // same pass that learns the new unit.
+    if (temperature_unit <= 1 && temperature_unit != cio_states.unit)
+    {
+        cio_states.temperature = round(cio_states.unit ? F2C(cio_states.temperature) : C2F(cio_states.temperature));
+        last_valid_temperature = cio_states.temperature;
+        temperature_unit = cio_states.unit;
+    }
     cio_states.bubbles = (_raw_payload_from_cio[AIR_IDX] & (1 << AIR_BIT)) > 0;
     cio_states.heatgrn = (_raw_payload_from_cio[GRNHTR_IDX] & (1 << GRNHTR_BIT)) > 0;
     cio_states.heatred = (_raw_payload_from_cio[REDHTR_IDX] & (1 << REDHTR_BIT)) > 0;
@@ -170,10 +182,31 @@ void CIO_6_TYPE1::updateStates()
     cio_states.error = 0;
 
     // capture TARGET after UP/DOWN has been pressed...
+    // the pump board switches the display to the target some frames
+    // after the press. Reading at once took the water temperature as the
+    // target, and the boot restore then walked UP/DOWN from that wrong value.
+    // fixed 250 ms settle, the real board's reaction time is unmeasured.
+    static uint32_t buttonPressTime;
+    static bool upDownHeld = false;
     if ((_button_code == getButtonCode(UP)) || (_button_code == getButtonCode(DOWN)))
     {
+        if (!upDownHeld)
+        {
+            upDownHeld = true;
+            buttonPressTime = millis();
+        }
         buttonReleaseTime = millis(); // updated as long as buttons are pressed
         if (cio_states.power && !cio_states.locked)
+            capturePhase = (millis() - buttonPressTime) < 250 ? uncertain : readtarget;
+    }
+    else
+    {
+        upDownHeld = false;
+        // the module taps UP/DOWN shorter than 250 ms (a held key
+        // auto-repeats on the panel), so the target is read after the release
+        // too: from 250 ms after the press until the 2 s timeout below.
+        if (capturePhase == uncertain && cio_states.power && !cio_states.locked &&
+            buttonReleaseTime != 0 && (millis() - buttonPressTime) >= 250 && (millis() - buttonReleaseTime) <= 2000)
             capturePhase = readtarget;
     }
 
@@ -213,6 +246,12 @@ void CIO_6_TYPE1::updateStates()
             return; // Exit if temperature is outside reasonable operating range
         }
         
+        // Standby shows a blank display, so no reading passes for hours while the
+        // water cools; the jump check below then rejected the real value forever
+        //. After 30 s without a valid reading, start over.
+        if (millis() - last_valid_temperature_ms > 30000)
+            first_temperature_reading = true;
+
         // VALIDATION LAYER 3: 
         if (parsedValue == cio_states.target && !first_temperature_reading)
         {
@@ -238,8 +277,10 @@ void CIO_6_TYPE1::updateStates()
         
         // ALL VALIDATIONS PASSED - Safe to update actual temperature
         last_valid_temperature = parsedValue;
+        last_valid_temperature_ms = millis();
         first_temperature_reading = false;
         cio_states.temperature = parsedValue;
+        temperature_unit = cio_states.unit;
         cio_states.tmp_ok = true;
     }
 
@@ -284,6 +325,12 @@ void IRAM_ATTR CIO_6_TYPE1::eopHandler(void)
         {
             _brightness = msg;
             _CIO_cmd_matches = 0;
+            // Hand over a complete copy: the next frame writes _payload byte by
+            // byte, and a slow loop() could copy a mix of two frames.
+            for (int i = 0; i < 11; i++)
+                _ready_payload[i] = _payload[i];
+            _ready_packet_error = _packet_error;
+            _packet_error = 0;
             _new_packet_available = true;
         }
         if (_CIO_cmd_matches == 2)

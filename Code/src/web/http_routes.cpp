@@ -24,11 +24,12 @@ void startHttpServer()
     // Optional global auth: when enabled, guard() requires a valid session cookie
     // (401 otherwise); when disabled it is a transparent pass-through. The Cookie
     // header must be collected explicitly or server->header("Cookie") is empty.
+    // Origin + Host: guard() rejects cross-site browser requests
 #ifdef ESP8266
-    server->collectHeaders("Cookie");
+    server->collectHeaders("Cookie", "Origin", "Host");
 #else
-    const char *collectKeys[] = {"Cookie"}; // ESP32's WebServer only has the array form
-    server->collectHeaders(collectKeys, 1);
+    const char *collectKeys[] = {"Cookie", "Origin", "Host"}; // ESP32's WebServer only has the array form
+    server->collectHeaders(collectKeys, 3);
 #endif
 
     // Login/logout are never guarded.
@@ -120,7 +121,9 @@ void startHttpServer()
             server->sendHeader(F("Connection"), F("close"));
             if (!otaUploadAuthorized)
             {
-                server->send(401, F("text/plain"), F("Authentication required."));
+                // the only response for a failed auth: the upload callback used to
+                // send one too, two responses on one socket
+                server->requestAuthentication();
                 return;
             }
             if (!otaUploadComplete || !otaUploadSucceeded || Update.hasError())
@@ -144,8 +147,7 @@ void startHttpServer()
                 otaUploadSucceeded = false;
                 if (!server->authenticate("update", OTAPassword.c_str()))
                 {
-                    Update.abort();
-                    server->requestAuthentication();
+                    Update.abort(); // the final handler answers with the 401
                     return;
                 }
                 otaUploadAuthorized = true;

@@ -18,7 +18,7 @@ public:
     virtual void updateStates() = 0;
     virtual void handleToggles() = 0;
     void setRawPayload(const std::vector<uint8_t> &pl);
-    std::vector<uint8_t> getRawPayload();
+    const std::vector<uint8_t> &getRawPayload(); // by reference: called twice per loop()
     virtual String getModel() = 0;
     virtual Power getPower() = 0;
     /* Expert-mode overrides: setPower replaces the live wattage table,

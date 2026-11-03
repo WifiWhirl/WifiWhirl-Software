@@ -284,8 +284,8 @@ export function Config() {
           </div>
         </div>
         <Row label={t('spa.audio')}><Toggle checked={d.AUDIO} onChange={(v) => set('AUDIO', v)} /></Row>
-        <NumField label={t('cfg.airjetTimeout')} value={d.AIRTO} min={5} max={30} unit={t('cfg.minUnit')} onInput={(v) => set('AIRTO', v)} />
-        {d.HASJETS && <NumField label={t('cfg.hydrojetTimeout')} value={d.HJTO} min={5} max={60} unit={t('cfg.minUnit')} onInput={(v) => set('HJTO', v)} />}
+        <NumField label={t('cfg.airjetTimeout')} value={d.AIRTO} min={1} max={30} unit={t('cfg.minUnit')} onInput={(v) => set('AIRTO', v)} />
+        {d.HASJETS && <NumField label={t('cfg.hydrojetTimeout')} value={d.HJTO} min={1} max={60} unit={t('cfg.minUnit')} onInput={(v) => set('HJTO', v)} />}
 
         <div class="cfg-subsection">
           <h3>{t('config.brightnessBoost')}</h3>

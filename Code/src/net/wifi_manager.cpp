@@ -151,6 +151,7 @@ void startWiFi()
         {
             delay(1000);
             bwc->loop();
+            handleResetSequence();
             tryCount++;
 
             if (tryCount >= maxTries)
@@ -239,6 +240,7 @@ void startSetupPortal(const String &storedSsid, const String &storedPwd)
         _setupDns.processNextRequest();
         server->handleClient();
         bwc->loop();
+        handleResetSequence();
         delay(10);
 
         if (hasStoredCredentials && (millis() - lastReconnectAttempt >= reconnectInterval))
@@ -253,6 +255,7 @@ void startSetupPortal(const String &storedSsid, const String &storedPwd)
                 _setupDns.processNextRequest();
                 server->handleClient();
                 bwc->loop();
+                handleResetSequence();
                 delay(10);
             }
 
@@ -275,7 +278,7 @@ void startSetupPortal(const String &storedSsid, const String &storedPwd)
 /**
  * start NTP sync
  */
-void startNTP()
+void startNTP(bool wait)
 {
     sWifi_info wifi_info;
     wifi_info = loadWifi();
@@ -292,6 +295,10 @@ void startNTP()
     {
         configTime(0, 0, "ptbtime1.ptb.de", "ptbtime2.ptb.de", "ptbtime3.ptb.de");
     }
+    // The retry from loop() must not wait: with an unreachable NTP server it
+    // blocked the main loop ~6 s every minute.
+    if (!wait)
+        return;
     time_t now = time(nullptr);
     int count = 0;
     while (now < 8 * 3600 * 2)
@@ -300,14 +307,19 @@ void startNTP()
         Serial.print(F("."));
         now = time(nullptr);
         if (count++ > 10)
-            return;
+            return; // SNTP keeps trying; main.cpp's bootlogTimer sets the boot time later
     }
     Serial.println();
-    struct tm timeinfo;
-    gmtime_r(&now, &timeinfo);
-    // Serial.print("Current time: ");
-    // Serial.print(asctime(&timeinfo));
+    setBootTimeFromClock();
+}
 
+/**
+ * Derive the boot time from the (now valid) clock minus uptime. Called by
+ * startNTP() and, if NTP took longer than its wait, by main.cpp's bootlogTimer:
+ * before, a slow NTP left reboot_time empty for good.
+ */
+void setBootTimeFromClock()
+{
     time_t boot_timestamp = getBootTime();
     tm *boot_time_tm = gmtime(&boot_timestamp);
     char boot_time_str[64];
@@ -602,6 +614,9 @@ void handleSetWifi()
  */
 void handleResetWifi()
 {
+    // POST only: a plain <img src=".../resetwifi/"> on any page wiped the WiFi
+    if (!checkHttpPost(server->method()))
+        return;
     server->send(200, F("text/html"), F("Deleting WiFi settings ..."));
     // Serial.println(F("WiFi connection reset (erase) ..."));
     resetWiFi();

@@ -23,7 +23,7 @@ export function validHostnameOrIp(value: string, allowEmpty = false): boolean {
 export function validDeviceHostname(value: string): boolean {
   const s = value.trim();
   return s.length >= 1 &&
-    s.length <= 63 &&
+    s.length <= 32 && // the cloud protocol carries at most 32
     /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(s);
 }
 

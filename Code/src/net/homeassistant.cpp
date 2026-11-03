@@ -66,18 +66,6 @@ const char _curr_temp_tpl[] PROGMEM = "curr_temp_tpl";
 const char _temp_cmd_t[] PROGMEM = "temp_cmd_t";
 const char _temp_cmd_tpl[] PROGMEM = "temp_cmd_tpl";
 
-// Climate templates stored in PROGMEM
-const char _climate_mode_cmd_tpl[] PROGMEM = "[{CMD:3,VALUE:{% if value == \"heat\" %}1{% else %}0{% endif %}},{CMD:4,VALUE:{% if value == \"fan_only\" %}1{% elif value == \"heat\" %}1{% else %}0{% endif %}}]";
-const char _climate_mode_stat_tpl[] PROGMEM = "{% if value_json.RED == 1 %}heat{% elif value_json.GRN == 1 %}heat{% else %}off{% endif %}";
-const char _climate_act_tpl[] PROGMEM = "{% if value_json.RED == 1 %}heating{% elif value_json.GRN == 1 %}idle{% elif value_json.FLT == 1 %}fan{% else %}off{% endif %}";
-const char _climate_temp_stat_tpl[] PROGMEM = "{{ value_json.TGTC }}";
-const char _climate_curr_temp_tpl[] PROGMEM = "{{ value_json.TMPC }}";
-const char _climate_temp_cmd_tpl[] PROGMEM = "{CMD:0,VALUE:{{ value|int }}}";
-const char _climate_mode_off[] PROGMEM = "off";
-const char _climate_mode_heat[] PROGMEM = "heat";
-const char _climate_mode_fan[] PROGMEM = "fan_only";
-const char _climate_temp_unit[] PROGMEM = "C";
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Descriptor for one Home-Assistant entity.
@@ -124,7 +112,7 @@ struct HaEntityConfig
 //--------------------------------------------------------------------------------------------------
 static const HaEntityConfig entities[] PROGMEM = {
     // Control entities
-    {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRT }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
+    {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRTBASE }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
 
     // System information sensors
     {"sensor", "_reboot_time", "Letzter Neustart", "sensor.", "/reboot_time", "{{as_datetime(value)}}", nullptr, nullptr, nullptr, nullptr, "timestamp", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -280,7 +268,7 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
  * StaticJsonDocument size has been tuned to the required minimum.
  */
 //--------------------------------------------------------------------------------------------------
-void setupHA()
+bool setupHA()
 {
     haDiscoveryInProgress = true;
     bwc->dsp->audiofrequency = 0;
@@ -310,10 +298,18 @@ void setupHA()
     snprintf(mychipid_str, sizeof(mychipid_str), "%04X%08X", (uint16_t)(chipid_mac >> 32), (uint32_t)chipid_mac);
 #endif
 
-    // Device metadata - reusable across all entities
-    // NOTE: Using static allocation to avoid heap fragmentation
-    static StaticJsonDocument<500> devicedoc;
-    devicedoc.clear(); // Ensure clean state on re-entry
+    // Device metadata - reusable across all entities. On the heap only while
+    // discovery runs: as statics these documents (plus climate_doc) held 3.3 KB
+    // of RAM for good, and the MQTT socket ran short of memory.
+    DynamicJsonDocument devicedoc(500);
+    // Entity payload; the climate entity below reuses it (the largest, 1700)
+    DynamicJsonDocument doc(1700);
+    if (devicedoc.capacity() == 0 || doc.capacity() == 0)
+    {
+        Serial.println(F("HA: not enough memory for discovery, retry on the next connect"));
+        haDiscoveryInProgress = false;
+        return false;
+    }
     char config_url[64]; // Optimized for IP-based URLs
     snprintf(config_url, sizeof(config_url), "http://%s", WiFi.localIP().toString().c_str());
     devicedoc[FPSTR(_dev)]["configuration_url"] = config_url;
@@ -341,8 +337,6 @@ void setupHA()
     // Topic construction buffer (220 bytes)
     char topic_buf[220];
 
-    // Entity payload
-    static StaticJsonDocument<1000> doc;
 
     const size_t totalEntities = sizeof(entities) / sizeof(entities[0]);
     size_t successCount = 0;
@@ -380,12 +374,11 @@ void setupHA()
             if (ESP.getMaxFreeBlockSize() < 3000) {
                 Serial.print(F("HA: CRITICAL - Heap fragmented! Max block: "));
                 Serial.print(ESP.getMaxFreeBlockSize());
-                Serial.println(F(" bytes. Restarting for clean heap..."));
+                Serial.println(F(" bytes. Discovery stopped, retry on the next connect"));
+                // no restart: discovery runs after every boot, so a module short of
+                // memory restarted forever. The broker keeps the retained configs.
                 haDiscoveryInProgress = false;
-                bwc->saveSettings();
-                delay(1000);
-                ESP.restart();
-                return;
+                return false;
             }
         }
         
@@ -404,12 +397,9 @@ void setupHA()
             Serial.print(i + 1);
             Serial.print(F(". Max block: "));
             Serial.print(ESP.getMaxFreeBlockSize());
-            Serial.println(F(" bytes. Restarting..."));
-            haDiscoveryInProgress = false;
-            bwc->saveSettings();
-            delay(1000);
-            ESP.restart();
-            return;
+            Serial.println(F(" bytes. Discovery stopped, retry on the next connect"));
+            haDiscoveryInProgress = false; // no restart, see above
+            return false;
         }
         
         // Iterate over every entity definition and publish its Home-Assistant
@@ -663,7 +653,7 @@ void setupHA()
 
     // Climate entity configuration
     {
-        static StaticJsonDocument<1700> climate_doc;
+        JsonDocument &climate_doc = doc;
         climate_doc.clear();
         
         // Basic entity setup
@@ -713,7 +703,7 @@ void setupHA()
         climate_doc[FPSTR(_curr_temp_t)] = message_topic;
 
         // Templates - add all at once without interruption
-        climate_doc[FPSTR(_mode_stat_tpl)] = F("{% if value_json.RED == 1 %}heat{% elif value_json.GRN == 1 %}heat{% else %}off{% endif %}");
+        climate_doc[FPSTR(_mode_stat_tpl)] = F("{% if value_json.RED == 1 or value_json.GRN == 1 %}heat{% elif value_json.FLT == 1 %}fan_only{% else %}off{% endif %}");
         climate_doc[FPSTR(_act_tpl)] = F("{% if value_json.RED == 1 %}heating{% elif value_json.GRN == 1 %}idle{% elif value_json.FLT == 1 %}fan{% else %}off{% endif %}");
         climate_doc[FPSTR(_temp_stat_tpl)] = F("{{ value_json.TGTC }}");
         climate_doc[FPSTR(_curr_temp_tpl)] = F("{{ value_json.TMPC }}");
@@ -743,9 +733,9 @@ void setupHA()
         }
     }
     
-    #ifdef ESP8266
-    WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
-    #else
+    // ESP8266 stays in WIFI_NONE_SLEEP (set above): light sleep adds latency and
+    // frame loss that breaks large HTTP transfers, and the unit is mains powered.
+    #ifndef ESP8266
     WiFi.setSleep(true);
     #endif
     
@@ -756,4 +746,5 @@ void setupHA()
     Serial.println(F("========================================"));
     Serial.print(F("HA: Free heap: "));
     Serial.println(ESP.getFreeHeap());
+    return true;
 }

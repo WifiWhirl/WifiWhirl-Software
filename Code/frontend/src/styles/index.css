@@ -707,6 +707,7 @@ select:focus-visible, .switch input:focus-visible + .slider { outline: none; box
 .th-current { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; opacity: 0.45; }
 .th-minmax { fill: var(--muted); font-size: 11px; font-weight: 700; dominant-baseline: middle; }
 .th-thumb { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.28)); }
+.thermostat.off { opacity: 0.45; filter: grayscale(1); } /* pool in standby: last known target */
 .thermostat.heating .th-thumb { stroke: var(--heat); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.32)); }
 .thermostat-dial:focus-visible .th-thumb { stroke-width: 3.5; }
 .thermostat-center {
@@ -1223,6 +1224,8 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
   min-width: 98px;
   min-height: 98px;
   display: flex;
+  flex-wrap: wrap; /* lets align-content center the number + unit row vertically */
+  align-content: center;
   align-items: baseline;
   justify-content: center;
   gap: 4px;
@@ -2176,7 +2179,8 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   }
   .ss-temp-badge {
     width: 100%;
-    min-height: 86px;
+    min-height: 0;
+    padding: 12px;
     border-radius: 12px;
   }
   .ss-hero-grid, .ss-metric-grid, .ss-create-grid {

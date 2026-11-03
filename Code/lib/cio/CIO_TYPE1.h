@@ -77,6 +77,8 @@ private:
     volatile byte _received_byte;
     volatile uint8_t _brightness;
     volatile uint8_t _payload[11];
+    volatile uint8_t _ready_payload[11];      // last complete frame, see eopHandler
+    volatile uint8_t _ready_packet_error = 0;
     uint8_t _prev_payload[11];
     // bit 0 is "bit count error" flag. bit 1 is "too many bytes error" flag, bit 2 is "too few bytes error" flag.
     volatile uint8_t _packet_error;

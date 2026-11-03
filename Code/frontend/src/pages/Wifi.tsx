@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'preact/hooks';
-import { postJson, getText, getJson } from '../api';
+import { postJson, getJson } from '../api';
 import { Card, SaveButton } from '../components/ui';
 import { TextField, CheckField } from '../components/fields';
 import { confirmDialog, showRestart } from '../components/feedback';
@@ -47,9 +47,16 @@ export function Wifi() {
       ip4DnsPrimary: d.ip4DnsPrimary, ip4DnsSecondary: d.ip4DnsSecondary,
       ip4NTP: d.ip4NTP,
     };
-    if (pwd) p.apPwd = pwd; // only change the password when one was typed
+    // only change the password when one was typed - or send "" for a network
+    // the scan reported as open, else the old network's key is kept
+    if (pwd || knownOpenNetwork()) p.apPwd = pwd;
     return p;
   };
+
+  function knownOpenNetwork(): boolean {
+    const scanned = networks?.find((n) => n.ssid === d!.apSsid);
+    return scanned ? !isEncrypted(scanned.enc) : false;
+  }
 
   const validate = (): string | null => {
     if (!d.apSsid.trim() || d.apSsid.length > 32) return t('wifi.errSsid');
@@ -57,9 +64,7 @@ export function Wifi() {
     // "Leave empty to keep the current password" keeps nothing when none is
     // stored, and never applies to a network we have no key for. Networks the
     // scan reported as open are exempt - those have no password to give.
-    const scanned = networks?.find((n) => n.ssid === d.apSsid);
-    const knownOpen = scanned ? !isEncrypted(scanned.enc) : false;
-    if (!pwd && !knownOpen && (!d.hasApPwd || d.apSsid !== storedSsid)) return t('wifi.errPasswordRequired');
+    if (!pwd && !knownOpenNetwork() && (!d.hasApPwd || d.apSsid !== storedSsid)) return t('wifi.errPasswordRequired');
     if (d.enableStaticIp4) {
       if (!validIpv4(d.ip4Address) ||
           !validIpv4(d.ip4Subnet) ||
@@ -75,7 +80,7 @@ export function Wifi() {
 
   async function resetWifi() {
     if (!await confirmDialog(t('wifi.resetConfirm'), { danger: true })) return;
-    try { await getText('/resetwifi/'); } catch { /* reboot drops the connection */ }
+    try { await postJson('/resetwifi/'); } catch { /* reboot drops the connection */ }
     showRestart();
   }
 

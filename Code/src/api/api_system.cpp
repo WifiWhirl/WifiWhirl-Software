@@ -6,6 +6,8 @@
  */
 void handleRestart()
 {
+    if (!checkHttpPost(server->method())) // POST only, see handleResetWifi
+        return;
     // Send styled restart page
     String html =
         F("<!DOCTYPE html>"
@@ -55,7 +57,10 @@ void handleRestart()
  */
 void handleUpdate()
 {
-    handleFileRead("/update.html");
+    // there is no update.html (the page lives in the SPA); handleFileRead()
+    // returned false without answering and the browser waited
+    server->sendHeader(F("Location"), F("/#/update"));
+    server->send(302, F("text/plain"), "");
 }
 
 /**

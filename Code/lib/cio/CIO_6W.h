@@ -46,9 +46,10 @@ protected:
     const uint8_t DSP_DIM_BASE = 0x80;
     const uint8_t DSP_DIM_ON = 0x8;
     volatile bool _new_packet_available;
-    volatile bool _packet_transm_active;
+    volatile bool _packet_transm_active = false; // read before the first CS edge
     volatile uint16_t _button_code;
     uint8_t _pressed_button = NOBTN;
+    uint32_t _release_until = 0; // millis(): button held released after a press
     // sToggles _requested_states; //not used
     // sStates cio_states;
 };

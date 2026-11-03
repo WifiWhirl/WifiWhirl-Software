@@ -125,6 +125,7 @@ public:
     void pause_all(bool action);
     bool add_command(command_que_item command_item);
     bool edit_command(uint8_t index, command_que_item command_item);
+    bool command_at_matches(uint8_t index, uint8_t cmd, uint64_t xtime);
     bool del_command(uint8_t index);
     bool set_command_enabled(uint8_t index, bool enabled);
     void set_command_queue_enabled(bool enabled);
@@ -159,7 +160,7 @@ public:
     void print(const String &txt);
     void printStatic(const String &txt);
     void clearStatic();
-    void loadCommandQueue();
+    void loadCommandQueue(bool queue_only = false); // false: boot (also settings, restore, schedule)
     
     // Smart Schedule methods
     bool setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on, uint8_t repeat_days = 0);
@@ -182,7 +183,7 @@ public:
 
 public:
     String reboot_time_str;
-    time_t reboot_time_t;
+    time_t reboot_time_t = 0; // 0 = not known yet (no valid clock)
     int pins[8];
     unsigned int loop_count = 0;
     bool hasjets, hasgod;
@@ -248,7 +249,7 @@ private:
     Ticker _save_settings_ticker;
     Ticker _scroll_text_ticker;
     bool _scroll = false;
-    uint64_t _timestamp_secs; // seconds
+    uint64_t _timestamp_secs = 0; // seconds
     uint8_t _dsp_brightness;
     int32_t _override_dsp_brt_timer;
     uint8_t _brightness_boost_steps = 1;        // 1-8, steps to add on key press
@@ -304,8 +305,8 @@ private:
     String _timezone_name;
     bool _weather = 0;
     int _pool_capacity = 700;
-    uint8_t _airjet_timeout_minutes = 30;   // 5-30 min, default 30 (no software timeout)
-    uint8_t _hydrojet_timeout_minutes = 60; // 5-60 min, default 60 (no software timeout)
+    uint8_t _airjet_timeout_minutes = 30;   // 1-30 min, default 30 (no software timeout)
+    uint8_t _hydrojet_timeout_minutes = 60; // 1-60 min, default 60 (no software timeout)
     bool _host_mode = false;                    // GSTMODE: guest/host mode for rentals
     uint8_t _host_max_target_c = 40;            // GSTMAXTGT: max target temp, stored in Celsius
     uint16_t _host_heater_timeout_min = 0;      // GSTHTRTO: heater-off delay after target reached, 0 = disabled
@@ -322,8 +323,17 @@ private:
     bool _ambient_set = false;
     bool _new_data_available = false;
     bool _dsp_tgt_used = true;
+    bool _schedule_heater_off_pending = false; // next SETHEATER 0 comes from the smart schedule
+    bool _restore_target_pending = false;      // next SETTARGET comes from the boot restore
+    uint32_t _save_cmdq_retry_at = 0;
+    uint32_t _schedule_heat_queued_until = 0; // smart schedule start queued, wait for the pump
+    uint32_t _airjet_off_queued_until = 0;    // jet timeouts queued, wait for the pump
+    uint32_t _hydrojet_off_queued_until = 0;       // out of memory while saving: next attempt (millis)
+    uint32_t _heater_off_pending_until = 0; // SETHEATER 0 sent, pump not yet reporting it
     bool _restore_states_pending = false; // states.txt restore deferred until the CIO has reported a valid frame
     uint8_t _web_target = 20;
+    uint8_t _last_target = 0;
+    bool _saved_power = false; // states.txt says the pool was on: a standby pool at boot means a power cut // last target the pump showed or states.txt holds; reported while it is unknown
     bool _static_text_active = false;
     char _static_char1 = ' ';
     char _static_char2 = ' ';

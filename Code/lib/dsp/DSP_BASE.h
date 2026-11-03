@@ -13,7 +13,7 @@ public:
     virtual void updateToggles() = 0;
     virtual void handleStates() = 0;
     void setRawPayload(const std::vector<uint8_t> &pl);
-    std::vector<uint8_t> getRawPayload();
+    const std::vector<uint8_t> &getRawPayload(); // by reference: called twice per loop()
     virtual bool getSerialReceived() { return false; } //"overridden" in DSP 4W
     virtual void setSerialReceived(bool txok) {}       //"overridden" in DSP 4W
     String debug();

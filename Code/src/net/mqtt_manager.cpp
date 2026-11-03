@@ -14,6 +14,45 @@ static String mqttTopicRebootTime;
 static String mqttTopicRebootReason;
 static String mqttTopicButton;
 
+// on a weak link a write can time out half way. PubSubClient then
+// returns false but keeps the socket, so the next publish follows the packet
+// fragment and the broker reads garbage ("malformed packet", mixed topics and
+// payloads) and drops the client. Close on a short write instead: the broker
+// only sees a cut-off connection, and mqttConnect() reconnects as usual.
+class MqttWiFiClient : public WiFiClient
+{
+public:
+    using WiFiClient::write;
+    size_t write(const uint8_t *buf, size_t size) override
+    {
+        // A write gives up after 5 s without an ACK. After a short WiFi hiccup
+        // TCP backs off (1, 2, 4, 8 s) before it resends, so 5 s cut the
+        // connection on a link that was fine again (tester: 2 drops in
+        // 80 min, free heap 18 KB). Keep sending the rest for up to 15 s.
+        // blocks loop() while the link is stalled, nothing gets out then anyway
+        uint32_t t0 = millis();
+        size_t sent = WiFiClient::write(buf, size);
+        uint32_t start = millis();
+        while (sent < size && connected() && millis() - start < 10000)
+        {
+            sent += WiFiClient::write(buf + sent, size - sent);
+            yield();
+        }
+        uint32_t took = millis() - t0;
+        if (took > mqttLongestWriteMs)
+            mqttLongestWriteMs = took;
+        if (sent == size && took >= 5000)
+            mqttRescuedWrites++; // the old 5 s limit would have dropped this one
+        if (sent != size && connected()) // not connected: nothing reached the broker
+        {
+            Serial.printf_P(PSTR("MQTT: short write (%u of %u bytes), closing connection\n"), (unsigned)sent, (unsigned)size);
+            mqttShortWrites++;
+            stop();
+        }
+        return sent;
+    }
+};
+
 static bool isPrintableNoControl(const String &value, size_t maxLen, bool allowEmpty)
 {
     if (value.length() == 0)
@@ -362,7 +401,7 @@ void handleSetMqtt()
     }
 
     useMqtt = nextUseMqtt;
-    enableMqtt = useMqtt;
+    enableMqtt = useMqtt && !cloudEnabled;
     mqttServer = nextMqttServer;
     mqttPort = nextMqttPort;
     mqttUsername = nextMqttUsername;
@@ -431,6 +470,15 @@ void handleSetMqtt()
 
     // Save settings before responding
     saveMqtt();
+
+    // Cloud mode replaces MQTT (see main.cpp): keep the settings for when the
+    // cloud is switched off, but don't start, stop or restart anything.
+    if (cloudEnabled)
+    {
+        Serial.println(F("MQTT: Settings saved (inactive in cloud mode)"));
+        server->send(200, F("text/plain"), "");
+        return;
+    }
 
     // Restart ESP if:
     // 1. MQTT is being enabled (disabled -> enabled): Clean boot ensures proper discovery
@@ -507,7 +555,7 @@ void startMqtt()
         Serial.printf("IRamheap %d\n", ESP.getFreeHeap());
         Serial.println(F("startmqtt"));
         if (!aWifiClient)
-            aWifiClient = new WiFiClient;
+            aWifiClient = new MqttWiFiClient;
         if (!mqttClient)
             mqttClient = new PubSubClient(*aWifiClient);
     }
@@ -528,7 +576,10 @@ void startMqtt()
         Serial.println(F("MQTT > Buffer size set to 768 bytes"));
     }
     mqttClient->setKeepAlive(60);
-    mqttClient->setSocketTimeout(30);
+    // How long connect() waits for CONNACK (and a packet read for its bytes).
+    // mqttConnect() runs in loop() every 60 s: with 30 s a broker that accepts
+    // TCP but never answers froze the web UI half of every minute.
+    mqttClient->setSocketTimeout(5);
     // set callback details
     // this function is called automatically whenever a message arrives on a subscribed topic.
     mqttClient->setCallback(mqttCallback);
@@ -642,9 +693,8 @@ void mqttConnect()
         if (!haDiscoveryHasRunOnce)
         {
             Serial.println(F("HA"));
-            setupHA();
+            haDiscoveryHasRunOnce = setupHA();
             Serial.println(F("done"));
-            haDiscoveryHasRunOnce = true;
         }
         else
         {

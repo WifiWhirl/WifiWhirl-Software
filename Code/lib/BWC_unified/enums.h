@@ -17,19 +17,6 @@ enum Buttons : byte
     HYDROJETS
 };
 
-/*Pretty names for buttons. Must be in same order as "enum Buttons" in file "enums.h"*/
-const String ButtonNames[] = {
-    "NOBTN",
-    "LOCK",
-    "TIMER",
-    "BUBBLES",
-    "UNIT",
-    "HEAT",
-    "PUMP",
-    "DOWN",
-    "UP",
-    "POWER",
-    "HYDROJETS"};
 
 enum States : byte
 {

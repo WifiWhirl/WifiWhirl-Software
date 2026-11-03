@@ -1,6 +1,7 @@
 #include "net/net.h"
 #include "web/web.h"
 #include "cloud_psk_storage.h"
+#include "cloud_protocol.h" // POOLLINK_MAX_HOSTNAME
 
 /*
  * Per-device identity/secrets, stored in flash so a single generic firmware.
@@ -37,7 +38,9 @@ String cloudHostname()
 
 static bool isValidDeviceHostname(const String &name)
 {
-    if (name.length() == 0 || name.length() > 63 ||
+    // at most POOLLINK_MAX_HOSTNAME: the cloud HELLO carries no more, a longer
+    // name set via /setdevice/ broke the cloud link like an over-long one via /provision/
+    if (name.length() == 0 || name.length() > POOLLINK_MAX_HOSTNAME ||
         name[0] == '-' || name[name.length() - 1] == '-')
         return false;
 
@@ -361,6 +364,29 @@ void resetDeviceConfig()
     LittleFS.remove("/devuser.json");
 }
 
+// /setdevice/ and /provision/ secrets. An empty OTA password turns the auth of
+// the /update firmware upload off (ESP8266HTTPUpdateServer treats "" as "no
+// auth"); under 8 chars it is too easy to guess. The ESP8266 refuses a soft-AP passphrase under 8 chars, so
+// the recovery AP would never come up; empty = open AP stays allowed.
+// Non-strings (null, numbers) were stored as their JSON text ("null").
+static const __FlashStringHelper *deviceSecretError(JsonDocument &doc)
+{
+    if (doc.containsKey("otaPwd"))
+    {
+        if (!doc[F("otaPwd")].is<const char *>() || strlen(doc[F("otaPwd")].as<const char *>()) < 8)
+            return F("OTA password must be at least 8 characters");
+    }
+    if (doc.containsKey("apPwd"))
+    {
+        if (!doc[F("apPwd")].is<const char *>())
+            return F("Invalid AP password");
+        size_t n = strlen(doc[F("apPwd")].as<const char *>());
+        if (n > 0 && (n < 8 || n > 63))
+            return F("AP password must be 8-63 characters (or empty for an open AP)");
+    }
+    return nullptr;
+}
+
 /**
  * Backend-only factory provisioning: POST raw JSON with every per-device seed:
  *   {hostname, apPwd, otaPwd,                                 -> /device.json
@@ -393,6 +419,8 @@ void handleProvisionDevice()
         return;
     }
 
+    // Validate everything before anything is written (the PSK used to be stored
+    // before cloudPort was checked).
     if (doc.containsKey("hostname"))
     {
         String newHostname = doc[F("hostname")].as<String>();
@@ -401,37 +429,63 @@ void handleProvisionDevice()
             server->send(400, F("text/plain"), F("Invalid hostname"));
             return;
         }
-        deviceName = newHostname;
+        // the cloud HELLO carries at most POOLLINK_MAX_HOSTNAME chars; a longer
+        // name was cut and the backend answered "unknown device"
+        if (newHostname.length() > POOLLINK_MAX_HOSTNAME)
+        {
+            server->send(400, F("text/plain"), F("Hostname too long for the cloud (max 32)"));
+            return;
+        }
     }
-    if (doc.containsKey("apPwd"))
-        wmApPassword = doc[F("apPwd")].as<String>();
-    if (doc.containsKey("otaPwd"))
-        OTAPassword = doc[F("otaPwd")].as<String>();
-    // PoolLink cloud PSK → /cloudpsk (separate binary store). Validate and write
-    // before saveDevice() so a bad key leaves the unit unprovisioned (retryable),
-    // never with a /device.json but no matching PSK.
+    if (const __FlashStringHelper *err = deviceSecretError(doc))
+    {
+        server->send(400, F("text/plain"), err);
+        return;
+    }
+    String pskHex;
     if (doc.containsKey("psk"))
     {
-        String pskHex = doc[F("psk")].as<String>();
-        if (pskHex.length() != 64 || !CloudPSKStorage::writePSKFromHex(pskHex.c_str()))
+        pskHex = doc[F("psk")].as<String>();
+        bool hex = pskHex.length() == 64;
+        for (size_t i = 0; hex && i < pskHex.length(); i++)
+            hex = isxdigit((unsigned char)pskHex[i]);
+        if (!hex)
         {
             server->send(400, F("text/plain"), F("PSK must be 64 hex chars"));
             return;
         }
     }
-
-    // PoolLink cloud connection → /cloud.json. Validate up front so a bad value
-    // aborts before any file is written.
-    bool haveCloud = false;
+    int newCloudPort = 0;
     if (doc.containsKey("cloudPort"))
     {
-        int p = doc[F("cloudPort")] | 0;
-        if (p < 1 || p > 65535)
+        newCloudPort = doc[F("cloudPort")] | 0;
+        if (newCloudPort < 1 || newCloudPort > 65535)
         {
             server->send(400, F("text/plain"), F("Invalid cloudPort"));
             return;
         }
-        cloudPort = p;
+    }
+
+    if (doc.containsKey("hostname"))
+        deviceName = doc[F("hostname")].as<String>();
+    if (doc.containsKey("apPwd"))
+        wmApPassword = doc[F("apPwd")].as<String>();
+    if (doc.containsKey("otaPwd"))
+        OTAPassword = doc[F("otaPwd")].as<String>();
+    // PoolLink cloud PSK → /cloudpsk (separate binary store). Written before
+    // saveDevice() so a failed write leaves the unit unprovisioned (retryable),
+    // never with a /device.json but no matching PSK.
+    if (pskHex.length() && !CloudPSKStorage::writePSKFromHex(pskHex.c_str()))
+    {
+        server->send(500, F("text/plain"), F("Failed to store the PSK"));
+        return;
+    }
+
+    // PoolLink cloud connection → /cloud.json
+    bool haveCloud = false;
+    if (doc.containsKey("cloudPort"))
+    {
+        cloudPort = newCloudPort;
         haveCloud = true;
     }
     if (doc.containsKey("cloudEnabled"))
@@ -575,6 +629,11 @@ void handleSetDevice()
             server->send(400, F("text/plain"), F("Invalid hostname"));
             return;
         }
+        if (const __FlashStringHelper *err = deviceSecretError(doc))
+        {
+            server->send(400, F("text/plain"), err);
+            return;
+        }
         // Wattage overrides only apply in expert mode (effective state = this
         // request's value if it toggles it, else the current one). Reject up front
         // when power is sent but expert mode is off, so the client gets an error
@@ -597,6 +656,8 @@ void handleSetDevice()
         bool havePwd = doc.containsKey("authPwd") &&
                        doc[F("authPwd")].as<String>().length() > 0;
         bool invalidatedSessions = false;
+        bool wasAuthEnabled = globalAuthEnabled;
+        String oldAuthUser = globalAuthUser;
 
         // Turning auth ON from a disabled state is the one privileged transition
         // that isn't already session-authenticated (guard() is a pass-through
@@ -662,7 +723,9 @@ void handleSetDevice()
 
         if (invalidatedSessions)
             clearAuthCookie();
-        restartRequired = true;
+        // the UI sends authEnabled on every save; restart only on a change
+        if (wasAuthEnabled != globalAuthEnabled || havePwd || oldAuthUser != globalAuthUser)
+            restartRequired = true;
     }
 
     // --- Webhook Basic Auth (live setting; no reboot required) ---
@@ -716,7 +779,8 @@ void handleSetDevice()
     // Device identity/secrets are only configurable when global auth is enabled.
     if (globalAuthEnabled)
     {
-        if (doc.containsKey("hostname"))
+        // Restart only for a real change: the UI always sends the hostname.
+        if (doc.containsKey("hostname") && doc[F("hostname")].as<String>() != deviceName)
         {
             // hostname format was validated in the up-front pre-pass
             deviceName = doc[F("hostname")].as<String>();
@@ -725,12 +789,12 @@ void handleSetDevice()
         // Present means "change it". The UI omits these unless the user typed a
         // new value, so an untouched form cannot overwrite the stored secret
         // (mirrors handleSetWifi).
-        if (doc.containsKey("apPwd"))
+        if (doc.containsKey("apPwd") && doc[F("apPwd")].as<String>() != wmApPassword)
         {
             wmApPassword = doc[F("apPwd")].as<String>();
             restartRequired = true;
         }
-        if (doc.containsKey("otaPwd"))
+        if (doc.containsKey("otaPwd") && doc[F("otaPwd")].as<String>() != OTAPassword)
         {
             OTAPassword = doc[F("otaPwd")].as<String>();
             restartRequired = true;
@@ -741,10 +805,9 @@ void handleSetDevice()
 
     if (restartRequired)
     {
-        server->send(200, F("application/json"),
-                     F("{\"restart\":true,\"reason\":\"Geräteeinstellungen geändert. WifiWhirl startet neu.\"}"));
-        delay(500);
-        ESP.restart();
+        // a reason code the SPA translates (was German text), and the shared
+        // path that saves settings/counters first
+        restartWithReason("device");
         return;
     }
 

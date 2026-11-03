@@ -163,7 +163,9 @@ export function SetupAssistant() {
     // depending on a reply (mirrors WiFiManager's saved-credentials page).
     setConnecting(true);
     const payload: Record<string, unknown> = { enableAp: true, apSsid: ssid.trim(), enableWM: true };
-    if (wifiPwd) payload.apPwd = wifiPwd;
+    // an open network needs an explicit "", or the firmware keeps the previous
+    // network's key and fails to join
+    if (wifiPwd || (picked != null && !isEncrypted(picked.enc))) payload.apPwd = wifiPwd;
     void saveConfig('/setwifi/', payload); // fire-and-forget; reboot drops the connection
   }
 

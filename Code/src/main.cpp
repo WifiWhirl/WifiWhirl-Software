@@ -29,6 +29,13 @@ String prevButtonName = "";
 Ticker updateMqttTimer;
 bool sendMQTTFlag = false;
 bool enableMqtt = false;
+LinkDrops mqttDrops, wifiDrops;
+uint16_t mqttShortWrites, mqttRescuedWrites;
+uint32_t mqttLongestWriteMs;
+#ifdef ESP8266
+static WiFiEventHandler wifiDropHandler;
+static int16_t wifiDropReason = -1;
+#endif
 bool haDiscoveryInProgress = false;
 unsigned long haDiscoveryLastCompleted = 0;
 bool haDiscoveryHasRunOnce = false;
@@ -52,6 +59,10 @@ void setup()
     // Pull the previous crash's backtrace out of RTC memory before anything else
     // touches it (survives reset; readable via /support).
     crashtrace_load();
+#ifdef ESP8266
+    wifiDropHandler = WiFi.onStationModeDisconnected([](const WiFiEventStationModeDisconnected &e)
+                                                     { wifiDropReason = e.reason; });
+#endif
 
     // On the ESP-07S field hardware the UART0 TX pin doubles as a pump-comms line
     // and the constant pump bit-bang ISRs starve the UART TX drain, so the Serial
@@ -93,7 +104,7 @@ void setup()
                          { if(useMqtt && !cloudEnabled) enableMqtt = true; startComplete.detach(); });
     // when NTP time is valid we save bootlog.txt and this timer stops
     bootlogTimer.attach(5, []
-                        { if(time(nullptr)>57600) {bwc->saveRebootInfo(); bootlogTimer.detach();} });
+                        { if(time(nullptr)>57600) { if(!bwc->reboot_time_t) setBootTimeFromClock(); bwc->saveRebootInfo(); bootlogTimer.detach();} });
     // loadWifi();
     // Must precede the loads: on a -DSEED_DEVICE_CONFIG build this overwrites the
     // flash-persisted identity/cloud/PSK files from the compiled config.cpp while
@@ -108,6 +119,8 @@ void setup()
     startHttpServer();
     if (!cloudEnabled)
         startMqtt();
+    else
+        loadMqtt(); // MQTT stays off, but /getmqtt/ and /setmqtt/ must see the stored settings
 
     // Migrate a seeded PSK (cloudPskHex) into /cloudpsk on first boot, regardless
     // of cloudEnabled - so the cloud menu/pairing reflect that the unit is
@@ -201,6 +214,31 @@ void loop()
         // newData stays false, bwc->loop() is NOT called
     }
 
+    // count MQTT drops for the support package
+    static bool mqttUp = false;
+    static bool mqttQuickRetry = false;
+    if (enableMqtt && mqttClient)
+    {
+        bool up = mqttClient->connected();
+        if (mqttUp && !up)
+        {
+            mqttDrops.count++;
+            mqttDrops.lastMs = millis();
+            mqttDrops.lastCode = mqttClient->state();
+            mqttQuickRetry = true;
+        }
+        mqttUp = up;
+        // One retry 5 s after a drop instead of waiting up to a minute for the
+        // periodic one. Only one: a broker that does not answer blocks each
+        // attempt for the socket timeout, so after that the minute
+        // cadence applies again.
+        if (mqttQuickRetry && !up && millis() - mqttDrops.lastMs >= 5000 && WiFi.status() == WL_CONNECTED)
+        {
+            mqttQuickRetry = false;
+            mqttConnect();
+        }
+    }
+
     // run only when a wifi connection is established
     if (WiFi.status() == WL_CONNECTED)
     {
@@ -272,6 +310,13 @@ void loop()
         {
             // Serial.println(F("WiFi > Lost connection. Trying to reconnect ..."));
             server->stop();
+            wifiDrops.count++;
+            wifiDrops.lastMs = millis();
+#ifdef ESP8266
+            wifiDrops.lastCode = wifiDropReason;
+#else
+            wifiDrops.lastCode = -1;
+#endif
         }
         // set marker
         wifiConnected = false;
@@ -294,7 +339,7 @@ void loop()
             if (time(nullptr) < 57600)
             {
                 // Serial.println(F("NTP > Start synchronisation"));
-                startNTP();
+                startNTP(false);
             }
 
             // Check if MQTT client exists (may be deleted after HA discovery for clean reset)
@@ -312,21 +357,26 @@ void loop()
         // setTemperatureFromSensor();
     }
 
-    // Only do this if locked out! (by pressing POWER - LOCK - TIMER - POWER)
-    if (bwc->getBtnSeqMatch())
-    {
-
-        resetDeviceConfig();
-        resetWiFi();
-        delay(3000);
-#ifdef ESP8266
-        ESP.reset();
-#else
-        ESP.restart();
-#endif
-        delay(3000);
-    }
+    handleResetSequence();
     // handleAUX();
+}
+
+// POWER - LOCK - TIMER - POWER on the panel: settings and WiFi back to factory.
+// Also called from the setup portal: it blocks loop() while the panel shows
+// "nEt", so the sequence did nothing exactly when it is needed most.
+void handleResetSequence()
+{
+    if (!bwc->getBtnSeqMatch())
+        return;
+    resetDeviceConfig();
+    resetWiFi();
+    delay(3000);
+#ifdef ESP8266
+    ESP.reset();
+#else
+    ESP.restart();
+#endif
+    delay(3000);
 }
 
 /**
@@ -344,7 +394,7 @@ void stopall()
     Serial.println(F("stopping server"));
     server->stop();
     Serial.println(F("stopping mqtt"));
-    if (enableMqtt)
+    if (enableMqtt && mqttClient)
         mqttClient->disconnect();
     Serial.println(F("end stopall"));
 }
@@ -383,7 +433,7 @@ void pause_all(bool action)
         periodicTimer.attach(periodicTimerInterval, []
                              { periodicTimerFlag = true; });
         startComplete.attach(60, []
-                             { if(useMqtt) enableMqtt = true; startComplete.detach(); });
+                             { if(useMqtt && !cloudEnabled) enableMqtt = true; startComplete.detach(); });
         // bootlogTimer.attach(5, []{ if(DateTime.isTimeValid()) {bwc->saveRebootInfo(); bootlogTimer.detach();} });
     }
     bwc->pause_all(action);

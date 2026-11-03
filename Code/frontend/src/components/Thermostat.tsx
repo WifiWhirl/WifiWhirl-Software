@@ -37,9 +37,10 @@ export function Thermostat(props: {
   max: number;
   unit: string;
   heating?: boolean;
+  off?: boolean; // pool in standby: the value is the last known target, shown greyed
   onChange: (v: number) => void;
 }) {
-  const { value, current, min, max, unit, heating, onChange } = props;
+  const { value, current, min, max, unit, heating, off, onChange } = props;
   const ref = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
   const latest = useRef(value);
@@ -102,7 +103,7 @@ export function Thermostat(props: {
   const [maxLx, maxLy] = polar(C, C, R + 22, START + SWEEP);    // max label, lower-right
 
   return (
-    <div class={`thermostat${heating ? ' heating' : ''}`}>
+    <div class={`thermostat${heating ? ' heating' : ''}${off ? ' off' : ''}`}>
       <svg
         ref={ref}
         viewBox={`0 0 ${C * 2} ${C * 2}`}

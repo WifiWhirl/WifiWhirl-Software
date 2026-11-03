@@ -123,6 +123,9 @@ export function Device() {
 
   function validateIdentity(): string | null {
     if (!validDeviceHostname(hostname)) return t('dev.errHostname');
+    // the ESP8266 refuses a soft-AP passphrase under 8 chars: no recovery AP
+    if (apPwd && (apPwd.length < 8 || apPwd.length > 63)) return t('dev.errApPwd');
+    if (otaPwd && otaPwd.length < 8) return t('dev.errOtaPwd');
     return null;
   }
 
