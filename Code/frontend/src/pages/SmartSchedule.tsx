@@ -11,7 +11,7 @@ import { dec, durLong, money } from '../util/format';
 interface Sched {
   ACTIVE?: boolean; GLOBALTARGET?: number; TARGETTEMP?: number; CURRENTTEMP?: number;
   ACCURATETEMP?: number; ESTIMATE?: number; BUFFER?: number; ESTIMATED_KWH?: number;
-  ESTIMATED_COST?: number; KEEPON?: boolean; REPEAT?: number; HEATER?: boolean;
+  ESTIMATED_COST?: number; KEEPON?: boolean; KEEPPUMP?: boolean; REPEAT?: number; HEATER?: boolean;
   HEATERRED?: boolean; HEATERGRN?: boolean; READING_STATE?: number;
   REMAINING_HEATING_TIME?: number; TARGETTIME?: number; STARTTIME?: number;
   NEXTCHECK?: number; CHECKCOMPLETED?: boolean; TIMEREMAINING?: number; TIMEUNTILSTART?: number;
@@ -44,11 +44,16 @@ function defaultDateTime(): string {
 /**
  * @brief Smart heating schedule route.
  */
+/** What runs after the target time: everything off, only the filter pump, or the heater holds the temperature. */
+type After = 'off' | 'pump' | 'heat';
+const afterFields = (a: After) => ({ KEEPON: a === 'heat', KEEPPUMP: a === 'pump' });
+const afterOf = (d: Sched): After => (d.KEEPON ? 'heat' : d.KEEPPUMP ? 'pump' : 'off');
+
 export function SmartSchedule() {
   const [data, setData] = useState<Sched | null>(null);
   const [targetDateTime, setDT] = useState(defaultDateTime());
   const [targetTemp, setTemp] = useState(38);
-  const [keepOn, setKeepOn] = useState(false);
+  const [after, setAfter] = useState<After>('off');
   const [repeat, setRepeat] = useState(0);
 
   function refresh() {
@@ -76,19 +81,19 @@ export function SmartSchedule() {
     const ts = Math.floor(new Date(targetDateTime).getTime() / 1000);
     if (ts <= Math.floor(Date.now() / 1000)) { showToast(t('ss.errFuture'), true); return; }
     try {
-      await postJson('/setsmartschedule/', { TARGETTIME: ts, TARGETTEMP: targetTemp, KEEPON: keepOn, REPEAT: repeat });
+      await postJson('/setsmartschedule/', { TARGETTIME: ts, TARGETTEMP: targetTemp, ...afterFields(after), REPEAT: repeat });
       showToast(t('ss.activated'));
       refresh();
     } catch { showToast(t('ss.errActivate'), true); }
   }
 
-  async function updateKeep(v: boolean) {
-    try { await postJson('/updatesmartschedule/', { KEEPON: v }); refresh(); }
+  async function updateAfter(v: After) {
+    try { await postJson('/updatesmartschedule/', afterFields(v)); refresh(); }
     catch { showToast(t('common.error'), true); refresh(); }
   }
 
   async function updateRepeat(v: number) {
-    try { await postJson('/updatesmartschedule/', { KEEPON: !!data?.KEEPON, REPEAT: v }); refresh(); }
+    try { await postJson('/updatesmartschedule/', { ...afterFields(data ? afterOf(data) : 'off'), REPEAT: v }); refresh(); }
     catch { showToast(t('common.error'), true); refresh(); }
   }
 
@@ -100,7 +105,11 @@ export function SmartSchedule() {
 
   if (!data) return <PageSkeleton cards={1} rows={6} actions={false} />;
 
-  const yesNo = [{ value: 'no', label: t('common.no') }, { value: 'yes', label: t('common.yes') }];
+  const afterOpts = [
+    { value: 'off', label: t('ss.afterOff') },
+    { value: 'pump', label: t('ss.afterPump') },
+    { value: 'heat', label: t('ss.afterHeat') },
+  ];
   const repeatOpts = [
     { value: '0', label: t('ss.repeatNever') },
     { value: '1', label: t('ss.repeatDaily') },
@@ -170,10 +179,10 @@ export function SmartSchedule() {
         <Card title={t('ss.options')}>
           <div class="ss-option-row">
             <div>
-              <b>{t('ss.keepOn')}</b>
+              <b>{t('ss.afterTarget')}</b>
               <p class="hint">{t('ss.helpTarget')}</p>
             </div>
-            <Segmented value={data.KEEPON ? 'yes' : 'no'} options={yesNo} onChange={(v) => updateKeep(v === 'yes')} />
+            <Segmented value={afterOf(data)} options={afterOpts} onChange={(v) => updateAfter(v as After)} />
           </div>
           <div class="ss-option-row">
             <div>
@@ -211,8 +220,8 @@ export function SmartSchedule() {
               onChange={(v) => setTemp(unitC ? v : f2c(v))} />
           </div>
           <div class="ss-form-tile">
-            <span>{t('ss.keepOn')}</span>
-            <Segmented value={keepOn ? 'yes' : 'no'} options={yesNo} onChange={(v) => setKeepOn(v === 'yes')} />
+            <span>{t('ss.afterTarget')}</span>
+            <Segmented value={after} options={afterOpts} onChange={(v) => setAfter(v as After)} />
           </div>
           <div class="ss-form-tile">
             <span>{t('ss.repeat')}</span>

@@ -53,6 +53,7 @@ struct smart_schedule_t
     uint64_t target_time = 0;           // When pool should be ready (Unix timestamp)
     uint8_t target_temp = 37;           // Desired temperature in Celsius
     bool keep_heater_on = false;        // Keep heating after target reached
+    bool keep_pump_on = false;          // Filter pump keeps running after the target time, until switched off
     uint8_t repeat_days = 0;            // 0 = one-shot, else re-arm every N calendar days (1=daily, 7=weekly)
     uint64_t calculated_start_time = 0; // Calculated heating start time
     uint64_t next_check_time = 0;       // Next check timestamp
@@ -163,8 +164,9 @@ public:
     void loadCommandQueue(bool queue_only = false); // false: boot (also settings, restore, schedule)
     
     // Smart Schedule methods
-    bool setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on, uint8_t repeat_days = 0);
+    bool setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on, uint8_t repeat_days = 0, bool keep_pump_on = false);
     bool updateSmartScheduleKeepHeaterOn(bool keep_heater_on);
+    bool updateSmartScheduleKeepPumpOn(bool keep_pump_on);
     bool updateSmartScheduleRepeat(uint8_t repeat_days);
     void cancelSmartSchedule();
     void getJSONSmartSchedule(String &rtn);

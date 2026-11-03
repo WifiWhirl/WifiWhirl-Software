@@ -2038,6 +2038,7 @@ void BWC::buildCloudSnapshot(JsonObject doc, size_t* state_len_out)
     ss[F("TARGETTIME")] = _smart_schedule.target_time;
     ss[F("TARGETTEMP")] = _smart_schedule.target_temp;
     ss[F("KEEPON")]     = _smart_schedule.keep_heater_on;
+    ss[F("KEEPPUMP")]   = _smart_schedule.keep_pump_on;
     ss[F("REPEAT")]     = _smart_schedule.repeat_days;
     ss[F("STARTTIME")]  = _smart_schedule.calculated_start_time;
     ss[F("NEXTCHECK")]  = _smart_schedule.next_check_time;
@@ -3330,7 +3331,7 @@ static uint64_t advanceScheduleDays(uint64_t t, uint8_t days, uint64_t now)
     return ((uint64_t)tt > now) ? (uint64_t)tt : 0;
 }
 
-bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on, uint8_t repeat_days)
+bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on, uint8_t repeat_days, bool keep_pump_on)
 {
     // Validate time is in future and NTP is synced
     if (time(nullptr) < 57600)
@@ -3356,6 +3357,7 @@ bool BWC::setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_
     _smart_schedule.target_time = target_time;
     _smart_schedule.target_temp = target_temp;
     _smart_schedule.keep_heater_on = keep_heater_on;
+    _smart_schedule.keep_pump_on = keep_pump_on;
     _smart_schedule.repeat_days = repeat_days;
     _smart_schedule.next_check_time = 0; // Check immediately on next loop
     _smart_schedule.calculated_start_time = 0;
@@ -3400,6 +3402,23 @@ bool BWC::updateSmartScheduleKeepHeaterOn(bool keep_heater_on)
         Serial.println(keep_heater_on ? F("true") : F("false"));
     }
 
+    return true;
+}
+
+/**
+ * Filter pump keeps running after the target time (until switched off by hand)
+ * @return true if an active schedule was updated
+ */
+bool BWC::updateSmartScheduleKeepPumpOn(bool keep_pump_on)
+{
+    if (!_smart_schedule.active)
+        return false;
+    if (_smart_schedule.keep_pump_on != keep_pump_on)
+    {
+        _smart_schedule.keep_pump_on = keep_pump_on;
+        _save_smartschedule_needed = true;
+        _new_data_available = true;
+    }
     return true;
 }
 
@@ -3475,6 +3494,7 @@ void BWC::_resetSmartScheduleState()
     _smart_schedule.target_time = 0;
     _smart_schedule.target_temp = 0;
     _smart_schedule.keep_heater_on = false;
+    _smart_schedule.keep_pump_on = false;
     _smart_schedule.repeat_days = 0;
     _smart_schedule.calculated_start_time = 0;
     _smart_schedule.next_check_time = 0;
@@ -3527,6 +3547,7 @@ void BWC::getJSONSmartSchedule(String &rtn)
     doc[F("TARGETTIME")] = _smart_schedule.target_time;
     doc[F("TARGETTEMP")] = _smart_schedule.target_temp;
     doc[F("KEEPON")] = _smart_schedule.keep_heater_on;
+    doc[F("KEEPPUMP")] = _smart_schedule.keep_pump_on;
     doc[F("REPEAT")] = _smart_schedule.repeat_days;
     doc[F("STARTTIME")] = _smart_schedule.calculated_start_time;
     doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
@@ -3659,7 +3680,8 @@ void BWC::_handleSmartSchedule()
                 Serial.println(F("SmartSchedule: Queued heater off"));
             }
             
-            if (cio->cio_states.pump)
+            // "only the filter pump" leaves it running until switched off by hand
+            if (cio->cio_states.pump && !_smart_schedule.keep_pump_on)
             {
                 item.cmd = SETPUMP;
                 item.val = 0;
@@ -3979,6 +4001,7 @@ void BWC::_loadSmartSchedule()
     _smart_schedule.target_time = doc[F("TARGETTIME")] | 0;
     _smart_schedule.target_temp = doc[F("TARGETTEMP")] | 37;
     _smart_schedule.keep_heater_on = doc[F("KEEPON")] | false;
+    _smart_schedule.keep_pump_on = doc[F("KEEPPUMP")] | false;
     _smart_schedule.repeat_days = doc[F("REPEATDAYS")] | 0;
     _smart_schedule.calculated_start_time = doc[F("STARTTIME")] | 0;
     _smart_schedule.next_check_time = doc[F("NEXTCHECK")] | 0;
@@ -4031,6 +4054,7 @@ void BWC::_saveSmartSchedule()
     doc[F("TARGETTIME")] = _smart_schedule.target_time;
     doc[F("TARGETTEMP")] = _smart_schedule.target_temp;
     doc[F("KEEPON")] = _smart_schedule.keep_heater_on;
+    doc[F("KEEPPUMP")] = _smart_schedule.keep_pump_on;
     doc[F("REPEATDAYS")] = _smart_schedule.repeat_days;
     doc[F("STARTTIME")] = _smart_schedule.calculated_start_time;
     doc[F("NEXTCHECK")] = _smart_schedule.next_check_time;
