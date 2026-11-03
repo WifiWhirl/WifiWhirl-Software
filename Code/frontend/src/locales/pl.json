@@ -502,6 +502,8 @@
   "cfg.controlButtons": "Przyciski sterowania",
   "cfg.airjetTimeout": "Limit czasu Airjet",
   "cfg.hydrojetTimeout": "Limit czasu Hydrojet",
+  "cfg.jetCountdown": "Pokazuj pozostały czas na panelu",
+  "cfg.jetCountdownHint": "Co minutę na chwilę pokazuje pozostały czas AirJet („a12”) i HydroJet („H12”). W ostatniej minucie odliczane są sekundy.",
   "cfg.minUnit": "min",
   "cfg.toggleAll": "Włącz/wyłącz wszystkie",
   "cfg.buttonsInfo": "Włącz lub wyłącz pojedyncze przyciski na fizycznej pompie. Wyłączone przyciski mogą być sterowane tylko przez WifiWhirl.",

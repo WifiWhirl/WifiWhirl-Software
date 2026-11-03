@@ -551,6 +551,8 @@
   "cfg.controlButtons": "Control buttons",
   "cfg.airjetTimeout": "Airjet timeout",
   "cfg.hydrojetTimeout": "Hydrojet timeout",
+  "cfg.jetCountdown": "Show remaining time on the panel",
+  "cfg.jetCountdownHint": "Briefly shows the remaining AirJet (“a12”) and HydroJet (“H12”) time every minute. In the last minute the seconds count down.",
   "cfg.minUnit": "min",
   "cfg.toggleAll": "Enable/disable all",
   "cfg.buttonsInfo": "Enable or disable individual buttons on the physical pump. Disabled buttons can only be controlled via WifiWhirl.",

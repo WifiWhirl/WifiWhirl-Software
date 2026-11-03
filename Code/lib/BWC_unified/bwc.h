@@ -245,6 +245,7 @@ private:
     
     // Jet timeout handling
     void _checkJetTimeouts();
+    bool _jetCountdownText(char *out);
     void _checkHostHeaterTimeout();
 
 private:
@@ -298,6 +299,7 @@ private:
     uint32_t _wc_interval;
     uint32_t _ph_interval;         // pH check interval in days
     bool _audio_enabled;
+    bool _jet_countdown = false; // remaining AirJet/HydroJet time on the panel
     double _energy_total_kWh;
     double _energy_daily_Ws;
     double _energy_pending_daily_Ws;

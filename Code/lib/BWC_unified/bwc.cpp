@@ -483,6 +483,16 @@ void BWC::loop()
         dsp->dsp_states.char3 = _static_char3;
         dsp->dsp_states.power = 1; // Force display on for static text
     }
+    else if (_jet_countdown)
+    {
+        char cd[4];
+        if (_jetCountdownText(cd))
+        {
+            dsp->dsp_states.char1 = cd[0];
+            dsp->dsp_states.char2 = cd[1];
+            dsp->dsp_states.char3 = cd[2];
+        }
+    }
     
     dsp->setRawPayload(cio->getRawPayload());
     /*Increase screen brightness when pressing buttons*/
@@ -1857,6 +1867,7 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("WCINT")] = _wc_interval;
     doc[F("PHINT")] = _ph_interval;
     doc[F("AUDIO")] = _audio_enabled;
+    doc[F("JETCD")] = _jet_countdown;
     doc[F("TIMEZONE")] = _timezone;
     doc[F("TIMEZONE_NAME")] = _timezone_name;
 #ifdef ESP8266
@@ -2128,6 +2139,7 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
     int64_t wcInterval = _wc_interval;
     int64_t phInterval = _ph_interval;
     bool audioEnabled = _audio_enabled;
+    bool jetCountdown = _jet_countdown;
     String timezone = _timezone;
     String timezoneName = _timezone_name;
     bool weather = _weather;
@@ -2155,6 +2167,7 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
         !readBoundedInteger(obj, F("WCINT"), 0, 3650, wcInterval, errorMessage) ||
         !readBoundedInteger(obj, F("PHINT"), 0, 3650, phInterval, errorMessage) ||
         !readBooleanSetting(obj, F("AUDIO"), audioEnabled, errorMessage) ||
+        !readBooleanSetting(obj, F("JETCD"), jetCountdown, errorMessage) ||
         !readBoundedString(obj, F("TIMEZONE"), 96, timezone, errorMessage) ||
         !readBoundedString(obj, F("TIMEZONE_NAME"), 64, timezoneName, errorMessage) ||
         !readBooleanSetting(obj, F("WEATHER"), weather, errorMessage) ||
@@ -2207,6 +2220,8 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
         _ph_interval = (uint32_t)phInterval;
     if (doc.containsKey(F("AUDIO")))
         _audio_enabled = audioEnabled;
+    if (doc.containsKey(F("JETCD")))
+        _jet_countdown = jetCountdown;
     if (doc.containsKey(F("TIMEZONE")))
         _timezone = timezone;
     if (_timezone.length() == 0)
@@ -2390,6 +2405,31 @@ void BWC::_addEnergyIncrement(double energy_increment_Ws)
  * Check if airjets or hydrojets have exceeded their configured timeout
  * and turn them off if necessary
  */
+// "a12" / "H12" = 12 minutes of AirJet / HydroJet left, shown for 8 s
+// every minute; in the last minute the seconds count down without a break.
+// Both running: one per minute, alternating. The panel has no capital A.
+bool BWC::_jetCountdownText(char *out)
+{
+    uint32_t now = millis();
+    int32_t rem[2] = {-1, -1};
+    if (cio->cio_states.bubbles)
+        rem[0] = (int32_t)(_airjet_timeout_minutes * 60UL) - (int32_t)((now - _bubbles_change_timestamp_ms) / 1000);
+    if (cio->getHasjets() && cio->cio_states.jets)
+        rem[1] = (int32_t)(_hydrojet_timeout_minutes * 60UL) - (int32_t)((now - _jets_change_timestamp_ms) / 1000);
+    static const char tag[2] = {'a', 'H'};
+    for (int i = 0; i < 2; i++)
+        if (rem[i] >= 0 && rem[i] < 60)
+        {
+            snprintf(out, 4, "%c%02d", tag[i], (int)rem[i]);
+            return true;
+        }
+    int i = rem[0] >= 0 && rem[1] >= 0 ? (now / 60000) % 2 : rem[0] >= 0 ? 0 : 1;
+    if (rem[i] < 0 || (now / 1000) % 60 >= 8)
+        return false;
+    snprintf(out, 4, "%c%2d", tag[i], (int)((rem[i] + 59) / 60));
+    return true;
+}
+
 void BWC::_checkJetTimeouts()
 {
     uint32_t now = millis();
@@ -2668,6 +2708,7 @@ void BWC::_loadSettings()
     _cya_timestamp_s = doc[F("CYATIME")] | 0;
     _alk_timestamp_s = doc[F("ALKTIME")] | 0;
     _audio_enabled = doc[F("AUDIO")] | true;
+    _jet_countdown = doc[F("JETCD")] | false;
     _energy_total_kWh = doc[F("KWH")] | 0.0;
     _energy_daily_Ws = doc[F("KWHD")] | 0.0;
     _energy_pending_daily_Ws = doc[F("KWHD_PENDING")] | 0.0;
@@ -3097,6 +3138,7 @@ void BWC::saveSettings()
     doc[F("CYATIME")] = _cya_timestamp_s;
     doc[F("ALKTIME")] = _alk_timestamp_s;
     doc[F("AUDIO")] = _audio_enabled;
+    doc[F("JETCD")] = _jet_countdown;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;
     doc[F("KWHD_PENDING")] = _energy_pending_daily_Ws;

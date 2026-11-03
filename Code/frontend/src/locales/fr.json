@@ -502,6 +502,8 @@
   "cfg.controlButtons": "Boutons de commande",
   "cfg.airjetTimeout": "Délai Airjet",
   "cfg.hydrojetTimeout": "Délai Hydrojet",
+  "cfg.jetCountdown": "Afficher le temps restant sur le panneau",
+  "cfg.jetCountdownHint": "Affiche brièvement chaque minute le temps restant de l'AirJet (« a12 ») et de l'HydroJet (« H12 »). Pendant la dernière minute, les secondes défilent.",
   "cfg.minUnit": "min",
   "cfg.toggleAll": "Tout activer/désactiver",
   "cfg.buttonsInfo": "Active ou désactive certains boutons sur la pompe physique. Les boutons désactivés ne peuvent être commandés que via WifiWhirl.",
