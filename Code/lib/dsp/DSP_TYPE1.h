@@ -12,6 +12,10 @@ public:
     void stop();
     void handleStates() override;
     uint8_t payloadByte(int i) const { return _payload[i]; } // what goes to the panel (host tests)
+    bool shownDigits() { return _payload[getDGT2_IDX()] && _payload[getDGT3_IDX()]; }
+    bool shownUnitLed() { return _payload[getC_IDX()] & (1 << getC_BIT()); }
+    bool shownPowerLed() { return _payload[getPWR_IDX()] & (1 << getPWR_BIT()); }
+    uint8_t shown_brightness = 0;                            // last brightness sent (host tests)
 
 protected:
     void uploadPayload(uint8_t brightness) override;

@@ -569,6 +569,8 @@
   "cfg.hydrojetTimeout": "Hydrojet timeout",
   "cfg.jetCountdown": "Show remaining time on the panel",
   "cfg.jetCountdownHint": "Briefly shows the remaining AirJet (“a12”) and HydroJet (“H12”) time every minute. In the last minute the seconds count down.",
+  "cfg.standbyOriginal": "Standby like the original",
+  "cfg.standbyOriginalHint": "In standby the panel shows the water temperature and °C/°F dimmed, like without WifiWhirl. Switched off, the panel stays dark in standby.",
   "cfg.minUnit": "min",
   "cfg.toggleAll": "Enable/disable all",
   "cfg.buttonsInfo": "Enable or disable individual buttons on the physical pump. Disabled buttons can only be controlled via WifiWhirl.",

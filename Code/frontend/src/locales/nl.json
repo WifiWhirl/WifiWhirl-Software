@@ -520,6 +520,8 @@
   "cfg.hydrojetTimeout": "Hydrojet-time-out",
   "cfg.jetCountdown": "Resterende tijd op het bedieningspaneel tonen",
   "cfg.jetCountdownHint": "Toont elke minuut kort de resterende tijd van AirJet („a12“) en HydroJet („H12“). In de laatste minuut tellen de seconden af.",
+  "cfg.standbyOriginal": "Stand-by zoals origineel",
+  "cfg.standbyOriginalHint": "In stand-by toont het bedieningspaneel gedimd de watertemperatuur en °C/°F, zoals zonder WifiWhirl. Uitgeschakeld blijft het paneel in stand-by donker.",
   "cfg.minUnit": "min",
   "cfg.toggleAll": "Alles inschakelen/uitschakelen",
   "cfg.buttonsInfo": "Schakel individuele knoppen op de fysieke pomp in of uit. Uitgeschakelde knoppen kunnen alleen via WifiWhirl worden bediend.",

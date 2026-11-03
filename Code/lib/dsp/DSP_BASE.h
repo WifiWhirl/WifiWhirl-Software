@@ -22,6 +22,7 @@ public:
     sToggles dsp_toggles;
     sStates dsp_states;
     String text = "";
+    bool standby_original = true; // standby shows temperature + unit dimmed, like the original panel
     std::vector<uint8_t> _raw_payload_to_dsp = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     int audiofrequency = 0;
     uint32_t good_packets_count = 0;

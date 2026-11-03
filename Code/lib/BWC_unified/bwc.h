@@ -305,6 +305,7 @@ private:
     uint32_t _ph_interval;         // pH check interval in days
     bool _audio_enabled;
     bool _jet_countdown = false; // remaining AirJet/HydroJet time on the panel
+    bool _standby_original = true; // standby display like the original panel (default, tester's choice)
     double _energy_total_kWh;
     double _energy_daily_Ws;
     double _energy_pending_daily_Ws;

@@ -569,6 +569,8 @@
   "cfg.hydrojetTimeout": "Hydrojet Timeout",
   "cfg.jetCountdown": "Restzeit am Bedienfeld anzeigen",
   "cfg.jetCountdownHint": "Zeigt jede Minute kurz die verbleibende Zeit von AirJet („a12“) und HydroJet („H12“). In der letzten Minute zählen die Sekunden herunter.",
+  "cfg.standbyOriginal": "Standby wie Original",
+  "cfg.standbyOriginalHint": "Im Standby zeigt das Bedienfeld gedimmt die Wassertemperatur und °C/°F, wie ohne WifiWhirl. Ausgeschaltet bleibt das Bedienfeld im Standby dunkel.",
   "cfg.minUnit": "Min",
   "cfg.toggleAll": "Alle aktivieren/deaktivieren",
   "cfg.buttonsInfo": "Aktiviere oder deaktiviere einzelne Tasten auf der physischen Pumpe. Deaktivierte Tasten können nur noch über WifiWhirl gesteuert werden.",

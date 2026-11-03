@@ -170,11 +170,18 @@ void DSP_6_TYPE1::handleStates()
         // module used to press POWER at every boot, which hid this.
         uint8_t d1 = _payload[getDGT1_IDX()], d2 = _payload[getDGT2_IDX()], d3 = _payload[getDGT3_IDX()];
         clearpayload();
-        if (text.length())
+        // Like the original panel (tester's photo): what the pump board
+        // sends (water temperature) plus the unit LED, dimmed, power LED off.
+        if (text.length() || standby_original)
         {
             _payload[getDGT1_IDX()] = d1;
             _payload[getDGT2_IDX()] = d2;
             _payload[getDGT3_IDX()] = d3;
+        }
+        if (standby_original)
+        {
+            _payload[getC_IDX()] |= dsp_states.unit << getC_BIT();
+            _payload[getF_IDX()] |= !dsp_states.unit << getF_BIT();
         }
     }
     if (audiofrequency != _prev_audiofrequency)
@@ -186,7 +193,8 @@ void DSP_6_TYPE1::handleStates()
         _prev_audiofrequency = audiofrequency;
     }
 
-    uploadPayload(dsp_states.brightness);
+    shown_brightness = !dsp_states.power && standby_original && !text.length() ? 1 : dsp_states.brightness;
+    uploadPayload(shown_brightness);
 }
 
 /*Send _payload[] to display*/

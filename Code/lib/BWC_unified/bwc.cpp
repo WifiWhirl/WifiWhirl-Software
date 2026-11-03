@@ -495,6 +495,7 @@ void BWC::loop()
     }
     
     dsp->setRawPayload(cio->getRawPayload());
+    dsp->standby_original = _standby_original;
     /*Increase screen brightness when pressing buttons*/
     adjust_brightness();
     dsp->handleStates();
@@ -1902,6 +1903,7 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("PHINT")] = _ph_interval;
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("JETCD")] = _jet_countdown;
+    doc[F("STBYORIG")] = _standby_original;
     doc[F("TIMEZONE")] = _timezone;
     doc[F("TIMEZONE_NAME")] = _timezone_name;
 #ifdef ESP8266
@@ -2174,6 +2176,7 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
     int64_t phInterval = _ph_interval;
     bool audioEnabled = _audio_enabled;
     bool jetCountdown = _jet_countdown;
+    bool standbyOriginal = _standby_original;
     String timezone = _timezone;
     String timezoneName = _timezone_name;
     bool weather = _weather;
@@ -2202,6 +2205,7 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
         !readBoundedInteger(obj, F("PHINT"), 0, 3650, phInterval, errorMessage) ||
         !readBooleanSetting(obj, F("AUDIO"), audioEnabled, errorMessage) ||
         !readBooleanSetting(obj, F("JETCD"), jetCountdown, errorMessage) ||
+        !readBooleanSetting(obj, F("STBYORIG"), standbyOriginal, errorMessage) ||
         !readBoundedString(obj, F("TIMEZONE"), 96, timezone, errorMessage) ||
         !readBoundedString(obj, F("TIMEZONE_NAME"), 64, timezoneName, errorMessage) ||
         !readBooleanSetting(obj, F("WEATHER"), weather, errorMessage) ||
@@ -2256,6 +2260,8 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
         _audio_enabled = audioEnabled;
     if (doc.containsKey(F("JETCD")))
         _jet_countdown = jetCountdown;
+    if (doc.containsKey(F("STBYORIG")))
+        _standby_original = standbyOriginal;
     if (doc.containsKey(F("TIMEZONE")))
         _timezone = timezone;
     if (_timezone.length() == 0)
@@ -2743,6 +2749,7 @@ void BWC::_loadSettings()
     _alk_timestamp_s = doc[F("ALKTIME")] | 0;
     _audio_enabled = doc[F("AUDIO")] | true;
     _jet_countdown = doc[F("JETCD")] | false;
+    _standby_original = doc[F("STBYORIG")] | true;
     _energy_total_kWh = doc[F("KWH")] | 0.0;
     _energy_daily_Ws = doc[F("KWHD")] | 0.0;
     _energy_pending_daily_Ws = doc[F("KWHD_PENDING")] | 0.0;
@@ -3174,6 +3181,7 @@ void BWC::saveSettings()
     doc[F("ALKTIME")] = _alk_timestamp_s;
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("JETCD")] = _jet_countdown;
+    doc[F("STBYORIG")] = _standby_original;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = _energy_daily_Ws;
     doc[F("KWHD_PENDING")] = _energy_pending_daily_Ws;

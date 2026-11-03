@@ -15,7 +15,7 @@ interface Cfg {
   CLINT: number; FINT: number; FCINT: number; WCINT: number;
   AUDIO: boolean; TIMEZONE: string; TIMEZONE_NAME: string; REBOOTTIME: number;
   WEATHER: boolean; HASJETS: boolean; POOLCAP: number;
-  AIRTO: number; HJTO: number; JETCD: boolean; BRTSTEP: number; BRTDUR: number;
+  AIRTO: number; HJTO: number; JETCD: boolean; STBYORIG: boolean; BRTSTEP: number; BRTDUR: number;
   GSTMODE: boolean; GSTMAXTGT: number; GSTHTRTO: number;
   LCK: boolean; TMR: boolean; AIR: boolean; UNT: boolean; HTR: boolean;
   FLT: boolean; DN: boolean; UP: boolean; PWR: boolean; HJT: boolean;
@@ -288,6 +288,8 @@ export function Config() {
         {d.HASJETS && <NumField label={t('cfg.hydrojetTimeout')} value={d.HJTO} min={1} max={60} unit={t('cfg.minUnit')} onInput={(v) => set('HJTO', v)} />}
         <Row label={t('cfg.jetCountdown')}><Toggle checked={!!d.JETCD} onChange={(v) => set('JETCD', v)} /></Row>
         <p class="hint">{t('cfg.jetCountdownHint')}</p>
+        <Row label={t('cfg.standbyOriginal')}><Toggle checked={d.STBYORIG !== false} onChange={(v) => set('STBYORIG', v)} /></Row>
+        <p class="hint">{t('cfg.standbyOriginalHint')}</p>
 
         <div class="cfg-subsection">
           <h3>{t('config.brightnessBoost')}</h3>
@@ -296,7 +298,7 @@ export function Config() {
           <NumField label={t('config.brtBoostDuration')} value={d.BRTDUR} min={1} max={60} unit={t('config.seconds')} onInput={(v) => set('BRTDUR', v)} />
         </div>
         {save(() => ({
-          AUDIO: d.AUDIO, AIRTO: Number(d.AIRTO) || 30, HJTO: Number(d.HJTO) || 60, JETCD: !!d.JETCD,
+          AUDIO: d.AUDIO, AIRTO: Number(d.AIRTO) || 30, HJTO: Number(d.HJTO) || 60, JETCD: !!d.JETCD, STBYORIG: d.STBYORIG !== false,
           BRTSTEP: Number(d.BRTSTEP) || 1, BRTDUR: Number(d.BRTDUR) || 5,
         }))}
       </Card>
