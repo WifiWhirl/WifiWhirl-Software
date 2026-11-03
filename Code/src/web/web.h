@@ -26,6 +26,7 @@ void handleSetWebConfig();
 String makeSalt();
 String hashPassword(const String &saltHex, const String &password);
 bool isAuthed();
+bool crossSiteRequest();
 bool legacyAuthOk(const char *basicUser);
 WebServerT::THandlerFunction guard(WebServerT::THandlerFunction handler);
 void clearAuthSessions();

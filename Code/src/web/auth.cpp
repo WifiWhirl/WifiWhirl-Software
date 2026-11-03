@@ -473,7 +473,7 @@ bool isAuthed()
 // the module; with auth off nothing stopped them. Browsers always send
 // Origin on cross-site POSTs; same-origin requests carry our own host, and
 // non-browser clients (curl, Home Assistant, scripts) send no Origin at all.
-static bool crossSiteRequest()
+bool crossSiteRequest()
 {
     if (server->method() == HTTP_GET || !server->hasHeader(F("Origin")))
         return false;

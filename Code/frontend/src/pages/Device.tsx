@@ -4,7 +4,7 @@ import { Card, SaveButton } from '../components/ui';
 import { TextField } from '../components/fields';
 import { Toggle } from '../components/ui';
 import { Row } from '../components/ui';
-import { showRestart, showToast } from '../components/feedback';
+import { showRestart, showToast, confirmDialog } from '../components/feedback';
 import { StatusHero } from '../components/LinkHero';
 import { PageSkeleton } from '../components/Skeleton';
 import { languages, locale, setLocale, t } from '../i18n';
@@ -255,6 +255,8 @@ export function Device() {
         <button class="btn" onClick={saveWebhookAuth}>{t('dev.saveWebhookAuth')}</button>
       </Card>
 
+      <BackupCard />
+
       <Card title={t('expert.title')}>
         <p class="hint">{t('expert.modeInfo')}</p>
         <Row label={t('expert.modeEnable')}>
@@ -262,5 +264,39 @@ export function Device() {
         </Row>
       </Card>
     </>
+  );
+}
+
+/**
+ * @brief download the configuration as a file and restore it (here or on
+ * a replacement module). Without global login the browser asks for user
+ * "backup" and the OTA password.
+ */
+function BackupCard() {
+  const [file, setFile] = useState<File | null>(null);
+  async function restore() {
+    if (!file) return;
+    if (!await confirmDialog(t('backup.confirm'), { title: t('backup.restore'), confirmLabel: t('backup.restore') })) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch('/restore/', { method: 'POST', body: fd });
+      if (res.ok) showRestart('restore');
+      else showToast(res.status === 401 ? t('backup.auth') : t('backup.invalid'), true);
+    } catch { showToast(t('common.error'), true); }
+  }
+  return (
+    <Card title={t('backup.title')}>
+      <p class="hint">{t('backup.info')}</p>
+      <div class="actions">
+        <a class="btn" style="text-decoration:none" href="/backup/" download="wifiwhirl-backup.json">{t('backup.download')}</a>
+      </div>
+      <Row label={t('backup.file')}>
+        <input type="file" accept=".json,application/json" onChange={(e) => setFile((e.target as HTMLInputElement).files?.[0] ?? null)} />
+      </Row>
+      <div class="actions">
+        <button class="btn secondary" disabled={!file} onClick={restore}>{t('backup.restore')}</button>
+      </div>
+    </Card>
   );
 }

@@ -64,6 +64,8 @@ void startHttpServer()
     server->on(F("/restart/"), guard(handleRestart));
     server->on(F("/metrics"), handlePrometheusMetrics); // machine endpoint: left open (no cookie possible)
     server->on(F("/support/"), handleSupportPackage);   // self-guards via legacyAuthOk()
+    server->on(F("/backup/"), HTTP_GET, handleBackup);  // self-guards via legacyAuthOk()
+    server->on(F("/restore/"), HTTP_POST, handleRestore, handleRestoreUpload);
     server->on(F("/sethardware/"), guard(handleSetHardware));
     server->on(F("/gethardware/"), guard(handleGetHardware));
     server->on(F("/debug-on/"), []()
