@@ -2394,8 +2394,12 @@ void BWC::_checkJetTimeouts()
 {
     uint32_t now = millis();
     
+    // Only once it was on in the previous pass too: this runs before
+    // _handleStateChanges() stamps the switch-on, so on the first pass the
+    // stamp is still the last switch-off and a jet switched on later than the
+    // timeout after it went off was switched off again at once.
     // Check airjet timeout (only if configured below hardware default of 30 min)
-    if (cio->cio_states.bubbles && _airjet_timeout_minutes < 30)
+    if (cio->cio_states.bubbles && _prev_cio_states.bubbles && _airjet_timeout_minutes < 30)
     {
         uint32_t elapsed_ms = now - _bubbles_change_timestamp_ms;
         uint32_t timeout_ms = (uint32_t)_airjet_timeout_minutes * 60UL * 1000UL;
@@ -2416,7 +2420,7 @@ void BWC::_checkJetTimeouts()
     }
     
     // Check hydrojet timeout (only if configured below hardware default of 60 min)
-    if (cio->cio_states.jets && _hydrojet_timeout_minutes < 60)
+    if (cio->cio_states.jets && _prev_cio_states.jets && _hydrojet_timeout_minutes < 60)
     {
         uint32_t elapsed_ms = now - _jets_change_timestamp_ms;
         uint32_t timeout_ms = (uint32_t)_hydrojet_timeout_minutes * 60UL * 1000UL;
