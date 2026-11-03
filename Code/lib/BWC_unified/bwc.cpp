@@ -1217,16 +1217,19 @@ void BWC::setHeatLoss(float v)
 // HydroJet off, pump on) happens in _handleHeatLossCalibration so the toggles
 // are set at the right point in the loop. The only refusal here is too small a
 // water/ambient difference (err carries a short code the UI localizes).
-bool BWC::startHeatLossCalibration(String &err)
+bool BWC::startHeatLossCalibration(String &err, bool force)
 {
     float waterC = waterTempC(cio);
-    if (waterC - _ambient_temp < 8.0f)
+    // A planned start (force) runs anyway, the UI warns about the result
+    bool low_diff = waterC - _ambient_temp < 8.0f;
+    if (low_diff && !force)
     {
         err = F("tempdiff");
         return false;
     }
 
     _hlcal = heatloss_cal_t{}; // reset, keep no stale result mid-run
+    _hlcal.low_diff = low_diff;
     _hlcal.active = true;
     _hlcal.phase = 0;
     _hlcal.req_ts = _timestamp_secs;
@@ -1246,8 +1249,19 @@ bool BWC::startHeatLossCalibration(String &err)
 // cio_toggles from the display every iteration (before handleToggles runs),
 // so restore presses issued here would be wiped before ever being consumed.
 // _handleHeatLossCalibration acts on the flag from inside the loop window.
+bool BWC::planHeatLossCalibration(uint64_t at)
+{
+    if (at != 0 && (_hlcal.active || at <= _timestamp_secs))
+        return false;
+    _hlcal_planned_at = at;
+    _save_settings_needed = true;
+    return true;
+}
+
 void BWC::cancelHeatLossCalibration()
 {
+    if (_hlcal_planned_at)
+        planHeatLossCalibration(0);
     if (_hlcal.active)
         _hlcal.cancel_requested = true;
 }
@@ -1283,13 +1297,29 @@ void BWC::_restoreCalibrationState()
 // derives the W/K from that interval.
 void BWC::_handleHeatLossCalibration()
 {
+    // planned start, only with a valid clock
+    if (_hlcal_planned_at && !_hlcal.active && _timestamp_secs > 57600 && _timestamp_secs >= _hlcal_planned_at)
+    {
+        planHeatLossCalibration(0);
+        String err;
+        startHeatLossCalibration(err, true);
+    }
+    if (_hlcal.restore_pending && (cio->_button_que_len == 0 || (int32_t)(millis() - _hlcal.restore_deadline) >= 0))
+    {
+        _hlcal.restore_pending = false;
+        _restoreCalibrationState();
+    }
     if (!_hlcal.active)
         return;
 
     if (_hlcal.cancel_requested)
     {
         _hlcal.cancel_requested = false;
-        _restoreCalibrationState();
+        // Not right away: phase 0's presses (heater off, pump on, °F) may still
+        // be queued, and the restore would see the old states, press nothing,
+        // and leave the tub in °F once the queue ran (found by the).
+        _hlcal.restore_pending = true;
+        _hlcal.restore_deadline = millis() + 30000;
         _hlcal.active = false;
         _hlcal.phase = 0;
         _command_queue_paused_for_calibration = false;
@@ -1529,6 +1559,10 @@ void BWC::getJSONHeatLossCalibration(String &rtn)
     if (_hlcal.error != HLCAL_ERR_NONE)
         doc[F("ERROR")] = hlCalErrorName(_hlcal.error);
     doc[F("PHASE")] = _hlcal.phase; // 0 = preparing (pump/heater), 1 = measuring
+    if (_hlcal_planned_at)
+        doc[F("PLANNED")] = _hlcal_planned_at;
+    if (_hlcal.low_diff)
+        doc[F("LOWDIFF")] = true;
     if (_hlcal.active && _hlcal.phase == 1)
     {
         float waterC = waterTempC(cio);
@@ -2740,6 +2774,7 @@ void BWC::_loadSettings()
     _weather = doc[F("WEATHER")] | false;
     _pool_capacity = doc[F("POOLCAP")] | 700;
     _heat_loss = clampHeatLoss(doc[F("HLOSS")] | HEAT_LOSS_DEFAULT);
+    _hlcal_planned_at = doc[F("HLCALAT")] | (uint64_t)0;
     _airjet_timeout_minutes = doc[F("AIRTO")] | 30;
     _hydrojet_timeout_minutes = doc[F("HJTO")] | 60;
     _host_mode = doc[F("GSTMODE")] | false;
@@ -3153,6 +3188,7 @@ void BWC::saveSettings()
     doc[F("WEATHER")] = _weather;
     doc[F("POOLCAP")] = _pool_capacity;
     doc[F("HLOSS")] = _heat_loss;
+    doc[F("HLCALAT")] = _hlcal_planned_at;
     doc[F("AIRTO")] = _airjet_timeout_minutes;
     doc[F("HJTO")] = _hydrojet_timeout_minutes;
     doc[F("GSTMODE")] = _host_mode;

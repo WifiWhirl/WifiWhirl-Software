@@ -103,6 +103,9 @@ struct heatloss_cal_t
     uint16_t discarded = 0;     // measurement intervals thrown away (noise/disturbance)
     float result = 0;           // last computed coefficient (W/K), 0 = none
     uint8_t error = 0;          // last abort reason, 0 = none
+    bool low_diff = false;      // started (planned) with water/ambient below 8 K: result may be off
+    bool restore_pending = false; // cancelled: restore once the presses still queued are done
+    uint32_t restore_deadline = 0; // millis(), restore anyway after this
 };
 
 class BWC
@@ -172,7 +175,8 @@ public:
     void getJSONSmartSchedule(String &rtn);
 
     // Heat-loss calibration / coefficient (feeds the time-to-target estimate)
-    bool startHeatLossCalibration(String &err);
+    bool startHeatLossCalibration(String &err, bool force = false);
+    bool planHeatLossCalibration(uint64_t at); // start once at this time, 0 = no plan
     void cancelHeatLossCalibration();
     void getJSONHeatLossCalibration(String &rtn);
     float getHeatLoss() { return _heat_loss; }
@@ -242,6 +246,7 @@ private:
     static constexpr float HEAT_LOSS_DEFAULT = 7.5f;  // W/K, compiled fallback
     float _heat_loss = HEAT_LOSS_DEFAULT;             // live coefficient (persisted)
     heatloss_cal_t _hlcal;
+    uint64_t _hlcal_planned_at = 0; // epoch of a planned calibration start, persisted in settings.json
     
     // Jet timeout handling
     void _checkJetTimeouts();

@@ -41,6 +41,16 @@ void handleStartHlCal()
     if (!requireExpertMode())
         return;
 
+    // {"AT": epoch} plans a single start instead
+    StaticJsonDocument<64> doc;
+    if (!deserializeJson(doc, getRequestBody()) && doc.containsKey(F("AT")))
+    {
+        if (bwc->planHeatLossCalibration(doc[F("AT")].as<uint64_t>()))
+            server->send(200, F("application/json"), F("{\"planned\":true}"));
+        else
+            server->send(400, F("text/plain"), F("plan"));
+        return;
+    }
     String err;
     if (bwc->startHeatLossCalibration(err))
         server->send(200, F("application/json"), F("{\"started\":true}"));

@@ -19,6 +19,12 @@ interface HlCal {
   RESULT?: number; ERROR?: string;
   STARTWATER?: number; STARTAMB?: number; DROP?: number; ELAPSED?: number;
   ANCHORED?: boolean; ANCHORELAPSED?: number; RESTORING?: boolean; DISCARDED?: number;
+  PLANNED?: number; LOWDIFF?: boolean; // planned start; ran with water < 8 K above air
+}
+/** today 22:00, as a datetime-local value */
+function tonight(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T22:00`;
 }
 
 const EMPTY: PowerSet = { heater: 0, pump: 0, air: 0, idle: 0, jet: 0 };
@@ -41,6 +47,7 @@ export function Expert() {
   const [wmFallback, setWmFallback] = useState(false); // WiFi AP fallback (moved here)
   const [hl, setHl] = useState<number>(HEAT_LOSS_DEFAULT);
   const [cal, setCal] = useState<HlCal | null>(null);
+  const [planAt, setPlanAt] = useState(tonight());
   const prevActive = useRef(false);
   const firstCal = useRef(true);
 
@@ -122,6 +129,18 @@ export function Expert() {
     }
   }
 
+  async function planCal() {
+    const at = Math.floor(new Date(planAt).getTime() / 1000);
+    if (!planAt || at <= Math.floor(Date.now() / 1000)) { showToast(t('ss.errFuture'), true); return; }
+    try {
+      const res = await postJsonResponse('/starthlcal/', { AT: at });
+      if (res.ok) { showToast(t('expert.calPlannedToast')); refreshCal(); }
+      else showToast(t('common.error'), true);
+    } catch {
+      if (!needsLogin.value) showToast(t('common.error'), true);
+    }
+  }
+
   async function cancelCal() {
     await postJson('/cancelhlcal/', {});
     refreshCal();
@@ -166,6 +185,24 @@ export function Expert() {
             <p class="hint" style="margin-top:16px">{t('expert.calInfo')}</p>
             <p class="hint">{t('expert.calHow')}</p>
             {(active || finished) && <CalTimeline cal={cal} step={step} finished={finished} />}
+            {(active || finished) && cal?.LOWDIFF && <p class="hint warn">{t('expert.calLowDiff')}</p>}
+            {!active && !!cal?.PLANNED && (
+              <div class="actions">
+                <p class="hint">{t('expert.calPlannedAt', { at: new Date(cal.PLANNED * 1000).toLocaleString() })}</p>
+                <button class="btn ghost" onClick={cancelCal}>{t('expert.calPlanCancel')}</button>
+              </div>
+            )}
+            {!active && !cal?.PLANNED && (
+              <>
+                <Row label={t('expert.calPlanAt')}>
+                  <input type="datetime-local" value={planAt} onInput={(e) => setPlanAt((e.target as HTMLInputElement).value)} />
+                </Row>
+                <p class="hint">{t('expert.calPlanHint')}</p>
+                <div class="actions">
+                  <button class="btn secondary" onClick={planCal}>{t('expert.calPlan')}</button>
+                </div>
+              </>
+            )}
             {active ? (
               <div class="actions">
                 <button class="btn ghost" onClick={cancelCal}>{t('expert.calCancel')}</button>
