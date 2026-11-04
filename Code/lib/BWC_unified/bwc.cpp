@@ -2355,6 +2355,10 @@ bool BWC::newData()
 void BWC::applyTimezone() const
 {
     const char *timezone = _timezone.length() ? _timezone.c_str() : defaultTimezone;
+    // Clear first: tzset() skips parsing when TZ did not change, and
+    // configTime() rewrites the rules behind TZ's back (module ran in UTC).
+    unsetenv("TZ");
+    tzset();
     setenv("TZ", timezone, 1);
     tzset();
 }

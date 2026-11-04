@@ -197,6 +197,7 @@ public:
     DSP *dsp;
     bool BWC_DEBUG = false;
     bool weatherEnabled() const { return _weather; }
+    void applyTimezone() const; // also after configTime(), which resets it to UTC
 
 private:
     bool _loadHardware(Models &cioNo, Models &dspNo);
@@ -205,7 +206,6 @@ private:
     bool _handlecommand(Commands cmd, int64_t val, const String &txt);
     void _handleCommandQ();
     void _loadSettings();
-    void applyTimezone() const;
     bool _getEnergyDayIndex(int &day_index) const;
     void _addEnergyIncrement(double energy_increment_Ws);
     double _priceAt(uint64_t ts) const;

@@ -295,6 +295,10 @@ void startNTP(bool wait)
     {
         configTime(0, 0, "ptbtime1.ptb.de", "ptbtime2.ptb.de", "ptbtime3.ptb.de");
     }
+    // configTime(0, 0, ...) resets the time zone to UTC: local times (Smart
+    // Schedule from HA, night tariff, daily repeats across DST) were off by
+    // the UTC offset since boot.
+    bwc->applyTimezone();
     // The retry from loop() must not wait: with an unreachable NTP server it
     // blocked the main loop ~6 s every minute.
     if (!wait)
