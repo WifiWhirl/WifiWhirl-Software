@@ -167,19 +167,25 @@ void CIO_6_TYPE1::updateStates()
     if (cio_states.char1 == '*' || cio_states.char2 == '*' || cio_states.char3 == '*')
         return;
     // Error or user plays with timer button - exit (error notification can be dealt with in main.cpp or elsewhere)
+    static uint32_t error_seen_ms;
     if (cio_states.char1 == 'e')
     {
-        String errornumber;
-        errornumber = (char)cio_states.char2;
-        errornumber += (char)cio_states.char3;
-        cio_states.error = (uint8_t)(errornumber.toInt());
+        // Only "E" plus two digits is an error code. Without digits (a blinking
+        // or half-drawn display) toInt() gave 0 and the error flickered between
+        // 0 and its number (upstream 1d93c76).
+        if (!isdigit(cio_states.char2) || !isdigit(cio_states.char3))
+            return;
+        cio_states.error = (uint8_t)((cio_states.char2 - '0') * 10 + (cio_states.char3 - '0'));
+        error_seen_ms = millis();
         return;
     }
     if (cio_states.char3 == 'H' || cio_states.char3 == ' ')
         return;
 
-    /* Reset error state */
-    cio_states.error = 0;
+    /* Reset error state, but only 5 s after the last error frame: a single
+       normal frame in between must not clear it (upstream 8b8fa95) */
+    if (cio_states.error && millis() - error_seen_ms > 5000)
+        cio_states.error = 0;
 
     // capture TARGET after UP/DOWN has been pressed...
     // the pump board switches the display to the target some frames
