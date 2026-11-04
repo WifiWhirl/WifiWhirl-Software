@@ -2449,17 +2449,20 @@ void BWC::_addEnergyIncrement(double energy_increment_Ws)
  * Check if airjets or hydrojets have exceeded their configured timeout
  * and turn them off if necessary
  */
-// "a12" / "H12" = 12 minutes of AirJet / HydroJet left, shown for 8 s
-// every minute; in the last minute the seconds count down without a break.
-// Both running: one per minute, alternating. The panel has no capital A.
+// "A12" / "H12" = 12 minutes of AirJet / HydroJet left (the panel's 'a'
+// glyph is a capital A). Shown for 8 s right at the start and then every
+// minute after it (counted from the switch-on, not the clock: the tester saw
+// up to 50 s of delay); in the last minute the seconds count down without a
+// break. Both running and both due: one per minute, alternating.
 bool BWC::_jetCountdownText(char *out)
 {
     uint32_t now = millis();
+    uint32_t on_ms[2] = {now - _bubbles_change_timestamp_ms, now - _jets_change_timestamp_ms};
     int32_t rem[2] = {-1, -1};
     if (cio->cio_states.bubbles)
-        rem[0] = (int32_t)(_airjet_timeout_minutes * 60UL) - (int32_t)((now - _bubbles_change_timestamp_ms) / 1000);
+        rem[0] = (int32_t)(_airjet_timeout_minutes * 60UL) - (int32_t)(on_ms[0] / 1000);
     if (cio->getHasjets() && cio->cio_states.jets)
-        rem[1] = (int32_t)(_hydrojet_timeout_minutes * 60UL) - (int32_t)((now - _jets_change_timestamp_ms) / 1000);
+        rem[1] = (int32_t)(_hydrojet_timeout_minutes * 60UL) - (int32_t)(on_ms[1] / 1000);
     static const char tag[2] = {'a', 'H'};
     for (int i = 0; i < 2; i++)
         if (rem[i] >= 0 && rem[i] < 60)
@@ -2467,8 +2470,11 @@ bool BWC::_jetCountdownText(char *out)
             snprintf(out, 4, "%c%02d", tag[i], (int)rem[i]);
             return true;
         }
-    int i = rem[0] >= 0 && rem[1] >= 0 ? (now / 60000) % 2 : rem[0] >= 0 ? 0 : 1;
-    if (rem[i] < 0 || (now / 1000) % 60 >= 8)
+    bool due[2];
+    for (int i = 0; i < 2; i++)
+        due[i] = rem[i] >= 0 && (on_ms[i] / 1000) % 60 < 8;
+    int i = due[0] && due[1] ? (int)((now / 60000) % 2) : due[0] ? 0 : due[1] ? 1 : -1;
+    if (i < 0)
         return false;
     snprintf(out, 4, "%c%2d", tag[i], (int)((rem[i] + 59) / 60));
     return true;

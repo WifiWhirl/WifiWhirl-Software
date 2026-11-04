@@ -520,7 +520,7 @@
   "cfg.airjetTimeout": "Limit czasu Airjet",
   "cfg.hydrojetTimeout": "Limit czasu Hydrojet",
   "cfg.jetCountdown": "Pokazuj pozostały czas na panelu",
-  "cfg.jetCountdownHint": "Co minutę na chwilę pokazuje pozostały czas AirJet („a12”) i HydroJet („H12”). W ostatniej minucie odliczane są sekundy.",
+  "cfg.jetCountdownHint": "Co minutę na chwilę pokazuje pozostały czas AirJet („A12”) i HydroJet („H12”). W ostatniej minucie odliczane są sekundy.",
   "cfg.standbyOriginal": "Czuwanie jak w oryginale",
   "cfg.standbyOriginalHint": "W trybie czuwania panel pokazuje przyciemnioną temperaturę wody i °C/°F, jak bez WifiWhirl. Po wyłączeniu panel w trybie czuwania pozostaje ciemny.",
   "cfg.minUnit": "min",
