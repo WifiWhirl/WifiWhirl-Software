@@ -166,8 +166,20 @@ static const char SS50[] PROGMEM = "_ss_cost";
 static const char SS51[] PROGMEM = "Smart Schedule Kosten";
 static const char SS52[] PROGMEM = "{{ value_json.COST }}";
 static const char SS53[] PROGMEM = "mdi:cash";
-static const char SS54[] PROGMEM = "€";
+static const char SS54[] PROGMEM = "EUR"; // HA wants an ISO code for monetary; the currency only lives in the browser
 static const char SS55[] PROGMEM = "monetary";
+// Energy costs (upstream a249d53 / 21fd180): COST and COSTD of /times
+static const char EC0[] PROGMEM = "sensor";
+static const char EC1[] PROGMEM = "_cost_total";
+static const char EC2[] PROGMEM = "Energiekosten gesamt";
+static const char EC3[] PROGMEM = "sensor.";
+static const char EC4[] PROGMEM = "/times";
+static const char EC5[] PROGMEM = "{{ value_json.COST | round(2) }}";
+static const char EC6[] PROGMEM = "_cost_today";
+static const char EC7[] PROGMEM = "Energiekosten heute";
+static const char EC8[] PROGMEM = "{{ value_json.COSTD | round(2) }}";
+static const char EC9[] PROGMEM = "total";
+static const char EC10[] PROGMEM = "700";
 static const HaEntityConfig entities[] PROGMEM = {
     // Control entities
     {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRTBASE }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
@@ -187,6 +199,8 @@ static const HaEntityConfig entities[] PROGMEM = {
     // Energy monitoring sensors
     {"sensor", "_energy", "Gesamtenergieverbrauch", "sensor.", "/times", "{{ value_json.KWH | round(2) }}", nullptr, nullptr, "mdi:flash", "kWh", "energy", "total_increasing", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_today", "Energieverbrauch heute", "sensor.", "/times", "{{ value_json.KWHD | round(2) }}", nullptr, nullptr, "mdi:flash", "kWh", "energy", "total_increasing", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {EC0, EC1, EC2, EC3, EC4, EC5, nullptr, nullptr, SS53, SS54, SS55, EC9, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {EC0, EC6, EC7, EC3, EC4, EC8, nullptr, nullptr, SS53, SS54, SS55, EC9, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_power", "Aktuelle Leistungsaufnahme", "sensor.", "/times", "{{ value_json.WATT | int }}", nullptr, nullptr, "mdi:flash", "W", "power", "measurement", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
 
     // Maintenance tracking sensors
