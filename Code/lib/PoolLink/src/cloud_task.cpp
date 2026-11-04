@@ -690,7 +690,9 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         // Days between repeats: 0 never, 1 daily, 7 weekly (same as /setsmartschedule/).
         uint8_t rp = val[F("REPEAT")].as<uint8_t>();
         if (!rp) rp = val[F("repeat")].as<uint8_t>();
-        success = (tt > 0 && tmp > 0) && bwc->setSmartSchedule(tt, tmp, kp, rp);
+        // filter pump keeps running after the target time
+        bool kpump = val[F("keep_pump_on")].as<bool>() || val[F("KEEPPUMP")].as<bool>();
+        success = (tt > 0 && tmp > 0) && bwc->setSmartSchedule(tt, tmp, kp, rp, kpump);
 
     } else if (strcmp(action, "cancel_smart_schedule") == 0) {
         bwc->cancelSmartSchedule();
@@ -698,6 +700,9 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
 
     } else if (strcmp(action, "set_smart_schedule_keepon") == 0) {
         success = bwc->updateSmartScheduleKeepHeaterOn(_onOff(val) != 0);
+
+    } else if (strcmp(action, "set_smart_schedule_keeppump") == 0) {
+        success = bwc->updateSmartScheduleKeepPumpOn(_onOff(val) != 0);
 
     } else if (strcmp(action, "set_smart_schedule_repeat") == 0) {
         success = bwc->updateSmartScheduleRepeat(val.as<uint8_t>());
