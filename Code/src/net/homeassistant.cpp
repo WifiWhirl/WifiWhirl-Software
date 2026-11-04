@@ -808,8 +808,9 @@ bool setupHA()
         }
     }
     
-    // ESP8266 stays in WIFI_NONE_SLEEP (set above): light sleep adds latency and
-    // frame loss that breaks large HTTP transfers, and the unit is mains powered.
+    // ESP8266 stays in WIFI_NONE_SLEEP (set in startWiFi(), and above):
+    // modem sleep adds latency and frame loss that breaks large HTTP transfers,
+    // and the unit is mains powered.
     #ifndef ESP8266
     WiFi.setSleep(true);
     #endif

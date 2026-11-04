@@ -107,6 +107,14 @@ static bool validateWifiInfo(const sWifi_info &wifi_info, String &error)
  */
 void startWiFi()
 {
+#ifdef ESP8266
+    // No modem sleep, from the start: it was only switched off when
+    // the Home Assistant discovery ran, so in cloud mode or without MQTT the
+    // module kept the SDK default. Mains powered, and sleep adds latency and
+    // lost frames on weak links. TX power (20.5 dBm) and PHY mode (11n, b/g
+    // allowed) stay at the SDK defaults, which are already the best choice.
+    WiFi.setSleepMode(WIFI_NONE_SLEEP);
+#endif
     // WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.persistent(true);
