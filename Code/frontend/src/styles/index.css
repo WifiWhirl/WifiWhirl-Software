@@ -2296,3 +2296,12 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .modal-dialog::backdrop { animation: none !important; }
 }
+
+/* Smart Schedule options on wider screens: the three "after the target time"
+   labels broke out of their buttons (tester, desktop). Let the control take
+   its natural width and the description wrap instead. */
+@media (min-width: 561px) {
+  .ss-option-row > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .ss-option-row .segmented { flex: 0 0 auto; }
+  .ss-option-row .segmented button { white-space: nowrap; }
+}
