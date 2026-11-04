@@ -255,7 +255,7 @@ export function Device() {
         <button class="btn" onClick={saveWebhookAuth}>{t('dev.saveWebhookAuth')}</button>
       </Card>
 
-      <BackupCard />
+      <BackupCard login={authWasEnabled} />
 
       <Card title={t('expert.title')}>
         <p class="hint">{t('expert.modeInfo')}</p>
@@ -272,15 +272,33 @@ export function Device() {
  * a replacement module). Without global login the browser asks for user
  * "backup" and the OTA password.
  */
-function BackupCard() {
+function BackupCard({ login }: { login: boolean }) {
   const [file, setFile] = useState<File | null>(null);
+  const [pwd, setPwd] = useState('');
+  // Without global login the module wants user "backup" + the OTA password.
+  // Sent from here: a plain download link got a 401 and the browser never
+  // asked for a password.
+  const headers = (): Record<string, string> =>
+    login ? {} : { Authorization: 'Basic ' + btoa(unescape(encodeURIComponent('backup:' + pwd))) };
+  async function download() {
+    try {
+      const res = await fetch('/backup/', { headers: headers() });
+      if (!res.ok) { showToast(res.status === 401 ? t('backup.auth') : t('common.error'), true); return; }
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'wifiwhirl-backup.json';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { showToast(t('common.error'), true); }
+  }
   async function restore() {
     if (!file) return;
     if (!await confirmDialog(t('backup.confirm'), { title: t('backup.restore'), confirmLabel: t('backup.restore') })) return;
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('/restore/', { method: 'POST', body: fd });
+      const res = await fetch('/restore/', { method: 'POST', body: fd, headers: headers() });
       if (res.ok) showRestart('restore');
       else showToast(res.status === 401 ? t('backup.auth') : t('backup.invalid'), true);
     } catch { showToast(t('common.error'), true); }
@@ -288,14 +306,19 @@ function BackupCard() {
   return (
     <Card title={t('backup.title')}>
       <p class="hint">{t('backup.info')}</p>
+      {!login && (
+        <Row label={t('backup.otaPwd')}>
+          <input type="password" autocomplete="current-password" value={pwd} onInput={(e) => setPwd((e.target as HTMLInputElement).value)} />
+        </Row>
+      )}
       <div class="actions">
-        <a class="btn" style="text-decoration:none" href="/backup/" download="wifiwhirl-backup.json">{t('backup.download')}</a>
+        <button class="btn" disabled={!login && !pwd} onClick={download}>{t('backup.download')}</button>
       </div>
       <Row label={t('backup.file')}>
         <input type="file" accept=".json,application/json" onChange={(e) => setFile((e.target as HTMLInputElement).files?.[0] ?? null)} />
       </Row>
       <div class="actions">
-        <button class="btn secondary" disabled={!file} onClick={restore}>{t('backup.restore')}</button>
+        <button class="btn secondary" disabled={!file || (!login && !pwd)} onClick={restore}>{t('backup.restore')}</button>
       </div>
     </Card>
   );

@@ -18,9 +18,14 @@ static const size_t RESTORE_MAX = 16384;
 
 static bool keptLocal(const char *key)
 {
+    // Copy the list to RAM first: reading flash byte by byte (strstr_P had the
+    // flash string as haystack) is an exception on the ESP8266, which reset the
+    // module half way through the download.
+    char list[sizeof(DEVUSER_KEEP_LOCAL)];
+    strcpy_P(list, DEVUSER_KEEP_LOCAL);
     char needle[24];
     snprintf(needle, sizeof(needle), "|%s|", key);
-    return strstr_P(DEVUSER_KEEP_LOCAL, needle) == nullptr ? false : true;
+    return strstr(list, needle) != nullptr;
 }
 
 // for (path : BACKUP_FILES) over a RAM copy of the flash list
