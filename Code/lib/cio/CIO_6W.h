@@ -34,7 +34,7 @@ protected:
 
     /*These must be declared for the API to work*/
 public:
-    const Power _powerDefault = {1900, 40, 800, 2, 400};
+    const Power _powerDefault = {1840, 40, 800, 2, 400}; // heater: measured mean 1835 W over 7 h
     Power power = _powerDefault;
 
 public:
