@@ -247,7 +247,7 @@ function CalTimeline({ cal, step, finished }: { cal: HlCal | null; step: number;
           <TimelineStep label={t('expert.calStepPrep')} value={step === 0 ? '…' : check}
             active={step === 0} done={step > 0} />
           <TimelineStep label={t('expert.calStepWaitTick')}
-            value={step === 1 ? `${dec(cal?.STARTWATER, 1)} °C · ${durLong(cal?.ELAPSED ?? 0)}` : step > 1 ? check : '--'}
+            value={step === 1 ? `${durLong(cal?.ELAPSED ?? 0)} · ${t('expert.calStartAt', { t: dec(cal?.STARTWATER, 1) })}` : step > 1 ? check : '--'}
             active={step === 1} done={step > 1} />
           <TimelineStep label={t('expert.calStepMeasure')}
             value={step === 2 ? durLong(cal?.ANCHORELAPSED ?? 0) : step > 2 ? check : '--'}
@@ -262,7 +262,8 @@ function CalTimeline({ cal, step, finished }: { cal: HlCal | null; step: number;
       {cal?.RESTORING && <p class="hint warn">{t('expert.calRestoring')}</p>}
       {step > 0 && step < 3 && (cal?.DISCARDED ?? 0) > 0 &&
         <p class="hint">{t('expert.calDiscarded', { n: cal!.DISCARDED! })}</p>}
-      {step > 0 && step < 3 && <Row label={t('expert.calAmbient')}><span>{dec(cal?.STARTAMB, 1)} °C</span></Row>}
+      {/* the mean only covers the measured interval, which starts at the first tick */}
+      {step === 2 && <Row label={t('expert.calAmbient')}><span>{dec(cal?.STARTAMB, 1)} °C</span></Row>}
     </>
   );
 }

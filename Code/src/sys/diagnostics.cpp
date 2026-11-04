@@ -311,6 +311,16 @@ void handleSupportPackage()
     json += F("}");
     flush();
 
+    // heat-loss calibration: phase, measured values, result or abort reason,
+    // planned start
+    json += F(",\"hlcal\":");
+    {
+        String cal;
+        bwc->getJSONHeatLossCalibration(cal);
+        json += cal;
+    }
+    flush();
+
     // ESP runtime diagnostics (folded in from the former /info/ endpoint)
     json += F(",\"esp\":{\"stackSize\":");
     json += String(stackSize);
