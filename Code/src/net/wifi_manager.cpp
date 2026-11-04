@@ -338,6 +338,7 @@ void setBootTimeFromClock()
     strftime(boot_time_str, 64, "%F %T", boot_time_tm);
     bwc->reboot_time_str = String(boot_time_str);
     bwc->reboot_time_t = boot_timestamp;
+    publishRebootTime(); // MQTT may have connected before the clock
 }
 
 /**

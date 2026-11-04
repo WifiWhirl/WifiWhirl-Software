@@ -37,6 +37,7 @@ void handleSetMqtt();
 void startMqtt();
 void mqttCallback(char *topic, byte *payload, unsigned int length);
 void mqttConnect();
+void publishRebootTime();
 const String &getMqttTopicButton();
 
 // --- PoolLink Cloud (cloud.cpp) ---

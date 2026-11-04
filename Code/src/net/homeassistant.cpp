@@ -185,7 +185,7 @@ static const HaEntityConfig entities[] PROGMEM = {
     {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRTBASE }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
 
     // System information sensors
-    {"sensor", "_reboot_time", "Letzter Neustart", "sensor.", "/reboot_time", "{{as_datetime(value)}}", nullptr, nullptr, nullptr, nullptr, "timestamp", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {"sensor", "_reboot_time", "Letzter Neustart", "sensor.", "/reboot_time", "{{ as_datetime(value) if value and value != 'Z' else None }}", nullptr, nullptr, nullptr, nullptr, "timestamp", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_reboot_reason", "Neustartgrund", "sensor.", "/reboot_reason", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
 
     // Network status sensors

@@ -756,6 +756,16 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 /**
  * Connect to MQTT broker, publish Status/MAC/count, and subscribe to keypad topic.
  */
+// only once the boot time is known. Before NTP the string was empty,
+// HA got "Z" and logged "'None' has no attribute ..." until the next connect.
+// setBootTimeFromClock() calls this again when the clock becomes valid.
+void publishRebootTime()
+{
+    if (!bwc->reboot_time_t || !mqttClient || !mqttClient->connected())
+        return;
+    mqttClient->publish(mqttTopicRebootTime.c_str(), (bwc->reboot_time_str + 'Z').c_str(), true);
+}
+
 void mqttConnect()
 {
     // do not connect if MQTT is not enabled
@@ -791,7 +801,7 @@ void mqttConnect()
         mqttClient->subscribe(mqttTopicScheduleSet.c_str());
         mqttClient->loop();
 
-        mqttClient->publish(mqttTopicRebootTime.c_str(), (bwc->reboot_time_str + 'Z').c_str(), true);
+        publishRebootTime();
 #ifdef ESP8266
         mqttClient->publish(mqttTopicRebootReason.c_str(), ESP.getResetReason().c_str(), true);
 #else
