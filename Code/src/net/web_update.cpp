@@ -389,6 +389,57 @@ const String &updateAvailableVersion()
     return (webUpdateEnabled && cachedAvailable) ? cachedLatest : kNone;
 }
 
+// --- update started from the cloud -------------------------------
+static String cloudUpdateUrl; // set once the cloud asked and a newer image exists
+
+/**
+ * Cloud action "install_update". The click in the cloud app is the user's
+ * consent to the online update check (the app says so before sending), so the
+ * opt-in switch goes on and stays on. Checks the manifest here, so the cloud
+ * gets ok=false right away when there is nothing newer; the flashing itself
+ * runs from loop() via cloudUpdateTick(), after the ack went out.
+ */
+bool requestCloudUpdate(String &err)
+{
+    if (!webUpdateEnabled)
+    {
+        webUpdateEnabled = true;
+        saveDeviceUser();
+    }
+    String latest, binUrl;
+    if (!fetchManifest(latest, binUrl, err))
+        return false;
+    cachedLatest = latest;
+    cachedAvailable = cmpVer(latest, FW_VERSION) > 0;
+    if (!cachedAvailable)
+    {
+        err = F("no newer firmware");
+        return false;
+    }
+    cloudUpdateUrl = binUrl;
+    return true;
+}
+
+void cloudUpdateTick()
+{
+    if (!cloudUpdateUrl.length())
+        return;
+    String url = cloudUpdateUrl, err;
+    cloudUpdateUrl = "";
+    if (performWebUpdate(url, err))
+    {
+        delay(500);
+        ESP.restart();
+    }
+    Serial.printf("cloud update failed: %s\n", err.c_str());
+    if (servicesStopped)
+    {
+        // loop() would use the deleted cio (null deref -> exception reset)
+        delay(500);
+        ESP.restart();
+    }
+}
+
 /**
  * POST /getupdate/ -> {enabled, current[, latest, available][, error]}.
  *

@@ -631,6 +631,9 @@ static int64_t _onOff(JsonVariantConst v)
     return v.as<int64_t>() != 0 ? 1 : 0;
 }
 
+// src/net/web_update.cpp: check + arm a firmware update the cloud asked for
+bool requestCloudUpdate(String &err);
+
 void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
 {
     // Payload: {"cmd_id":42,"action":"heater","value":"on"}
@@ -717,6 +720,11 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
 
     } else if (strcmp(action, "set_smart_schedule_repeat") == 0) {
         success = bwc->updateSmartScheduleRepeat(val.as<uint8_t>());
+
+    } else if (strcmp(action, "install_update") == 0) {
+        // install the newest signed firmware from the update server
+        String err;
+        success = requestCloudUpdate(err);
 
     } else if (strcmp(action, "set_settings") == 0) {
         // value: partial settings object; bwc merges by key (same as /setconfig/).

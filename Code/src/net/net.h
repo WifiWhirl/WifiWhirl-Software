@@ -63,6 +63,7 @@ void startOTA();
 // --- Web firmware self-update (web_update.cpp) ---
 // Daily update check
 void updateCheckTick();
+void cloudUpdateTick(); // runs an update the cloud asked for
 const String &updateAvailableVersion();
 void handleGetUpdate();
 void handleDoUpdate();

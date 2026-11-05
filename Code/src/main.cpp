@@ -169,7 +169,10 @@ void setup()
 void loop()
 {
     if (cloudEnabled)
+    {
         CloudTask::tick();
+        cloudUpdateTick();
+    }
 
     uint32_t freeheap = ESP.getFreeHeap();
     if (freeheap < heap_water_mark)
