@@ -14,7 +14,7 @@ interface Cfg {
   NIGHT_START_MIN: number; NIGHT_END_MIN: number; NIGHT_WEEKEND: boolean;
   CLINT: number; FINT: number; FCINT: number; WCINT: number;
   AUDIO: boolean; TIMEZONE: string; TIMEZONE_NAME: string; REBOOTTIME: number;
-  WEATHER: boolean; HASJETS: boolean; POOLCAP: number;
+  WEATHER: boolean; CLOUD?: boolean; HASJETS: boolean; POOLCAP: number;
   AIRTO: number; HJTO: number; JETCD: boolean; STBYORIG: boolean; BRTSTEP: number; BRTDUR: number;
   GSTMODE: boolean; GSTMAXTGT: number; GSTHTRTO: number;
   LCK: boolean; TMR: boolean; AIR: boolean; UNT: boolean; HTR: boolean;
@@ -213,7 +213,8 @@ export function Config() {
 
         <div class="cfg-subsection">
           <h3>{t('cfg.weather')}</h3>
-          <Row label={t('cfg.weatherData')}>
+          {d.CLOUD === false && <p class="hint">{t('cfg.weatherNeedsCloud')}</p>}
+          {d.CLOUD !== false && <Row label={t('cfg.weatherData')}>
             <Segmented<'off' | 'on'>
               value={d.WEATHER ? 'on' : 'off'}
               options={[{ value: 'off', label: t('cfg.disabled') }, { value: 'on', label: t('cfg.enabled') }]}
@@ -224,7 +225,7 @@ export function Config() {
                 if (!next) setCity('');
               }}
             />
-          </Row>
+          </Row>}
           {d.WEATHER && (
             city
               ? <p class="hint">{t('spa.cityLookup', { city })}</p>

@@ -615,5 +615,6 @@
   "upd.authPending": "Anmeldung wird geprüft…",
   "upd.authFailed": "Anmeldung fehlgeschlagen - das Update wurde nicht hochgeladen.",
   "upd.aborted": "Upload abgebrochen!",
-  "cfg.weatherFromCloud": "Die Außentemperatur kommt aus der Cloud-App, dort wird der Standort festgelegt."
+  "cfg.weatherFromCloud": "Die Außentemperatur kommt aus der Cloud-App, dort wird der Standort festgelegt.",
+  "cfg.weatherNeedsCloud": "Wetterdaten gibt es nur mit aktiver Cloud-Verbindung. Solange sie aus ist, trägst du die Außentemperatur auf der Übersicht selbst ein. Schaltest du die Cloud wieder ein und ist dort ein Standort hinterlegt, gehen die Wetterdaten automatisch wieder an."
 }

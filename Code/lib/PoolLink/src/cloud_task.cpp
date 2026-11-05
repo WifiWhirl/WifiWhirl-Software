@@ -598,6 +598,12 @@ void CloudTask::_handleSensorAck(const uint8_t* payload, size_t len)
     // Only when the user wants the outdoor temperature from outside; with
     // WEATHER off they set it by hand (HA number, MQTT CMD 15, local UI) and a
     // push from the cloud would silently overwrite it.
+    // weather that was switched off with the cloud comes back on as
+    // soon as the cloud has a reading, i.e. a location is set there.
+    if (doc.containsKey(F("outdoor_temp")) && !bwc->weatherEnabled()) {
+        bwc->cloudWeatherArrived();
+        if (bwc->weatherEnabled()) _settings_dirty = true;
+    }
     if (bwc->weatherEnabled() && doc.containsKey(F("outdoor_temp"))) {
         float raw = doc[F("outdoor_temp")].as<float>();
         // Reject NaN/inf and anything off the scale before it reaches the

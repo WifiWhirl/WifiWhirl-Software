@@ -615,5 +615,6 @@
   "setup.wifiSavingInfo": "Dane logowania zapisane. WifiWhirl uruchamia się ponownie i próbuje połączyć się z \"{ssid}”.",
   "setup.wifiSavingTitle": "Łączenie…",
   "setup.wifiTitle": "Sieć Wi-Fi",
-  "cfg.weatherFromCloud": "Temperatura zewnętrzna pochodzi z aplikacji w chmurze, gdzie ustawia się lokalizację."
+  "cfg.weatherFromCloud": "Temperatura zewnętrzna pochodzi z aplikacji w chmurze, gdzie ustawia się lokalizację.",
+  "cfg.weatherNeedsCloud": "Dane pogodowe są dostępne tylko przy włączonym połączeniu z chmurą. Dopóki jest wyłączone, sam wpisujesz temperaturę zewnętrzną w przeglądzie. Gdy znowu włączysz chmurę i jest tam ustawiona lokalizacja, dane pogodowe włączą się same."
 }

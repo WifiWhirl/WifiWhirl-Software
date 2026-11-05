@@ -615,5 +615,6 @@
   "setup.wifiSavingInfo": "Inloggegevens opgeslagen. WifiWhirl herstart en probeert verbinding te maken met \"{ssid}\".",
   "setup.wifiSavingTitle": "Verbinden…",
   "setup.wifiTitle": "Wifi-netwerk",
-  "cfg.weatherFromCloud": "De buitentemperatuur komt uit de cloud-app, waar de locatie wordt ingesteld."
+  "cfg.weatherFromCloud": "De buitentemperatuur komt uit de cloud-app, waar de locatie wordt ingesteld.",
+  "cfg.weatherNeedsCloud": "Weergegevens zijn er alleen met een actieve cloudverbinding. Zolang die uit staat, vul je de buitentemperatuur zelf in op het overzicht. Zet je de cloud weer aan en is daar een locatie ingesteld, dan gaan de weergegevens vanzelf weer aan."
 }

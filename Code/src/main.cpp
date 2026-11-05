@@ -113,6 +113,7 @@ void setup()
     loadDevice();
     loadWebConfig();
     loadCloudConfig();
+    bwc->setCloudOn(cloudEnabled);
     startWiFi();
     startNTP();
     startOTA();

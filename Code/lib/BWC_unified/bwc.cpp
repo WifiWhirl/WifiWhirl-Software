@@ -1667,6 +1667,28 @@ String BWC::getModel()
     return cio->getModel();
 }
 
+void BWC::setCloudOn(bool on)
+{
+    _cloud_on = on;
+    if (!on && _weather)
+    {
+        _weather = false;
+        _weather_auto_off = true;
+        _save_settings_needed = true;
+        _new_data_available = true;
+    }
+}
+
+void BWC::cloudWeatherArrived()
+{
+    if (!_weather_auto_off)
+        return;
+    _weather = true;
+    _weather_auto_off = false;
+    _save_settings_needed = true;
+    _new_data_available = true;
+}
+
 bool BWC::getWeather()
 {
     return _weather;
@@ -1942,6 +1964,7 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("REBOOTTIME")] = reboot_time_t;
     doc[F("MODEL")] = cio->getModel();
     doc[F("WEATHER")] = _weather;
+    doc[F("CLOUD")] = _cloud_on; // weather needs it
     doc[F("HASJETS")] = cio->getHasjets();
     doc[F("POOLCAP")] = _pool_capacity;
     doc[F("HLOSS")] = _heat_loss;
@@ -2301,8 +2324,13 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
     if (_timezone_name.length() == 0)
         _timezone_name = defaultTimezoneName;
     applyTimezone();
-    if (doc.containsKey(F("WEATHER")))
+    // Without the cloud there is no weather source: WEATHER stays off and the
+    // "switch back on with the cloud" mark stays as it is.
+    if (doc.containsKey(F("WEATHER")) && _cloud_on)
+    {
         _weather = weather;
+        _weather_auto_off = false; // the user decided
+    }
     if (doc.containsKey(F("POOLCAP")))
         _pool_capacity = (int)poolCapacity;
     // Airjet timeout: 5-30 minutes, default 30
@@ -2820,6 +2848,7 @@ void BWC::_loadSettings()
     _ambient_temp = doc[F("AMB")] | 20;
     _dsp_brightness = doc[F("BRT")] | 7;
     _weather = doc[F("WEATHER")] | false;
+    _weather_auto_off = doc[F("WEATHERAUTO")] | false;
     _pool_capacity = doc[F("POOLCAP")] | 700;
     _heat_loss = clampHeatLoss(doc[F("HLOSS")] | HEAT_LOSS_DEFAULT);
     _hlcal_planned_at = doc[F("HLCALAT")] | (uint64_t)0;
@@ -3235,6 +3264,7 @@ void BWC::saveSettings()
     doc[F("AMB")] = _ambient_temp;
     doc[F("BRT")] = _dsp_brightness;
     doc[F("WEATHER")] = _weather;
+    doc[F("WEATHERAUTO")] = _weather_auto_off;
     doc[F("POOLCAP")] = _pool_capacity;
     doc[F("HLOSS")] = _heat_loss;
     doc[F("HLCALAT")] = _hlcal_planned_at;

@@ -615,5 +615,6 @@
   "setup.wifiSavingInfo": "Identifiants enregistrés. WifiWhirl redémarre et tente de se connecter à « {ssid} ».",
   "setup.wifiSavingTitle": "Connexion…",
   "setup.wifiTitle": "Réseau Wi-Fi",
-  "cfg.weatherFromCloud": "La température extérieure vient de l'application cloud, où la localisation est définie."
+  "cfg.weatherFromCloud": "La température extérieure vient de l'application cloud, où la localisation est définie.",
+  "cfg.weatherNeedsCloud": "Les données météo ne sont disponibles qu'avec la connexion cloud active. Tant qu'elle est désactivée, tu saisis toi-même la température extérieure dans l'aperçu. Si tu réactives le cloud et qu'un lieu y est défini, les données météo se réactivent automatiquement."
 }

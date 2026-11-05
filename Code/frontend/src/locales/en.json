@@ -615,5 +615,6 @@
   "upd.authPending": "Checking credentials…",
   "upd.authFailed": "Authentication failed - the update was not uploaded.",
   "upd.aborted": "Upload cancelled!",
-  "cfg.weatherFromCloud": "The outdoor temperature comes from the cloud app, where the location is set."
+  "cfg.weatherFromCloud": "The outdoor temperature comes from the cloud app, where the location is set.",
+  "cfg.weatherNeedsCloud": "Weather data is only available with the cloud connection on. While it is off, you enter the outdoor temperature yourself on the overview. If you switch the cloud back on and a location is set there, weather data comes back on by itself."
 }

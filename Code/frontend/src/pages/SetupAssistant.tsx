@@ -33,6 +33,7 @@ export function SetupAssistant() {
   const [untSel, setUntSel] = useState<boolean | null>(null);
   const [price, setPrice] = useState('0.35');
   const [weather, setWeather] = useState(false);
+  const [cloudOn, setCloudOn] = useState(true);
   const [tzName, setTzName] = useState(DEFAULT_TZ_NAME);
   const [hwRestart, setHwRestart] = useState(false);
 
@@ -65,6 +66,7 @@ export function SetupAssistant() {
       // device reports 0.349999994 instead of 0.35.
       if (j.PRICE != null) setPrice(String(cents(Number(j.PRICE))));
       setWeather(!!j.WEATHER);
+      setCloudOn(j.CLOUD !== false);
       const name = j.TIMEZONE_NAME && TIMEZONES[String(j.TIMEZONE_NAME)]
         ? String(j.TIMEZONE_NAME) : nameForPosix(String(j.TIMEZONE || DEFAULT_TZ));
       setTzName(name);
@@ -333,12 +335,14 @@ export function SetupAssistant() {
               </Row>
               <NumField label={t('spa.price')} value={price} min={0} max={9.99} step={0.01}
                 unit={currencySymbol()} onInput={setPrice} />
-              <Row label={t('cfg.weatherData')}>
-                <Segmented<'off' | 'on'> value={weather ? 'on' : 'off'}
-                  options={[{ value: 'off', label: t('cfg.disabled') }, { value: 'on', label: t('cfg.enabled') }]}
-                  onChange={(v) => setWeather(v === 'on')} />
-              </Row>
-              {weather && <p class="hint">{t('cfg.weatherFromCloud')}</p>}
+              {cloudOn ? <>
+                <Row label={t('cfg.weatherData')}>
+                  <Segmented<'off' | 'on'> value={weather ? 'on' : 'off'}
+                    options={[{ value: 'off', label: t('cfg.disabled') }, { value: 'on', label: t('cfg.enabled') }]}
+                    onChange={(v) => setWeather(v === 'on')} />
+                </Row>
+                {weather && <p class="hint">{t('cfg.weatherFromCloud')}</p>}
+              </> : <p class="hint">{t('cfg.weatherNeedsCloud')}</p>}
             </Card>
           )}
 

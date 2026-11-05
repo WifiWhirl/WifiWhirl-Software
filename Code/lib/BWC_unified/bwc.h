@@ -201,6 +201,10 @@ public:
     DSP *dsp;
     bool BWC_DEBUG = false;
     bool weatherEnabled() const { return _weather; }
+    // weather data only comes through the cloud. With the cloud off it
+    // is switched off (remembered), and back on once the cloud sends a reading.
+    void setCloudOn(bool on);
+    void cloudWeatherArrived();
     void applyTimezone() const; // also after configTime(), which resets it to UTC
 
 private:
@@ -318,6 +322,8 @@ private:
     String _timezone;
     String _timezone_name;
     bool _weather = 0;
+    bool _cloud_on = true;
+    bool _weather_auto_off = false; // switched off by setCloudOn(false), persisted
     int _pool_capacity = 700;
     uint8_t _airjet_timeout_minutes = 30;   // 1-30 min, default 30 (no software timeout)
     uint8_t _hydrojet_timeout_minutes = 60; // 1-60 min, default 60 (no software timeout)
