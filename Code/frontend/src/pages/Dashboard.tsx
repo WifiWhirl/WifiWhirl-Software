@@ -356,7 +356,7 @@ function AddDose({ showAlk }: { showAlk: boolean }) {
       <Row label={t('dashboard.doseAmount')}>
         <NumberInput value={amount} min={1} max={d.max} step={1} unit={what === 'clTab' ? t('dashboard.doseTabUnit') : 'g'} onInput={setAmount} />
       </Row>
-      <button class="btn" disabled={!ok} onClick={() => { sendCommand(d.cmd, d.sign * n); setAmount(''); }}>
+      <button class="btn" style="margin-top:14px" disabled={!ok} onClick={() => { sendCommand(d.cmd, d.sign * n); setAmount(''); }}>
         {t('dashboard.doseSave')}
       </button>
     </div>
