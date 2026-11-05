@@ -247,8 +247,11 @@ function CalTimeline({ cal }: { cal: HlCal }) {
   const ok = (cal.RESULT ?? 0) > 0 && !cal.ERROR;
   // 0 start, 1 first step, 2 second step, 3 result
   const reached = ok ? 3 : cal.ANCHORTS ? 1 : 0;
-  const waiting = cal.ACTIVE ? (cal.ANCHORTS ? 2 : 1) : -1;
-  const gap1 = (cal.ANCHORTS ?? end) - (cal.REQTS ?? end);
+  // which step is in progress: 0 pump settling, 1 first step, 2 second step
+  const waiting = cal.ACTIVE ? (!cal.STARTTS ? 0 : cal.ANCHORTS ? 2 : 1) : -1;
+  // "Vorbereitung" is the reading after the pump has run (STARTTS), not the
+  // one at the request, which the still sensor may take from standing water.
+  const gap1 = cal.STARTTS ? (cal.ANCHORTS ?? end) - cal.STARTTS : 0;
   const gap2 = cal.ANCHORTS ? (ok ? (cal.ENDTS ?? end) : end) - cal.ANCHORTS : 0;
   const gaps = [gap1 > 0 ? durLong(gap1) : '', cal.ANCHORTS && gap2 > 0 ? durLong(gap2) : '', ''];
   return (
@@ -259,7 +262,7 @@ function CalTimeline({ cal }: { cal: HlCal }) {
           {gaps.map((g, i) => <span key={i} style={`left:${(i + 1) * 25}%`}>{g}</span>)}
         </div>
         <div class="ss-timeline-steps">
-          <TimelineStep label={t('expert.calStepPrep')} value={temp(cal.REQWATER)} done />
+          <TimelineStep label={t('expert.calStepPrep')} value={cal.STARTTS ? temp(cal.STARTWATER) : waiting === 0 ? '…' : '--'} active={waiting === 0} done={!!cal.STARTTS} />
           <TimelineStep label={t('expert.calStepWaitTick')}
             value={cal.ANCHORTS ? temp(cal.ANCHORWATER) : waiting === 1 ? '…' : '--'}
             active={waiting === 1} done={reached >= 1} />
