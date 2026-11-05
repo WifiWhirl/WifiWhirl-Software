@@ -1239,6 +1239,10 @@ void BWC::setHeatLoss(float v)
 {
     _heat_loss = clampHeatLoss(v);
     _save_settings_needed = true;
+    // A value set by hand replaces the last calibration: its timeline and
+    // result go. A running calibration carries on.
+    if (!_hlcal.active && !_hlcal.restore_pending)
+        _hlcal = heatloss_cal_t{};
 }
 
 // Begin a heat-loss measurement. The actual hardware control (heater/AirJet/

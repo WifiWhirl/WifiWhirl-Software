@@ -108,10 +108,11 @@ export function Expert() {
   );
 
   async function saveHeatLoss(v: number) {
+    v = Math.min(50, Math.max(0.5, v || 0)); // same limits as the firmware
     setHl(v);
     const r = await saveConfig('/setheatloss/', { HLOSS: v });
     if (r.kind === 'error') showToast(t('common.error'), true);
-    else showToast(t('common.saved'));
+    else { showToast(t('common.saved')); refreshCal(); } // the old timeline goes
   }
 
   async function startCal() {
