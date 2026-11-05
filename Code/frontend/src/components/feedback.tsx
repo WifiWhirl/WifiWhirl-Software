@@ -89,7 +89,7 @@ export function calAbortText(d: { ERROR?: string; REQWATER?: number; STARTAMB?: 
   const key = `expert.calAbort.${d.ERROR}`;
   const msg = t(key, {
     d: dec((d.REQWATER ?? 0) - (d.STARTAMB ?? 0), 1),
-    min: dec(d.MINDIFF ?? 8, 0),
+    min: dec(d.MINDIFF ?? 15, 0),
   });
   return msg === key ? t('common.error') : msg;
 }

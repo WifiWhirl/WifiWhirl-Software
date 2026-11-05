@@ -123,7 +123,7 @@ export function Expert() {
       if (res.ok) { showToast(t('expert.calStarted')); refreshCal(); }
       else {
         const key = `expert.calErr.${(await res.text()).trim()}`;
-        const msg = t(key, { min: dec(cal?.MINDIFF ?? 8, 0) });
+        const msg = t(key, { min: dec(cal?.MINDIFF ?? 15, 0) });
         showToast(msg === key ? t('common.error') : msg, true); // t() echoes the key when missing
       }
     } catch {
@@ -153,7 +153,7 @@ export function Expert() {
   const active = SHOW_HEAT_LOSS_CALIBRATION && !!cal?.ACTIVE;
   // the last run stays visible until the next start, also after an abort
   const hasRun = SHOW_HEAT_LOSS_CALIBRATION && !!cal?.REQTS && cal?.ERROR !== 'tempdiff';
-  const minDiff = cal?.MINDIFF ?? 8;
+  const minDiff = cal?.MINDIFF ?? 15;
 
 
   return (

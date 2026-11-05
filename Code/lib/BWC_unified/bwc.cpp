@@ -35,7 +35,7 @@ enum HlCalError : uint8_t
 };
 // Minimum water/ambient difference to start. 8 K let a whole night
 // pass without one sensor tick at 12 K (tester); value still being decided.
-constexpr float HLCAL_MIN_DIFF_K = 8.0f;
+constexpr float HLCAL_MIN_DIFF_K = 15.0f; // tester: 12 K gave no sensor step in 23 h
 
 float displayTempC(uint8_t unit, float temp)
 {
