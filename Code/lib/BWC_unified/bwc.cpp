@@ -1052,6 +1052,8 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
             _dose_cl = (uint16_t)val;
             _dose_cl_tab = cmd == ADDCLTAB;
             _dose_cl_ts = _timestamp_secs;
+            // chlorine added = the "add chlorine" timer starts over (tester); the web UI shows it in the water card now
+            _cl_timestamp_s = _timestamp_secs;
             _save_settings_needed = true;
             _new_data_available = true;
         }

@@ -2332,3 +2332,4 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 .dose-row { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 8px; }
 .dose-row select { grid-column: 1 / -1; width: 100%; min-width: 0; }
 .dose-row .number-control input { width: 56px; }
+.warn-text { color: var(--danger); font-weight: 700; }

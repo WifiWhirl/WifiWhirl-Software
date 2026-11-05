@@ -24,6 +24,14 @@ export function getTimeSinceText(seconds: number): string {
   return rtf.format(-Math.floor(seconds / 86400), 'day');
 }
 
+/** "in 2 Tagen" / "morgen" / "in 3 Stunden" for a moment `seconds` ahead. */
+export function getTimeUntilText(seconds: number): string {
+  const rtf = new Intl.RelativeTimeFormat(activeLocale.value, { numeric: 'auto' });
+  if (seconds < 3600) return rtf.format(Math.max(1, Math.round(seconds / 60)), 'minute');
+  if (seconds < 86400) return rtf.format(Math.round(seconds / 3600), 'hour');
+  return rtf.format(Math.round(seconds / 86400), 'day');
+}
+
 /**
  * @brief Format time-to-ready including backend readiness sentinels.
  * @param t2rHours Firmware time-to-ready value in hours.

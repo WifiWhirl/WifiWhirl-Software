@@ -10,7 +10,7 @@ import { confirmDialog, showCalResult, calAbortText } from '../components/feedba
 import { SHOW_HEAT_LOSS_CALIBRATION } from '../flags';
 import { lastStates, lastTimes, lastOther, sendCommand, useCommsPolling } from '../comms';
 import { postJson } from '../api';
-import { getTimeSinceText, t2rText, t2rDuration, dhms, comma, money } from '../util/format';
+import { getTimeSinceText, getTimeUntilText, t2rText, t2rDuration, dhms, comma, money } from '../util/format';
 import { layout, editMode, saveLayout, resetLayout, migrateFromDevice, type WidgetId } from '../util/dashboardLayout';
 import { t } from '../i18n';
 
@@ -151,7 +151,7 @@ export function Dashboard() {
     water: () => <WaterQuality showCya={lay.showCya} showAlk={lay.showAlk} />,
     timer: () => !tm ? null : (
       <Card title={t('dashboard.timer')} className="metric-card timer-card">
-        <TimerRow label={t('dashboard.timerChlorine')} time={tm.CLTIME} overdueDays={tm.CLINT} cmd="resetTimerChlorine" confirm={t('confirm.resetChlorine')} />
+        {/* chlorine: in the water card now, reset by recording a dose */}
         <TimerRow label={t('dashboard.timerFilterClean')} time={tm.FCTIME} overdueDays={tm.FCINT} cmd="resetTimerCleanFilter" confirm={t('confirm.resetFilterClean')} />
         <TimerRow label={t('dashboard.timerFilterChange')} time={tm.FTIME} overdueDays={tm.FINT} cmd="resetTimerFilter" confirm={t('confirm.resetFilter')} />
         <TimerRow label={t('dashboard.timerWaterChange')} time={tm.WCTIME} overdueDays={tm.WCINT} cmd="resetTimerWaterChange" confirm={t('confirm.resetWaterChange')} />
@@ -298,7 +298,7 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
       </Row>
       <RangeBar value={parseFloat(cl.replace(',', '.'))} min={0} max={10} low={1.0} high={3.0} />
       <p class="hint">{t('dashboard.idealRange')}: 1,0 - 3,0 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CLVTIME)) : '-'}</p>
-      <LastDose ts={tm?.DCLTIME} text={tm?.DCL ? (tm.DCLTAB ? t('dashboard.doseTablets', { n: tm.DCL }) : `${tm.DCL} g`) : ''} />
+      {tm && <ChlorineDue tm={tm} />}
       {showCya && (
         <>
           <Row label={t('dashboard.cyanuricValue')}>
@@ -320,6 +320,25 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
       )}
       <AddDose showAlk={showAlk} />
     </Card>
+  );
+}
+
+/**
+ * Chlorine: last dose and when the next one is due - the former "add chlorine"
+ * timer (CLTIME/CLINT), which a recorded dose now resets.
+ */
+function ChlorineDue({ tm }: { tm: NonNullable<typeof lastTimes.value> }) {
+  if (!tm.CLTIME || tm.CLTIME < 57600) return null; // clock never set
+  const since = Math.floor(Date.now() / 1000 - tm.CLTIME);
+  const what = tm.DCL && tm.DCLTIME ? `${tm.DCLTAB ? t('dashboard.doseTablets', { n: tm.DCL }) : `${tm.DCL} g`} · ` : '';
+  const left = tm.CLINT > 0 ? tm.CLINT * 86400 - since : null;
+  return (
+    <p class="hint">
+      {t('dashboard.lastDose')}: {what}{getTimeSinceText(since)}
+      {left != null && (left > 0
+        ? <> · {t('dashboard.clNext', { when: getTimeUntilText(left) })}</>
+        : <> · <span class="warn-text">{t('dashboard.clDue')}</span></>)}
+    </p>
   );
 }
 
