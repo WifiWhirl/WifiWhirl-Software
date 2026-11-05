@@ -18,10 +18,10 @@ constexpr float HEATER_EFFICIENCY = 0.99f;
 // (guards against sloshing/noise flipping the reading right after the anchor).
 // One tick in 15 min is plausible for a lossy tub in winter.
 constexpr uint32_t HLCAL_MIN_ELAPSED_S = 900;
-// Must stay consistent with HLCAL_MIN_ELAPSED_S: one F-tick per 15 min on a
-// typical 800 l tub is ~2100 W net, so the cap has to sit above that or a
+// Must stay consistent with HLCAL_MIN_ELAPSED_S: one C-tick per 15 min on a
+// typical 800 l tub is ~3700 W net, so the cap has to sit above that or a
 // genuinely lossy tub could never finish (every tick would re-anchor).
-constexpr float HLCAL_MAX_NET_LOSS_W = 2500.0f;
+constexpr float HLCAL_MAX_NET_LOSS_W = 4500.0f;
 constexpr size_t COMMAND_QUEUE_JSON_CAPACITY = 4096;
 
 enum HlCalError : uint8_t
@@ -1353,9 +1353,9 @@ void BWC::_handleHeatLossCalibration()
     if (_hlcal.cancel_requested)
     {
         _hlcal.cancel_requested = false;
-        // Not right away: phase 0's presses (heater off, pump on, °F) may still
+        // Not right away: phase 0's presses (heater off, pump on, °C) may still
         // be queued, and the restore would see the old states, press nothing,
-        // and leave the tub in °F once the queue ran (found by the).
+        // and leave the tub in the wrong unit once the queue ran.
         _hlcal.restore_pending = true;
         _hlcal.restore_deadline = millis() + 30000;
         _hlcal.active = false;
@@ -1396,10 +1396,10 @@ void BWC::_handleHeatLossCalibration()
         }
         if (!_hlcal.did_unit)
         {
-            // Measure in Fahrenheit: an F tick is 5/9 C, nearly doubling the
-            // sensor resolution and halving the tick interval. MSPA is
-            // Celsius-native and ignores unit_change -> runs with 1 C ticks.
-            if (cio->cio_states.unit)
+            // Measure in Celsius. The pump measures in C and converts, so in
+            // F the reading regularly jumps two ticks at once:
+            // the finer F steps were never real resolution.
+            if (!cio->cio_states.unit)
                 cio->cio_toggles.unit_change = 1;
             _hlcal.did_unit = true;
         }
@@ -1427,7 +1427,7 @@ void BWC::_handleHeatLossCalibration()
                 _hlcal.amb_last_ts = _timestamp_secs;
                 _hlcal.start_ts = _timestamp_secs;
                 _hlcal.last_disp = cio->cio_states.temperature;
-                // one display tick in the unit we measure in (F preferred above)
+                // one display tick in the unit we measure in (C, see above)
                 _hlcal.target_drop = cio->cio_states.unit ? 1.0f : (5.0f / 9.0f);
                 _hlcal.phase = 1;
             }
