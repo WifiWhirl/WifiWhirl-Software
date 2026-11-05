@@ -668,6 +668,11 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         { "set_chlorine",            SETCLVALUE,    ActionMap::TENTHS },
         { "set_cyanuric",            SETCYAVALUE,   ActionMap::TENTHS },
         { "set_alkalinity",          SETALKVALUE,   ActionMap::NUM },
+        // care products added: g, negative = pH- / TA-
+        { "add_ph",                  ADDPH,         ActionMap::NUM },
+        { "add_chlorine",            ADDCL,         ActionMap::NUM },
+        { "add_chlorine_tablets",    ADDCLTAB,      ActionMap::NUM },
+        { "add_alkalinity",          ADDTA,         ActionMap::NUM },
         { "reset_timer_chlorine",    RESETCLTIMER,  ActionMap::NONE },
         { "reset_timer_filter",      RESETFTIMER,   ActionMap::NONE },
         { "reset_timer_filter_clean", RESETFCTIMER, ActionMap::NONE },

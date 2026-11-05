@@ -74,7 +74,12 @@ enum Commands : byte
     SETPHVALUE,        // Set last measured pH value (val = pH * 10, e.g. 72 = 7.2)
     SETCLVALUE,        // Set last measured chlorine value (val = Cl * 10, e.g. 15 = 1.5 mg/L)
     SETCYAVALUE,       // Set last measured cyanuric acid value (val = CYA * 10, e.g. 300 = 30.0 mg/L)
-    SETALKVALUE        // Set last measured alkalinity value in mg/L (e.g. 100 = 100 mg/L)
+    SETALKVALUE,       // Set last measured alkalinity value in mg/L (e.g. 100 = 100 mg/L)
+    // care products added, only the last one per kind is kept
+    ADDPH,             // pH- / pH+ in g: val < 0 = pH-, val > 0 = pH+ (1-2000 g)
+    ADDCL,             // chlorine in g (1-2000)
+    ADDCLTAB,          // chlorine tablets (1-50)
+    ADDTA              // TA- / TA+ in g: val < 0 = TA-, val > 0 = TA+ (1-2000 g)
 };
 
 enum ToggleButtons : byte

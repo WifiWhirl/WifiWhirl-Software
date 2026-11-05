@@ -145,6 +145,19 @@ static bool validateCommandValue(Commands cmd, int64_t value, uint64_t xtime, St
         if (value < 0 || value > 300)
             error = F("VALUE out of range for SETALKVALUE");
         break;
+    case ADDPH:
+    case ADDTA:
+        if (value == 0 || value < -2000 || value > 2000)
+            error = F("VALUE out of range (-2000..2000 g, not 0)");
+        break;
+    case ADDCL:
+        if (value < 1 || value > 2000)
+            error = F("VALUE out of range for ADDCL (1..2000 g)");
+        break;
+    case ADDCLTAB:
+        if (value < 1 || value > 50)
+            error = F("VALUE out of range for ADDCLTAB (1..50)");
+        break;
     case GETTARGET:
         error = F("Unsupported command");
         break;
@@ -158,7 +171,7 @@ static bool buildCommandFromFields(int64_t cmdValue, int64_t value, int64_t xtim
                                    int64_t intervalValue, const String &text, bool force,
                                    command_que_item &item, String &error)
 {
-    if (cmdValue < SETTARGET || cmdValue > SETALKVALUE)
+    if (cmdValue < SETTARGET || cmdValue > ADDTA)
     {
         error = F("Unsupported command");
         return false;

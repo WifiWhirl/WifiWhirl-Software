@@ -1035,6 +1035,27 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
             _new_data_available = true;
         }
         break;
+    case ADDPH:
+    case ADDTA:
+        if (val != 0 && val >= -2000 && val <= 2000)
+        {
+            (cmd == ADDPH ? _dose_ph : _dose_ta) = (int16_t)val;
+            (cmd == ADDPH ? _dose_ph_ts : _dose_ta_ts) = _timestamp_secs;
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
+        break;
+    case ADDCL:
+    case ADDCLTAB:
+        if (val > 0 && val <= (cmd == ADDCL ? 2000 : 50))
+        {
+            _dose_cl = (uint16_t)val;
+            _dose_cl_tab = cmd == ADDCLTAB;
+            _dose_cl_ts = _timestamp_secs;
+            _save_settings_needed = true;
+            _new_data_available = true;
+        }
+        break;
     case SETJETS:
         if (val != cio->cio_states.jets)
             cio->cio_toggles.jets_change = 1;
@@ -1880,6 +1901,13 @@ void BWC::_buildJSONTimes(JsonObject doc)
     doc[F("CYAVAL")] = _last_cya_value;
     doc[F("ALKTIME")] = _alk_timestamp_s;
     doc[F("ALKVAL")] = _last_alk_value;
+    doc[F("DPH")] = _dose_ph;
+    doc[F("DPHTIME")] = _dose_ph_ts;
+    doc[F("DCL")] = _dose_cl;
+    doc[F("DCLTAB")] = _dose_cl_tab;
+    doc[F("DCLTIME")] = _dose_cl_ts;
+    doc[F("DTA")] = _dose_ta;
+    doc[F("DTATIME")] = _dose_ta_ts;
     doc[F("KWH")] = _energy_total_kWh;
     doc[F("KWHD")] = (_energy_daily_Ws + _energy_pending_daily_Ws) / 3600000.0; // Ws -> kWh
     doc[F("COSTD")] = _energy_daily_cost + _energy_pending_daily_cost;
@@ -1903,7 +1931,7 @@ size_t BWC::writeJSONTimes(Print &out)
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(1280); // 1024 + the dose keys
     _buildJSONTimes(doc.to<JsonObject>());
     return serializeJson(doc, out);
 }
@@ -1917,7 +1945,7 @@ void BWC::getJSONTimes(String &rtn)
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(1280); // 1024 + the dose keys
     _buildJSONTimes(doc.to<JsonObject>());
 
     // Serialize JSON to string
@@ -2050,7 +2078,7 @@ static void _cloudStamp(JsonObject doc, const __FlashStringHelper* key, uint32_t
 // actually entered, so it is the validity flag for the value as well. Either
 // both go out or both are null.
 static void _cloudWaterCare(JsonObject doc, const __FlashStringHelper* vkey,
-                            const __FlashStringHelper* tkey, uint16_t value, uint32_t stamp)
+                            const __FlashStringHelper* tkey, int32_t value, uint32_t stamp)
 {
     if (stamp > CLOUD_VALID_EPOCH)
     {
@@ -2130,6 +2158,13 @@ void BWC::buildCloudSnapshot(JsonObject doc, size_t* state_len_out)
     doc[F("FCINT")]  = _fc_interval;
     _cloudStamp(doc, F("WCTIME"), _wc_timestamp_s);
     doc[F("WCINT")]  = _wc_interval;
+
+    // Last care product added: grams, sign = minus/plus product;
+    // chlorine in g or tablets (DCLTAB). Same null rule as the readings.
+    _cloudWaterCare(doc, F("DPH"), F("DPHTIME"), _dose_ph, _dose_ph_ts);
+    _cloudWaterCare(doc, F("DCL"), F("DCLTIME"), _dose_cl, _dose_cl_ts);
+    doc[F("DCLTAB")] = _dose_cl_tab;
+    _cloudWaterCare(doc, F("DTA"), F("DTATIME"), _dose_ta, _dose_ta_ts);
 
     // Smart schedule status (device-side fields of getJSONSmartSchedule; the
     // backend derives buffer/cost/countdowns from these + settings PRICE)
@@ -2816,6 +2851,13 @@ void BWC::_loadSettings()
     _last_alk_value = doc[F("ALKVAL")] | 100;
     _cya_timestamp_s = doc[F("CYATIME")] | 0;
     _alk_timestamp_s = doc[F("ALKTIME")] | 0;
+    _dose_ph = doc[F("DPH")] | 0;
+    _dose_ph_ts = doc[F("DPHTIME")] | 0;
+    _dose_cl = doc[F("DCL")] | 0;
+    _dose_cl_tab = doc[F("DCLTAB")] | false;
+    _dose_cl_ts = doc[F("DCLTIME")] | 0;
+    _dose_ta = doc[F("DTA")] | 0;
+    _dose_ta_ts = doc[F("DTATIME")] | 0;
     _audio_enabled = doc[F("AUDIO")] | true;
     _jet_countdown = doc[F("JETCD")] | false;
     _standby_original = doc[F("STBYORIG")] | true;
@@ -3249,6 +3291,13 @@ void BWC::saveSettings()
     doc[F("ALKVAL")] = _last_alk_value;
     doc[F("CYATIME")] = _cya_timestamp_s;
     doc[F("ALKTIME")] = _alk_timestamp_s;
+    doc[F("DPH")] = _dose_ph;
+    doc[F("DPHTIME")] = _dose_ph_ts;
+    doc[F("DCL")] = _dose_cl;
+    doc[F("DCLTAB")] = _dose_cl_tab;
+    doc[F("DCLTIME")] = _dose_cl_ts;
+    doc[F("DTA")] = _dose_ta;
+    doc[F("DTATIME")] = _dose_ta_ts;
     doc[F("AUDIO")] = _audio_enabled;
     doc[F("JETCD")] = _jet_countdown;
     doc[F("STBYORIG")] = _standby_original;

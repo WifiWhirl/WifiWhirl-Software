@@ -58,6 +58,8 @@ export interface TimesMsg {
   // optional, only present on some builds / when enabled
   WATT?: number; KWHD?: number; KWH?: number; COSTD?: number;
   CYATIME?: number; CYAVAL?: number; ALKTIME?: number; ALKVAL?: number;
+  // last care product added: g, sign = minus/plus product
+  DPH?: number; DPHTIME?: number; DCL?: number; DCLTAB?: boolean; DCLTIME?: number; DTA?: number; DTATIME?: number;
 }
 
 /**
@@ -77,6 +79,7 @@ const cmdMap: Record<string, number> = {
   setReady: 20, setR: 21, togglePWR: 22, toggleLCK: 23,
   resetTimerCleanFilter: 24, resetTimerWaterChange: 25, setEnableButtons: 26,
   setPhValue: 27, setClValue: 28, setCyaValue: 29, setAlkValue: 30,
+  addPh: 31, addCl: 32, addClTab: 33, addTa: 34,
 };
 
 // --- reactive state -------------------------------------------------------

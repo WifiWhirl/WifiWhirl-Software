@@ -287,6 +287,11 @@ private:
     uint16_t _last_cl_value;       // Last chlorine value * 10 (e.g. 15 = 1.5 mg/L)
     uint16_t _last_cya_value;      // Last cyanuric acid value * 10 (e.g. 300 = 30.0 mg/L)
     uint16_t _last_alk_value;      // Last alkalinity value in mg/L (e.g. 100 = 100 mg/L)
+    // last care product added per kind (see ADDPH..ADDTA), 0 stamp = never
+    int16_t _dose_ph = 0, _dose_ta = 0; // g, sign = minus/plus product
+    uint16_t _dose_cl = 0;              // g, or tablets with _dose_cl_tab
+    bool _dose_cl_tab = false;
+    uint32_t _dose_ph_ts = 0, _dose_cl_ts = 0, _dose_ta_ts = 0;
     uint32_t _uptime;
     uint32_t _pumptime;
     uint32_t _heatingtime;

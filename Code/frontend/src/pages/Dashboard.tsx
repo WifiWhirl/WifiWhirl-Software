@@ -292,11 +292,13 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
       </Row>
       <RangeBar value={parseFloat(ph.replace(',', '.'))} min={0} max={14} low={7.2} high={7.6} />
       <p class="hint">{t('dashboard.idealRange')}: 7,2 - 7,6 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.PHTIME)) : '-'}</p>
+      <LastDose ts={tm?.DPHTIME} text={tm?.DPH ? `${Math.abs(tm.DPH)} g ${tm.DPH < 0 ? 'pH-' : 'pH+'}` : ''} />
       <Row label={t('dashboard.chlorineValue')}>
         <NumberInput value={cl} min={0} max={10} step={0.1} onInput={(v) => edit('cl', v)} />
       </Row>
       <RangeBar value={parseFloat(cl.replace(',', '.'))} min={0} max={10} low={1.0} high={3.0} />
       <p class="hint">{t('dashboard.idealRange')}: 1,0 - 3,0 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CLVTIME)) : '-'}</p>
+      <LastDose ts={tm?.DCLTIME} text={tm?.DCL ? (tm.DCLTAB ? t('dashboard.doseTablets', { n: tm.DCL }) : `${tm.DCL} g`) : ''} />
       {showCya && (
         <>
           <Row label={t('dashboard.cyanuricValue')}>
@@ -313,9 +315,51 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
           </Row>
           <RangeBar value={parseFloat(alk.replace(',', '.'))} min={0} max={300} low={80} high={120} />
           <p class="hint">{t('dashboard.idealRange')}: 80 - 120 · {t('dashboard.lastChecked')}: {tm?.ALKTIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.ALKTIME)) : '-'}</p>
+          <LastDose ts={tm?.DTATIME} text={tm?.DTA ? `${Math.abs(tm.DTA)} g ${tm.DTA < 0 ? 'TA-' : 'TA+'}` : ''} />
         </>
       )}
+      <AddDose showAlk={showAlk} />
     </Card>
+  );
+}
+
+/** "Last added: 50 g pH- · 2 days ago", nothing before the first entry. */
+function LastDose({ ts, text }: { ts?: number; text: string }) {
+  if (!ts || !text) return null;
+  return <p class="hint">{t('dashboard.lastDose')}: {text} · {getTimeSinceText(Math.floor(Date.now() / 1000 - ts))}</p>;
+}
+
+// product -> command, value sign and the most one entry allows
+const DOSES = {
+  phMinus: { cmd: 'addPh', sign: -1, max: 2000 }, phPlus: { cmd: 'addPh', sign: 1, max: 2000 },
+  clG: { cmd: 'addCl', sign: 1, max: 2000 }, clTab: { cmd: 'addClTab', sign: 1, max: 50 },
+  taMinus: { cmd: 'addTa', sign: -1, max: 2000 }, taPlus: { cmd: 'addTa', sign: 1, max: 2000 },
+} as const;
+type Dose = keyof typeof DOSES;
+
+/** Record a care product added to the water, stamped with the current time. */
+function AddDose({ showAlk }: { showAlk: boolean }) {
+  const [what, setWhat] = useState<Dose>('phMinus');
+  const [amount, setAmount] = useState('');
+  const d = DOSES[what];
+  const n = Math.round(Number(amount.replace(',', '.')));
+  const ok = n >= 1 && n <= d.max;
+  const kinds = (Object.keys(DOSES) as Dose[]).filter((k) => showAlk || !k.startsWith('ta'));
+  return (
+    <div class="cfg-subsection">
+      <h3>{t('dashboard.doseAdd')}</h3>
+      <Row label={t('dashboard.doseProduct')}>
+        <select value={what} onChange={(e) => setWhat((e.target as HTMLSelectElement).value as Dose)}>
+          {kinds.map((k) => <option key={k} value={k}>{t(`dashboard.dose.${k}`)}</option>)}
+        </select>
+      </Row>
+      <Row label={t('dashboard.doseAmount')}>
+        <NumberInput value={amount} min={1} max={d.max} step={1} unit={what === 'clTab' ? t('dashboard.doseTabUnit') : 'g'} onInput={setAmount} />
+      </Row>
+      <button class="btn" disabled={!ok} onClick={() => { sendCommand(d.cmd, d.sign * n); setAmount(''); }}>
+        {t('dashboard.doseSave')}
+      </button>
+    </div>
   );
 }
 
