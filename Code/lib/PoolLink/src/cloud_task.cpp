@@ -655,45 +655,72 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
     item.force    = false;
 
     // action → (bwc command, value); mirrors the local web API's mapping.
-    struct ActionMap { const char* name; Commands cmd; enum { ONOFF, NUM, TENTHS, NONE, TOGGLE } vk; };
+    // Action names live in flash as one '\0'-separated list, in MAP's order:
+    // as a RAM string table they cost ~450 B of static RAM on the ESP8266.
+    static const char NAMES[] PROGMEM =
+        "heater\0"
+        "filter\0"
+        "bubbles\0"
+        "jets\0"
+        "set_target_temp\0"
+        "toggle_power\0"
+        "toggle_lock\0"
+        "set_brightness\0"
+        "set_ambient_c\0"
+        "set_ambient_f\0"
+        "set_ph\0"
+        "set_chlorine\0"
+        "set_cyanuric\0"
+        "set_alkalinity\0"
+        "add_ph\0"
+        "add_chlorine\0"
+        "add_chlorine_tablets\0"
+        "add_alkalinity\0"
+        "reset_timer_chlorine\0"
+        "reset_timer_filter\0"
+        "reset_timer_filter_clean\0"
+        "reset_timer_water_change\0"
+        "reset_totals\0"
+        "reset_daily_energy\0"
+        "set_full_power\0";
+    struct ActionMap { Commands cmd; enum : uint8_t { ONOFF, NUM, TENTHS, NONE, TOGGLE } vk; };
     static const ActionMap MAP[] = {
-        { "heater",                  SETHEATER,     ActionMap::ONOFF },
-        { "filter",                  SETPUMP,       ActionMap::ONOFF },
-        { "bubbles",                 SETBUBBLES,    ActionMap::ONOFF },
-        { "jets",                    SETJETS,       ActionMap::ONOFF },
-        { "set_target_temp",         SETTARGET,     ActionMap::NUM },
-        { "toggle_power",            TOGGLEPWR,     ActionMap::TOGGLE },
-        { "toggle_lock",             TOGGLELCK,     ActionMap::TOGGLE },
-        { "set_brightness",          SETBRIGHTNESS, ActionMap::NUM },
-        { "set_ambient_c",           SETAMBIENTC,   ActionMap::NUM },
-        { "set_ambient_f",           SETAMBIENTF,   ActionMap::NUM },
-        { "set_ph",                  SETPHVALUE,    ActionMap::TENTHS },
-        { "set_chlorine",            SETCLVALUE,    ActionMap::TENTHS },
-        { "set_cyanuric",            SETCYAVALUE,   ActionMap::TENTHS },
-        { "set_alkalinity",          SETALKVALUE,   ActionMap::NUM },
-        // care products added: g, negative = pH- / TA-
-        { "add_ph",                  ADDPH,         ActionMap::NUM },
-        { "add_chlorine",            ADDCL,         ActionMap::NUM },
-        { "add_chlorine_tablets",    ADDCLTAB,      ActionMap::NUM },
-        { "add_alkalinity",          ADDTA,         ActionMap::NUM },
-        { "reset_timer_chlorine",    RESETCLTIMER,  ActionMap::NONE },
-        { "reset_timer_filter",      RESETFTIMER,   ActionMap::NONE },
-        { "reset_timer_filter_clean", RESETFCTIMER, ActionMap::NONE },
-        { "reset_timer_water_change", RESETWCTIMER, ActionMap::NONE },
-        { "reset_totals",            RESETTIMES,    ActionMap::NONE },
-        { "reset_daily_energy",      RESETDAILY,    ActionMap::NONE },
-        { "set_full_power",          SETFULLPOWER,  ActionMap::NUM },
+        { SETHEATER, ActionMap::ONOFF },  // heater
+        { SETPUMP, ActionMap::ONOFF },  // filter
+        { SETBUBBLES, ActionMap::ONOFF },  // bubbles
+        { SETJETS, ActionMap::ONOFF },  // jets
+        { SETTARGET, ActionMap::NUM },  // set_target_temp
+        { TOGGLEPWR, ActionMap::TOGGLE },  // toggle_power
+        { TOGGLELCK, ActionMap::TOGGLE },  // toggle_lock
+        { SETBRIGHTNESS, ActionMap::NUM },  // set_brightness
+        { SETAMBIENTC, ActionMap::NUM },  // set_ambient_c
+        { SETAMBIENTF, ActionMap::NUM },  // set_ambient_f
+        { SETPHVALUE, ActionMap::TENTHS },  // set_ph
+        { SETCLVALUE, ActionMap::TENTHS },  // set_chlorine
+        { SETCYAVALUE, ActionMap::TENTHS },  // set_cyanuric
+        { SETALKVALUE, ActionMap::NUM }, // care products added: g, negative = pH- / TA-  // set_alkalinity
+        { ADDPH, ActionMap::NUM },  // add_ph
+        { ADDCL, ActionMap::NUM },  // add_chlorine
+        { ADDCLTAB, ActionMap::NUM },  // add_chlorine_tablets
+        { ADDTA, ActionMap::NUM },  // add_alkalinity
+        { RESETCLTIMER, ActionMap::NONE },  // reset_timer_chlorine
+        { RESETFTIMER, ActionMap::NONE },  // reset_timer_filter
+        { RESETFCTIMER, ActionMap::NONE },  // reset_timer_filter_clean
+        { RESETWCTIMER, ActionMap::NONE },  // reset_timer_water_change
+        { RESETTIMES, ActionMap::NONE },  // reset_totals
+        { RESETDAILY, ActionMap::NONE },// reset_daily_energy
+        { SETFULLPOWER, ActionMap::NUM },// set_full_power
     };
 
     bool success = false;
 
-    if (strcmp(action, "set_unit") == 0) {
+    if (strcmp_P(action, PSTR("set_unit")) == 0) {
         item.cmd = SETUNIT;
         const char* u = val | "";
         item.val = (strcmp(u, "c") == 0 || strcmp(u, "C") == 0) ? 1 : 0;
         success = bwc->add_command(item);
 
-    } else if (strcmp(action, "set_smart_schedule") == 0) {
+    } else if (strcmp_P(action, PSTR("set_smart_schedule")) == 0) {
         // value: {"target_time":…,"target_temp":…,"keep_heater_on":…}
         // (compact TARGETTIME/TARGETTEMP/KEEPON accepted too)
         uint64_t tt  = val[F("target_time")].as<uint64_t>();
@@ -708,25 +735,25 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         bool kpump = val[F("keep_pump_on")].as<bool>() || val[F("KEEPPUMP")].as<bool>();
         success = (tt > 0 && tmp > 0) && bwc->setSmartSchedule(tt, tmp, kp, rp, kpump);
 
-    } else if (strcmp(action, "cancel_smart_schedule") == 0) {
+    } else if (strcmp_P(action, PSTR("cancel_smart_schedule")) == 0) {
         bwc->cancelSmartSchedule();
         success = true;
 
-    } else if (strcmp(action, "set_smart_schedule_keepon") == 0) {
+    } else if (strcmp_P(action, PSTR("set_smart_schedule_keepon")) == 0) {
         success = bwc->updateSmartScheduleKeepHeaterOn(_onOff(val) != 0);
 
-    } else if (strcmp(action, "set_smart_schedule_keeppump") == 0) {
+    } else if (strcmp_P(action, PSTR("set_smart_schedule_keeppump")) == 0) {
         success = bwc->updateSmartScheduleKeepPumpOn(_onOff(val) != 0);
 
-    } else if (strcmp(action, "set_smart_schedule_repeat") == 0) {
+    } else if (strcmp_P(action, PSTR("set_smart_schedule_repeat")) == 0) {
         success = bwc->updateSmartScheduleRepeat(val.as<uint8_t>());
 
-    } else if (strcmp(action, "install_update") == 0) {
+    } else if (strcmp_P(action, PSTR("install_update")) == 0) {
         // install the newest signed firmware from the update server
         String err;
         success = requestCloudUpdate(err);
 
-    } else if (strcmp(action, "set_settings") == 0) {
+    } else if (strcmp_P(action, PSTR("set_settings")) == 0) {
         // value: partial settings object; bwc merges by key (same as /setconfig/).
         String msg, errStr;
         serializeJson(val, msg);
@@ -737,20 +764,20 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         requestResync();
 
     // ── Automation: command queue management ──
-    } else if (strcmp(action, "queue_enable") == 0) {
+    } else if (strcmp_P(action, PSTR("queue_enable")) == 0) {
         bwc->set_command_queue_enabled(_onOff(val) != 0);
         success = true;
         _queue_dirty = true;
 
-    } else if (strcmp(action, "queue_item_enable") == 0) {
+    } else if (strcmp_P(action, PSTR("queue_item_enable")) == 0) {
         success = bwc->set_command_enabled(val[F("IDX")].as<uint8_t>(), _onOff(val[F("EN")]) != 0);
         _queue_dirty = true;
 
-    } else if (strcmp(action, "queue_del") == 0) {
+    } else if (strcmp_P(action, PSTR("queue_del")) == 0) {
         success = bwc->del_command(val[F("IDX")].as<uint8_t>());
         _queue_dirty = true;
 
-    } else if (strcmp(action, "queue_add") == 0 || strcmp(action, "queue_edit") == 0) {
+    } else if (strcmp_P(action, PSTR("queue_add")) == 0 || strcmp_P(action, PSTR("queue_edit")) == 0) {
         // value: {CMD, VALUE, XTIME, INTERVAL, TXT?, IDX (edit only)}
         item.cmd      = (Commands)val[F("CMD")].as<int>();
         item.val      = val[F("VALUE")].as<int64_t>();
@@ -767,8 +794,11 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         _queue_dirty = true;
 
     } else {
+        const char* name = NAMES;
         for (const auto& m : MAP) {
-            if (strcmp(action, m.name) != 0) continue;
+            bool hit = strcmp_P(action, name) == 0;
+            name += strlen_P(name) + 1;
+            if (!hit) continue;
             item.cmd = m.cmd;
             switch (m.vk) {
                 case ActionMap::ONOFF:  item.val = _onOff(val); break;
