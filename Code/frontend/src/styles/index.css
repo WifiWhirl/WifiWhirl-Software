@@ -2320,3 +2320,15 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   .cal-timeline .ss-timeline-step span { margin-top: 0; }
   .cal-gaps-inline { display: block; margin-top: 10px; }
 }
+
+/* "care product added" as one line under the water values */
+.dose-add {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+.dose-add h3 { margin: 0 0 8px; font-size: 0.92rem; font-weight: 780; }
+/* product on top, amount + button below: two lines at any width */
+.dose-row { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 8px; }
+.dose-row select { grid-column: 1 / -1; width: 100%; min-width: 0; }
+.dose-row .number-control input { width: 56px; }

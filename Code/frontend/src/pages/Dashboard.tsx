@@ -346,19 +346,20 @@ function AddDose({ showAlk }: { showAlk: boolean }) {
   const ok = n >= 1 && n <= d.max;
   const kinds = (Object.keys(DOSES) as Dose[]).filter((k) => showAlk || !k.startsWith('ta'));
   return (
-    <div class="cfg-subsection">
+    // one compact line, so the card with every value shown still fits the
+    // largest box
+    <div class="dose-add">
       <h3>{t('dashboard.doseAdd')}</h3>
-      <Row label={t('dashboard.doseProduct')}>
-        <select value={what} onChange={(e) => setWhat((e.target as HTMLSelectElement).value as Dose)}>
+      <div class="dose-row">
+        <select aria-label={t('dashboard.doseProduct')} value={what}
+          onChange={(e) => setWhat((e.target as HTMLSelectElement).value as Dose)}>
           {kinds.map((k) => <option key={k} value={k}>{t(`dashboard.dose.${k}`)}</option>)}
         </select>
-      </Row>
-      <Row label={t('dashboard.doseAmount')}>
         <NumberInput value={amount} min={1} max={d.max} step={1} unit={what === 'clTab' ? t('dashboard.doseTabUnit') : 'g'} onInput={setAmount} />
-      </Row>
-      <button class="btn" style="margin-top:14px" disabled={!ok} onClick={() => { sendCommand(d.cmd, d.sign * n); setAmount(''); }}>
-        {t('dashboard.doseSave')}
-      </button>
+        <button class="btn" disabled={!ok} onClick={() => { sendCommand(d.cmd, d.sign * n); setAmount(''); }}>
+          {t('dashboard.doseSave')}
+        </button>
+      </div>
     </div>
   );
 }
