@@ -2465,9 +2465,10 @@ bool BWC::_jetCountdownText(char *out)
         rem[1] = (int32_t)(_hydrojet_timeout_minutes * 60UL) - (int32_t)(on_ms[1] / 1000);
     static const char tag[2] = {'a', 'H'};
     for (int i = 0; i < 2; i++)
-        if (rem[i] >= 0 && rem[i] < 60)
+        // the last minute counts down from 59 right away, no "A 1" first
+        if (rem[i] >= 0 && rem[i] <= 60)
         {
-            snprintf(out, 4, "%c%02d", tag[i], (int)rem[i]);
+            snprintf(out, 4, "%c%02d", tag[i], (int)(rem[i] > 59 ? 59 : rem[i]));
             return true;
         }
     bool due[2];
