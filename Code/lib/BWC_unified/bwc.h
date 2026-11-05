@@ -103,7 +103,11 @@ struct heatloss_cal_t
     uint16_t discarded = 0;     // measurement intervals thrown away (noise/disturbance)
     float result = 0;           // last computed coefficient (W/K), 0 = none
     uint8_t error = 0;          // last abort reason, 0 = none
-    bool low_diff = false;      // started (planned) with water/ambient below 8 K: result may be off
+    float req_water_c = 0;      // water temp when the calibration was started/planned start came
+    time_t end_ts = 0;          // finished, aborted, cancelled or skipped (0 = still running / never)
+    float end_water_c = 0;      // water temp then
+    // All of the above stays until the next start, so the last run can still be
+    // read the next morning.
     bool restore_pending = false; // cancelled: restore once the presses still queued are done
     uint32_t restore_deadline = 0; // millis(), restore anyway after this
 };
@@ -175,7 +179,7 @@ public:
     void getJSONSmartSchedule(String &rtn);
 
     // Heat-loss calibration / coefficient (feeds the time-to-target estimate)
-    bool startHeatLossCalibration(String &err, bool force = false);
+    bool startHeatLossCalibration(String &err);
     bool planHeatLossCalibration(uint64_t at); // start once at this time, 0 = no plan
     void cancelHeatLossCalibration();
     void getJSONHeatLossCalibration(String &rtn);

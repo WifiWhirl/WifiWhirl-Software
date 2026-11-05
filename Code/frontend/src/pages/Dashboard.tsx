@@ -6,7 +6,7 @@ import { LedDisplay } from '../components/LedDisplay';
 import { Thermostat } from '../components/Thermostat';
 import { DashboardGrid } from '../components/DashboardGrid';
 import { Icon } from '../components/icons';
-import { confirmDialog, showCalResult } from '../components/feedback';
+import { confirmDialog, showCalResult, calAbortText } from '../components/feedback';
 import { SHOW_HEAT_LOSS_CALIBRATION } from '../flags';
 import { lastStates, lastTimes, lastOther, sendCommand, useCommsPolling } from '../comms';
 import { postJson } from '../api';
@@ -46,6 +46,24 @@ export function Dashboard() {
     }
     prevCal.current = !!s?.HLCAL;
   }, [s?.HLCAL]);
+
+  // A calibration that stopped or never started (planned, water too cold) while
+  // nobody watched: say so the next time the overview opens, until dismissed
+  //.
+  const [calNote, setCalNote] = useState<{ ERROR?: string; ENDTS?: number; REQWATER?: number; STARTAMB?: number; MINDIFF?: number } | null>(null);
+  useEffect(() => {
+    if (!SHOW_HEAT_LOSS_CALIBRATION) return;
+    postJson<{ ACTIVE?: boolean; ERROR?: string; ENDTS?: number; REQWATER?: number; STARTAMB?: number; MINDIFF?: number }>('/gethlcal/', {})
+      .then((d) => {
+        let seen = '';
+        try { seen = localStorage.getItem('hlcalSeen') ?? ''; } catch { /* private mode */ }
+        if (!d.ACTIVE && d.ERROR && d.ENDTS && String(d.ENDTS) !== seen) setCalNote(d);
+      }).catch(() => {});
+  }, []);
+  function dismissCalNote() {
+    try { localStorage.setItem('hlcalSeen', String(calNote?.ENDTS ?? '')); } catch { /* private mode */ }
+    setCalNote(null);
+  }
 
   if (!s) return (
     <div aria-busy="true" aria-label={t('dashboard.loading')}>
@@ -168,6 +186,12 @@ export function Dashboard() {
     <>
       {SHOW_HEAT_LOSS_CALIBRATION && s.HLCAL && (
         <div class="cal-banner" role="status" aria-live="polite">{t('dashboard.calRunning')}</div>
+      )}
+      {calNote && !s.HLCAL && (
+        <div class="cal-banner" role="status">
+          <b>{t('dashboard.calLast')}:</b> {calAbortText(calNote)}{' '}
+          <button class="btn ghost" onClick={dismissCalNote}>{t('common.ok')}</button>
+        </div>
       )}
       {edit && (
         <div class="dash-toolbar">

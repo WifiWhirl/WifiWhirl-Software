@@ -2305,3 +2305,18 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   .ss-option-row .segmented { flex: 0 0 auto; }
   .ss-option-row .segmented button { white-space: nowrap; }
 }
+
+/* calibration timeline: the time between two steps, under the line between them */
+.cal-timeline .cal-gaps { position: absolute; left: 0; right: 0; top: 30px; height: 1em; pointer-events: none; }
+.cal-timeline .cal-gaps span {
+  position: absolute; transform: translateX(-50%);
+  font-size: 0.74rem; font-weight: 720; color: var(--muted); white-space: nowrap;
+}
+.cal-timeline .ss-timeline-steps { margin-top: 0; }
+.cal-timeline .ss-timeline-step span { margin-top: 14px; }
+.cal-gaps-inline { display: none; }
+@media (max-width: 560px) {
+  .cal-timeline .cal-gaps { display: none; }
+  .cal-timeline .ss-timeline-step span { margin-top: 0; }
+  .cal-gaps-inline { display: block; margin-top: 10px; }
+}

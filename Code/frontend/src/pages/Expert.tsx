@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { needsLogin, postJson, postJsonResponse, saveConfig } from '../api';
 import { Card, Row, SaveButton, TimelineStep } from '../components/ui';
 import { CheckField, NumField } from '../components/fields';
-import { showToast, confirmDialog, showCalResult } from '../components/feedback';
+import { showToast, confirmDialog, showCalResult, calAbortText } from '../components/feedback';
 import { PageSkeleton } from '../components/Skeleton';
 import { t } from '../i18n';
 import { dec, durLong } from '../util/format';
@@ -17,9 +17,11 @@ interface DevPower {
 interface HlCal {
   ACTIVE?: boolean; PHASE?: number; CURRENT?: number; DEFAULT?: number; TARGETDROP?: number;
   RESULT?: number; ERROR?: string;
-  STARTWATER?: number; STARTAMB?: number; DROP?: number; ELAPSED?: number;
-  ANCHORED?: boolean; ANCHORELAPSED?: number; RESTORING?: boolean; DISCARDED?: number;
-  PLANNED?: number; LOWDIFF?: boolean; // planned start; ran with water < 8 K above air
+  STARTAMB?: number; ANCHORED?: boolean; RESTORING?: boolean; DISCARDED?: number;
+  PLANNED?: number; MINDIFF?: number; NOW?: number;
+  // the last run, kept until the next start (epoch seconds, water in °C)
+  REQTS?: number; REQWATER?: number; STARTTS?: number; STARTWATER?: number;
+  ANCHORTS?: number; ANCHORWATER?: number; ENDTS?: number; ENDWATER?: number;
 }
 /** today 22:00, as a datetime-local value */
 function tonight(): string {
@@ -121,7 +123,7 @@ export function Expert() {
       if (res.ok) { showToast(t('expert.calStarted')); refreshCal(); }
       else {
         const key = `expert.calErr.${(await res.text()).trim()}`;
-        const msg = t(key);
+        const msg = t(key, { min: dec(cal?.MINDIFF ?? 8, 0) });
         showToast(msg === key ? t('common.error') : msg, true); // t() echoes the key when missing
       }
     } catch {
@@ -149,9 +151,9 @@ export function Expert() {
   // Gated at the source, so the hero state and the timeline stay inert while the
   // calibration UI is hidden - even if a run were started outside the frontend.
   const active = SHOW_HEAT_LOSS_CALIBRATION && !!cal?.ACTIVE;
-  const finished = SHOW_HEAT_LOSS_CALIBRATION && !active && !cal?.ERROR && (cal?.RESULT ?? 0) > 0;
-  // 0 prep, 1 waiting for the first sensor tick, 2 measuring the interval, 3 done
-  const step = !active ? 3 : cal?.PHASE !== 1 ? 0 : cal?.ANCHORED ? 2 : 1;
+  // the last run stays visible until the next start, also after an abort
+  const hasRun = SHOW_HEAT_LOSS_CALIBRATION && !!cal?.REQTS && cal?.ERROR !== 'tempdiff';
+  const minDiff = cal?.MINDIFF ?? 8;
 
 
   return (
@@ -183,12 +185,11 @@ export function Expert() {
         {SHOW_HEAT_LOSS_CALIBRATION && (
           <>
             <p class="hint" style="margin-top:16px">{t('expert.calInfo')}</p>
-            <p class="hint">{t('expert.calHow')}</p>
-            {(active || finished) && <CalTimeline cal={cal} step={step} finished={finished} />}
+            <p class="hint">{t('expert.calHow', { min: dec(minDiff, 0) })}</p>
+            {hasRun && cal && <CalTimeline cal={cal} />}
             {/* the last run ended without a result: say why, not only in the dialog
                 someone watching the page got */}
-            {!active && cal?.ERROR && <p class="hint warn">{t(`expert.calAbort.${cal.ERROR}`)}</p>}
-            {(active || finished) && cal?.LOWDIFF && <p class="hint warn">{t('expert.calLowDiff')}</p>}
+            {!active && cal?.ERROR && <p class="hint warn">{calAbortText(cal)}</p>}
             {!active && !!cal?.PLANNED && (
               <div class="actions">
                 <p class="hint">{t('expert.calPlannedAt', { at: new Date(cal.PLANNED * 1000).toLocaleString() })}</p>
@@ -234,36 +235,52 @@ export function Expert() {
 }
 
 /**
- * @brief Calibration progress on the shared ss-timeline: prepare → wait for a
- * sensor tick → measure between ticks → result.
+ * @brief The last calibration run on the shared ss-timeline: start, first and
+ * second sensor step, result. Water temperature at each point, the time
+ * between them under the line. Stays until the next
+ * start, so a finished or aborted run can still be read afterwards.
  */
-function CalTimeline({ cal, step, finished }: { cal: HlCal | null; step: number; finished: boolean }) {
-  const check = '✓';
+function CalTimeline({ cal }: { cal: HlCal }) {
+  const now = cal.NOW ?? Math.floor(Date.now() / 1000);
+  const end = cal.ENDTS ?? now;
+  const temp = (v?: number) => (v != null ? `${dec(v, 1)} °C` : '…');
+  const ok = (cal.RESULT ?? 0) > 0 && !cal.ERROR;
+  // 0 start, 1 first step, 2 second step, 3 result
+  const reached = ok ? 3 : cal.ANCHORTS ? 1 : 0;
+  const waiting = cal.ACTIVE ? (cal.ANCHORTS ? 2 : 1) : -1;
+  const gap1 = (cal.ANCHORTS ?? end) - (cal.REQTS ?? end);
+  const gap2 = cal.ANCHORTS ? (ok ? (cal.ENDTS ?? end) : end) - cal.ANCHORTS : 0;
+  const gaps = [gap1 > 0 ? durLong(gap1) : '', cal.ANCHORTS && gap2 > 0 ? durLong(gap2) : '', ''];
   return (
     <>
-      <div class="ss-timeline" style={`--ss-progress:${(step / 3) * 100}%`}>
+      <div class="ss-timeline cal-timeline" style={`--ss-progress:${(Math.max(reached, waiting - 0.5, 0) / 3) * 100}%`}>
         <div class="ss-timeline-bar"><span /></div>
+        <div class="cal-gaps" aria-hidden="true">
+          {gaps.map((g, i) => <span key={i} style={`left:${(i + 1) * 25}%`}>{g}</span>)}
+        </div>
         <div class="ss-timeline-steps">
-          <TimelineStep label={t('expert.calStepPrep')} value={step === 0 ? '…' : check}
-            active={step === 0} done={step > 0} />
+          <TimelineStep label={t('expert.calStepPrep')} value={temp(cal.REQWATER)} done />
           <TimelineStep label={t('expert.calStepWaitTick')}
-            value={step === 1 ? `${durLong(cal?.ELAPSED ?? 0)} · ${t('expert.calStartAt', { t: dec(cal?.STARTWATER, 1) })}` : step > 1 ? check : '--'}
-            active={step === 1} done={step > 1} />
-          <TimelineStep label={t('expert.calStepMeasure')}
-            value={step === 2 ? durLong(cal?.ANCHORELAPSED ?? 0) : step > 2 ? check : '--'}
-            active={step === 2} done={step > 2} />
+            value={cal.ANCHORTS ? temp(cal.ANCHORWATER) : waiting === 1 ? '…' : '--'}
+            active={waiting === 1} done={reached >= 1} />
+          <TimelineStep label={t('expert.calStepSecondTick')}
+            value={ok ? temp(cal.ENDWATER) : waiting === 2 ? '…' : '--'}
+            active={waiting === 2} done={ok} />
           <TimelineStep label={t('expert.calStepResult')}
-            value={finished ? `${dec(cal?.RESULT, 2)} W/K` : '--'}
-            active={step === 3} done={finished} />
+            value={ok ? `${dec(cal.RESULT, 2)} W/K` : '--'} done={ok} />
         </div>
       </div>
-      {step === 0 && <p class="hint">{t('expert.calPreparing')}</p>}
-      {step === 1 && <p class="hint">{t('expert.calWaitTick')}</p>}
-      {cal?.RESTORING && <p class="hint warn">{t('expert.calRestoring')}</p>}
-      {step > 0 && step < 3 && (cal?.DISCARDED ?? 0) > 0 &&
-        <p class="hint">{t('expert.calDiscarded', { n: cal!.DISCARDED! })}</p>}
-      {/* the mean only covers the measured interval, which starts at the first tick */}
-      {step === 2 && <Row label={t('expert.calAmbient')}><span>{dec(cal?.STARTAMB, 1)} °C</span></Row>}
+      {/* phones show the timeline vertically: the gaps go into a line below */}
+      <p class="hint cal-gaps-inline">
+        {gaps[0] && `${t('expert.calStepPrep')} → ${t('expert.calStepWaitTick')}: ${gaps[0]}`}
+        {gaps[1] && ` · ${t('expert.calStepWaitTick')} → ${t('expert.calStepSecondTick')}: ${gaps[1]}`}
+      </p>
+      {cal.ACTIVE && cal.PHASE !== 1 && <p class="hint">{t('expert.calPreparing')}</p>}
+      {cal.ACTIVE && cal.PHASE === 1 && !cal.ANCHORED && <p class="hint">{t('expert.calWaitTick')}</p>}
+      {cal.RESTORING && <p class="hint warn">{t('expert.calRestoring')}</p>}
+      {cal.ACTIVE && (cal.DISCARDED ?? 0) > 0 &&
+        <p class="hint">{t('expert.calDiscarded', { n: cal.DISCARDED! })}</p>}
+      {cal.ANCHORTS && cal.STARTAMB != null && <Row label={t('expert.calAmbient')}><span>{dec(cal.STARTAMB, 1)} °C</span></Row>}
     </>
   );
 }

@@ -30,8 +30,12 @@ enum HlCalError : uint8_t
     HLCAL_ERR_PREP = 1,
     HLCAL_ERR_INTERRUPTED = 2,
     HLCAL_ERR_TIMEOUT = 3,
-    HLCAL_ERR_UNSTABLE = 4
+    HLCAL_ERR_UNSTABLE = 4,
+    HLCAL_ERR_TEMPDIFF = 5 // planned start skipped: water not warm enough above the air
 };
+// Minimum water/ambient difference to start. 8 K let a whole night
+// pass without one sensor tick at 12 K (tester); value still being decided.
+constexpr float HLCAL_MIN_DIFF_K = 8.0f;
 
 float displayTempC(uint8_t unit, float temp)
 {
@@ -74,6 +78,8 @@ const __FlashStringHelper *hlCalErrorName(uint8_t error)
         return F("timeout");
     case HLCAL_ERR_UNSTABLE:
         return F("unstable");
+    case HLCAL_ERR_TEMPDIFF:
+        return F("tempdiff");
     default:
         return F("");
     }
@@ -1218,22 +1224,21 @@ void BWC::setHeatLoss(float v)
 // HydroJet off, pump on) happens in _handleHeatLossCalibration so the toggles
 // are set at the right point in the loop. The only refusal here is too small a
 // water/ambient difference (err carries a short code the UI localizes).
-bool BWC::startHeatLossCalibration(String &err, bool force)
+bool BWC::startHeatLossCalibration(String &err)
 {
     float waterC = waterTempC(cio);
-    // A planned start (force) runs anyway, the UI warns about the result
-    bool low_diff = waterC - _ambient_temp < 8.0f;
-    if (low_diff && !force)
+    if (waterC - _ambient_temp < HLCAL_MIN_DIFF_K)
     {
         err = F("tempdiff");
         return false;
     }
 
     _hlcal = heatloss_cal_t{}; // reset, keep no stale result mid-run
-    _hlcal.low_diff = low_diff;
     _hlcal.active = true;
     _hlcal.phase = 0;
     _hlcal.req_ts = _timestamp_secs;
+    _hlcal.req_water_c = waterC;
+    _hlcal.start_amb_c = _ambient_temp;
     _hlcal.target_drop = 2.0f;
     // Remember what we turned off so we can put it back afterwards, otherwise a
     // tub that was heating to target silently stops heating once we finish.
@@ -1271,6 +1276,8 @@ void BWC::_finishHeatLossCalibration(uint8_t error)
 {
     _restoreCalibrationState();
     _hlcal.error = error;
+    _hlcal.end_ts = _timestamp_secs;
+    _hlcal.end_water_c = waterTempC(cio);
     _hlcal.active = false;
     _command_queue_paused_for_calibration = false;
 }
@@ -1303,7 +1310,16 @@ void BWC::_handleHeatLossCalibration()
     {
         planHeatLossCalibration(0);
         String err;
-        startHeatLossCalibration(err, true);
+        // Too little difference: skip it, and leave the reason for whoever opens
+        // the web UI next (tester changed his mind: no forced start).
+        if (!startHeatLossCalibration(err))
+        {
+            _hlcal = heatloss_cal_t{};
+            _hlcal.error = HLCAL_ERR_TEMPDIFF;
+            _hlcal.req_ts = _hlcal.end_ts = _timestamp_secs;
+            _hlcal.req_water_c = _hlcal.end_water_c = waterTempC(cio);
+            _hlcal.start_amb_c = _ambient_temp;
+        }
     }
     if (_hlcal.restore_pending && (cio->_button_que_len == 0 || (int32_t)(millis() - _hlcal.restore_deadline) >= 0))
     {
@@ -1322,6 +1338,8 @@ void BWC::_handleHeatLossCalibration()
         _hlcal.restore_pending = true;
         _hlcal.restore_deadline = millis() + 30000;
         _hlcal.active = false;
+        _hlcal.end_ts = _timestamp_secs;
+        _hlcal.end_water_c = waterTempC(cio);
         _hlcal.phase = 0;
         _command_queue_paused_for_calibration = false;
         return;
@@ -1551,33 +1569,45 @@ void BWC::_anchorHeatLossCalibration(time_t now, float waterC)
 
 void BWC::getJSONHeatLossCalibration(String &rtn)
 {
-    DynamicJsonDocument doc(512);
+    DynamicJsonDocument doc(768);
     doc[F("ACTIVE")] = _hlcal.active;
     doc[F("CURRENT")] = _heat_loss;
     doc[F("DEFAULT")] = HEAT_LOSS_DEFAULT;
+    doc[F("MINDIFF")] = HLCAL_MIN_DIFF_K;
     doc[F("TARGETDROP")] = _hlcal.target_drop;
     doc[F("RESULT")] = _hlcal.result;
     if (_hlcal.error != HLCAL_ERR_NONE)
         doc[F("ERROR")] = hlCalErrorName(_hlcal.error);
     doc[F("PHASE")] = _hlcal.phase; // 0 = preparing (pump/heater), 1 = measuring
+    doc[F("NOW")] = _timestamp_secs;
     if (_hlcal_planned_at)
         doc[F("PLANNED")] = _hlcal_planned_at;
-    if (_hlcal.low_diff)
-        doc[F("LOWDIFF")] = true;
-    if (_hlcal.active && _hlcal.phase == 1)
+    // The last run, active or not, until the next start: when each step was
+    // reached and the water temperature then.
+    if (_hlcal.req_ts)
     {
-        float waterC = waterTempC(cio);
-        doc[F("STARTWATER")] = _hlcal.start_water_c;
-        // running ambient mean so far (what the result will actually use)
+        doc[F("REQTS")] = _hlcal.req_ts;
+        doc[F("REQWATER")] = _hlcal.req_water_c;
         doc[F("STARTAMB")] = _hlcal.amb_n ? _hlcal.amb_sum / (float)_hlcal.amb_n
                                           : (float)_hlcal.start_amb_c;
-        doc[F("DROP")] = _hlcal.start_water_c - waterC;
-        doc[F("ELAPSED")] = (uint32_t)((int64_t)_timestamp_secs - (int64_t)_hlcal.start_ts);
-        doc[F("ANCHORED")] = _hlcal.anchored;
-        doc[F("RESTORING")] = _hlcal.disturb_ts != 0;
         doc[F("DISCARDED")] = _hlcal.discarded;
-        if (_hlcal.anchored)
-            doc[F("ANCHORELAPSED")] = (uint32_t)((int64_t)_timestamp_secs - (int64_t)_hlcal.anchor_ts);
+        doc[F("RESTORING")] = _hlcal.active && _hlcal.disturb_ts != 0;
+        doc[F("ANCHORED")] = _hlcal.anchored;
+    }
+    if (_hlcal.start_ts)
+    {
+        doc[F("STARTTS")] = _hlcal.start_ts;
+        doc[F("STARTWATER")] = _hlcal.start_water_c;
+    }
+    if (_hlcal.anchored)
+    {
+        doc[F("ANCHORTS")] = _hlcal.anchor_ts;
+        doc[F("ANCHORWATER")] = _hlcal.anchor_water_c;
+    }
+    if (_hlcal.end_ts)
+    {
+        doc[F("ENDTS")] = _hlcal.end_ts;
+        doc[F("ENDWATER")] = _hlcal.end_water_c;
     }
     serializeJson(doc, rtn);
 }
