@@ -185,8 +185,12 @@ export function Expert() {
 
         {SHOW_HEAT_LOSS_CALIBRATION && (
           <>
+            {/* customer-facing: what it does and how to get a good result */}
             <p class="hint" style="margin-top:16px">{t('expert.calInfo')}</p>
-            <p class="hint">{t('expert.calHow', { min: dec(minDiff, 0) })}</p>
+            {(() => {
+              const [head, ...tips] = t('expert.calTips', { min: dec(minDiff, 0) }).split('\n');
+              return <div class="hint cal-tips">{head}<ul>{tips.map((x) => <li key={x}>{x}</li>)}</ul></div>;
+            })()}
             {hasRun && cal && <CalTimeline cal={cal} />}
             {/* the last run ended without a result: say why, not only in the dialog
                 someone watching the page got */}
@@ -198,16 +202,11 @@ export function Expert() {
               </div>
             )}
             {!active && !cal?.PLANNED && (
-              <>
-                <Row label={t('expert.calPlanAt')}>
-                  <input type="datetime-local" value={planAt} onInput={(e) => setPlanAt((e.target as HTMLInputElement).value)} />
-                </Row>
-                <p class="hint">{t('expert.calPlanHint')}</p>
-                <div class="actions">
-                  <button class="btn secondary" onClick={planCal}>{t('expert.calPlan')}</button>
-                </div>
-              </>
+              <Row label={t('expert.calPlanAt')}>
+                <input type="datetime-local" value={planAt} onInput={(e) => setPlanAt((e.target as HTMLInputElement).value)} />
+              </Row>
             )}
+            {/* start and plan side by side under the line, like save/reset above */}
             {active ? (
               <div class="actions">
                 <button class="btn ghost" onClick={cancelCal}>{t('expert.calCancel')}</button>
@@ -215,8 +214,10 @@ export function Expert() {
             ) : (
               <div class="actions">
                 <button class="btn" onClick={startCal}>{t('expert.calStart')}</button>
+                {!cal?.PLANNED && <button class="btn secondary" onClick={planCal}>{t('expert.calPlan')}</button>}
               </div>
             )}
+            {!active && !cal?.PLANNED && <p class="hint">{t('expert.calPlanHint')}</p>}
           </>
         )}
       </Card>

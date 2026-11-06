@@ -2333,3 +2333,5 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 .dose-row select { grid-column: 1 / -1; width: 100%; min-width: 0; }
 .dose-row .number-control input { width: 56px; }
 .warn-text { color: var(--danger); font-weight: 700; }
+.cal-tips ul { margin: 4px 0 0; padding-left: 18px; }
+.cal-tips li { margin: 2px 0; }

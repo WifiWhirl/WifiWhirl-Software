@@ -335,9 +335,10 @@ function ChlorineDue({ tm }: { tm: NonNullable<typeof lastTimes.value> }) {
   return (
     <p class="hint">
       {t('dashboard.lastDose')}: {what}{getTimeSinceText(since)}
+      {/* own line, easier to read */}
       {left != null && (left > 0
-        ? <> · {t('dashboard.clNext', { when: getTimeUntilText(left) })}</>
-        : <> · <span class="warn-text">{t('dashboard.clDue')}</span></>)}
+        ? <><br />{t('dashboard.clNext', { when: getTimeUntilText(left) })}</>
+        : <><br /><span class="warn-text">{t('dashboard.clDue')}</span></>)}
     </p>
   );
 }
