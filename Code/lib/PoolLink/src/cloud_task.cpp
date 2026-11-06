@@ -718,7 +718,7 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         item.cmd = SETUNIT;
         const char* u = val | "";
         item.val = (strcmp(u, "c") == 0 || strcmp(u, "C") == 0) ? 1 : 0;
-        success = bwc->add_command(item);
+        success = bwc->add_live_command(item);
 
     } else if (strcmp_P(action, PSTR("set_smart_schedule")) == 0) {
         // value: {"target_time":…,"target_temp":…,"keep_heater_on":…}
@@ -747,6 +747,11 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
 
     } else if (strcmp_P(action, PSTR("set_smart_schedule_repeat")) == 0) {
         success = bwc->updateSmartScheduleRepeat(val.as<uint8_t>());
+
+    } else if (strcmp_P(action, PSTR("cancel_calibration")) == 0) {
+        // the cloud's "cancel calibration" next to its lock banner
+        success = bwc->calibrating();
+        bwc->cancelHeatLossCalibration();
 
     } else if (strcmp_P(action, PSTR("install_update")) == 0) {
         // install the newest signed firmware from the update server
@@ -807,7 +812,7 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
                 case ActionMap::NONE:   item.val = 1; break;
                 case ActionMap::TOGGLE: item.val = 2; break; // not 0/1: toggle
             }
-            success = bwc->add_command(item);
+            success = bwc->add_live_command(item);
             break;
         }
     }

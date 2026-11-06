@@ -1741,6 +1741,14 @@ bool BWC::add_command(command_que_item command_item)
     return true;
 }
 
+bool BWC::add_live_command(command_que_item item)
+{
+    if (_hlcal.active && !item.scheduled && item.interval == 0 &&
+        item.xtime <= (uint64_t)_timestamp_secs + 60)
+        return false;
+    return add_command(item);
+}
+
 bool BWC::edit_command(uint8_t index, command_que_item command_item)
 {
     if (index >= _command_que.size())
@@ -2136,6 +2144,7 @@ void BWC::buildCloudSnapshot(JsonObject doc, size_t* state_len_out)
     doc[F("GRN")] = cio->cio_states.heatgrn;
     doc[F("BRT")] = _dsp_brightness;  // base level, not a momentary boost
     doc[F("HASJETS")] = hasjets;
+    doc[F("HLCAL")] = _hlcal.active; // calibration running: cloud UI locks
     doc[F("ERR")] = cio->cio_states.error;
     if (cio->cio_states.dsp_ok)
     {

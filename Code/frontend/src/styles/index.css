@@ -2335,3 +2335,6 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 .warn-text { color: var(--danger); font-weight: 700; }
 .cal-tips ul { margin: 4px 0 0; padding-left: 18px; }
 .cal-tips li { margin: 2px 0; }
+/* a running calibration locks the dashboard (the LED display stays readable) */
+.cal-locked .dash-widget:not([data-id="display"]) { opacity: 0.45; pointer-events: none; filter: grayscale(0.4); }
+.cal-banner .btn { margin-left: 8px; }

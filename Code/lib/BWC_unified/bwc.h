@@ -204,6 +204,10 @@ public:
     // weather data only comes through the cloud. With the cloud off it
     // is switched off (remembered), and back on once the cloud sends a reading.
     void setCloudOn(bool on);
+    // live control (web, MQTT, webhooks, cloud) during a calibration is
+    // dropped instead of running once it ends. Planned automations still queue.
+    bool add_live_command(command_que_item item);
+    bool calibrating() const { return _hlcal.active; }
     void cloudWeatherArrived();
     void applyTimezone() const; // also after configTime(), which resets it to UTC
 

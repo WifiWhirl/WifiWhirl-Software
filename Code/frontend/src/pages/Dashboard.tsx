@@ -185,7 +185,12 @@ export function Dashboard() {
   return (
     <>
       {SHOW_HEAT_LOSS_CALIBRATION && s.HLCAL && (
-        <div class="cal-banner" role="status" aria-live="polite">{t('dashboard.calRunning')}</div>
+        <div class="cal-banner" role="status" aria-live="polite">
+          {t('dashboard.calRunning')}{' '}
+          <button class="btn ghost" onClick={async () => {
+            if (await confirmDialog(t('expert.calCancel') + '?', { danger: true })) postJson('/cancelhlcal/', {}).catch(() => {});
+          }}>{t('expert.calCancel')}</button>
+        </div>
       )}
       {calNote && !s.HLCAL && (
         <div class="cal-banner" role="status">
@@ -201,6 +206,8 @@ export function Dashboard() {
           </button>
         </div>
       )}
+      {/* calibrating: every control greyed out, the firmware drops presses */}
+      <div class={SHOW_HEAT_LOSS_CALIBRATION && s.HLCAL ? 'cal-locked' : undefined}>
       <DashboardGrid
         edit={edit}
         title={(id) => t(WIDGET_TITLE[id])}
@@ -214,6 +221,7 @@ export function Dashboard() {
           </>
         ) : null}
       />
+      </div>
     </>
   );
 }

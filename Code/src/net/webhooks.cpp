@@ -58,7 +58,7 @@ void handleWebhook()
         server->send(400, F("text/plain"), parseError);
         return;
     }
-    if (!bwc->add_command(item))
+    if (!bwc->add_live_command(item))
     {
         server->send(409, F("text/plain"), F("Queue full (max. 20 commands)"));
         return;

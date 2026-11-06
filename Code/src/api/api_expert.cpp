@@ -65,8 +65,8 @@ void handleCancelHlCal()
 {
     if (!checkHttpPost(server->method()))
         return;
-    if (!requireExpertMode())
-        return;
+    // No expert-mode check: the dashboard offers "cancel" to anyone who sees
+    // the tub locked by a running calibration. Starting stays expert.
 
     bwc->cancelHeatLossCalibration();
     server->send(200, F("application/json"), F("{\"cancelled\":true}"));

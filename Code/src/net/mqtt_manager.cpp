@@ -723,7 +723,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
         command_que_item item;
         String parseError;
         if (parseCommandValidated(doc.as<JsonVariantConst>(), item, parseError))
-            bwc->add_command(item);
+            bwc->add_live_command(item);
     }
 
     if (topicStr.equals(mqttTopicScheduleSet))
@@ -748,7 +748,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
             command_que_item item;
             String parseError;
             if (parseCommandValidated(commandItem, item, parseError))
-                bwc->add_command(item);
+                bwc->add_live_command(item);
         }
     }
 }
