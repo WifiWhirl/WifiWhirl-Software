@@ -214,8 +214,8 @@ export function Expert() {
             ) : (
               <div class="actions">
                 {/* plan first, then "start now" */}
-                {!cal?.PLANNED && <button class="btn secondary" onClick={planCal}>{t('expert.calPlan')}</button>}
-                <button class="btn" onClick={startCal}>{t('expert.calStart')}</button>
+                {!cal?.PLANNED && <button class="btn" onClick={planCal}>{t('expert.calPlan')}</button>}
+                <button class={cal?.PLANNED ? 'btn' : 'btn secondary'} onClick={startCal}>{t('expert.calStart')}</button>
               </div>
             )}
             {!active && !cal?.PLANNED && <p class="hint">{t('expert.calPlanHint')}</p>}
