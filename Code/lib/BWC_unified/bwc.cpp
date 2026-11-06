@@ -3680,6 +3680,26 @@ void BWC::cancelSmartSchedule()
     item.interval = 0;
     item.text = "";
     
+    // The schedule switched the heater on in the last seconds but the pump does
+    // not report it yet: a heater-off now would see "off" and do nothing, and the
+    // heater then runs on with no schedule left. Switch off once it shows (the
+    // same settle window the pump-off below covers via temp_reading_state).
+    bool heat_pending = !cio->cio_states.heat && (int32_t)(millis() - _schedule_heat_queued_until) < 0;
+    _schedule_heat_queued_until = millis();
+    if (heat_pending)
+    {
+        item.xtime = _timestamp_secs + 10;
+        item.cmd = SETHEATER;
+        item.val = 0;
+        item.force = false;
+        add_command(item);
+        item.cmd = SETPUMP; // the heater pulled the pump on
+        item.force = true;
+        add_command(item);
+        item.xtime = 0;
+        Serial.println(F("SmartSchedule: Cancel - heater just started, off in 10 s"));
+    }
+
     // Turn off heater if it was started by this schedule
     // Check if heater is on AND we had a calculated start time (meaning schedule started it)
     if (cio->cio_states.heat && _smart_schedule.calculated_start_time > 0 && 
