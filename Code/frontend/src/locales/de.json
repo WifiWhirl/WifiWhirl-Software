@@ -321,7 +321,7 @@
   "expert.calAbort.interrupted": "Die Kalibrierung wurde gestoppt, weil der Pumpen-/Heizungszustand geändert wurde und sich nicht innerhalb von 5 Minuten wiederherstellen ließ.",
   "expert.calAbort.timeout": "Die Kalibrierung wurde gestoppt, weil das Wasser innerhalb von 36 Stunden nicht genug abgekühlt ist.",
   "expert.calAbort.unstable": "Die Kalibrierung wurde gestoppt, weil der gemessene Temperaturabfall nicht plausibel war.",
-  "expert.calStart": "Kalibrierung starten",
+  "expert.calStart": "Kalibrierung sofort starten",
   "expert.calPlanAt": "Startzeit planen",
   "expert.calPlanHint": "Die Kalibrierung startet einmal zur gewählten Zeit, am besten abends oder nachts ohne Sonne. Ist das Wasser dann nicht mindestens so viel wärmer als die Umgebung wie nötig, startet sie nicht, und du siehst hier den Grund.",
   "expert.calPlan": "Kalibrierung planen",

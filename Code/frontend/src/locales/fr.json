@@ -41,7 +41,7 @@
   "expert.calAbort.interrupted": "La calibration s'est arrêtée parce que l'état pompe/chauffage a changé et n'a pas pu être rétabli en 5 minutes.",
   "expert.calAbort.timeout": "La calibration s’est arrêtée parce que l’eau n’a pas assez refroidi en 36 heures.",
   "expert.calAbort.unstable": "La calibration s'est arrêtée parce que la baisse de température mesurée n'était pas plausible.",
-  "expert.calStart": "Démarrer la calibration",
+  "expert.calStart": "Démarrer la calibration maintenant",
   "expert.calPlanAt": "Planifier l'heure de début",
   "expert.calPlanHint": "La calibration démarre une fois à l'heure choisie, de préférence le soir ou la nuit sans soleil. Si l'eau n'est alors pas assez chaude par rapport à l'environnement, elle ne démarre pas et tu en vois la raison ici.",
   "expert.calPlan": "Planifier la calibration",

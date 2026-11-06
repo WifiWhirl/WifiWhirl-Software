@@ -41,7 +41,7 @@
   "expert.calAbort.interrupted": "Kalibratie is gestopt omdat de pomp-/verwarmingsstatus veranderde en niet binnen 5 minuten kon worden hersteld.",
   "expert.calAbort.timeout": "Kalibratie is gestopt omdat het water binnen 36 uur niet genoeg afkoelde.",
   "expert.calAbort.unstable": "Kalibratie is gestopt omdat de gemeten temperatuurdaling niet aannemelijk was.",
-  "expert.calStart": "Kalibratie starten",
+  "expert.calStart": "Kalibratie nu starten",
   "expert.calPlanAt": "Starttijd plannen",
   "expert.calPlanHint": "De kalibratie start één keer op de gekozen tijd, het liefst 's avonds of 's nachts zonder zon. Is het water dan niet warm genoeg ten opzichte van de omgeving, dan start ze niet en zie je hier de reden.",
   "expert.calPlan": "Kalibratie plannen",

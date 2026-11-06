@@ -41,7 +41,7 @@
   "expert.calAbort.interrupted": "Kalibracja została zatrzymana, ponieważ stan pompy/grzałki się zmienił i nie udało się go przywrócić w ciągu 5 minut.",
   "expert.calAbort.timeout": "Kalibracja została zatrzymana, ponieważ woda nie ostygła wystarczająco w ciągu 36 godzin.",
   "expert.calAbort.unstable": "Kalibracja została zatrzymana, ponieważ zmierzony spadek temperatury był nieprawdopodobny.",
-  "expert.calStart": "Rozpocznij kalibrację",
+  "expert.calStart": "Rozpocznij kalibrację teraz",
   "expert.calPlanAt": "Zaplanuj godzinę startu",
   "expert.calPlanHint": "Kalibracja uruchomi się raz o wybranej godzinie, najlepiej wieczorem lub w nocy bez słońca. Jeśli woda nie będzie wtedy wystarczająco cieplejsza od otoczenia, nie wystartuje, a tutaj zobaczysz powód.",
   "expert.calPlan": "Zaplanuj kalibrację",

@@ -322,7 +322,7 @@
   "expert.calAbort.interrupted": "Calibration stopped because the pump/heater state changed and could not be restored within 5 minutes.",
   "expert.calAbort.timeout": "Calibration stopped because the water did not cool enough within 36 hours.",
   "expert.calAbort.unstable": "Calibration stopped because the measured temperature drop was not plausible.",
-  "expert.calStart": "Start calibration",
+  "expert.calStart": "Start calibration now",
   "expert.calPlanAt": "Plan start time",
   "expert.calPlanHint": "The calibration starts once at the chosen time, best in the evening or at night without sun. If the water is not warm enough above the surroundings then, it does not start and you see the reason here.",
   "expert.calPlan": "Plan calibration",
