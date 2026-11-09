@@ -629,5 +629,21 @@
   "upd.authFailed": "Anmeldung fehlgeschlagen - das Update wurde nicht hochgeladen.",
   "upd.aborted": "Upload abgebrochen!",
   "cfg.weatherFromCloud": "Die Außentemperatur kommt aus der Cloud-App, dort wird der Standort festgelegt.",
-  "cfg.weatherNeedsCloud": "Wetterdaten gibt es nur mit aktiver Cloud-Verbindung. Solange sie aus ist, trägst du die Außentemperatur auf der Übersicht selbst ein. Schaltest du die Cloud wieder ein und ist dort ein Standort hinterlegt, gehen die Wetterdaten automatisch wieder an."
+  "cfg.weatherNeedsCloud": "Wetterdaten gibt es nur mit aktiver Cloud-Verbindung. Solange sie aus ist, trägst du die Außentemperatur auf der Übersicht selbst ein. Schaltest du die Cloud wieder ein und ist dort ein Standort hinterlegt, gehen die Wetterdaten automatisch wieder an.",
+  "dashboard.suggest": "Empfehlung: {amount} g {product} zugeben",
+  "dashboard.suggestProduct.phMinus": "pH-Minus",
+  "dashboard.suggestProduct.phPlus": "pH-Plus",
+  "dashboard.suggestProduct.clG": "Chlor-Granulat",
+  "dashboard.suggestProduct.taMinus": "pH-Minus (senkt TA)",
+  "dashboard.suggestProduct.taPlus": "Alka-Plus",
+  "dashboard.suggestWater": "Empfehlung: Teilwasserwechsel, etwa {l} Liter ablassen und frisch auffüllen",
+  "dashboard.suggestNote": "Empfehlungen sind Richtwerte. Beachte die Angaben auf der Packung und miss nach etwa einer Stunde Filterlauf nach.",
+  "cfg.dosing": "Dosierung Pflegemittel",
+  "cfg.dosingHint": "Damit berechnet WifiWhirl die Empfehlungen in der Wasserpflege. Voreingestellt sind die Werte von Bayrol SpaTime Granulat. Nutzt du ein anderes Mittel, trag die Werte von deiner Packung ein.",
+  "cfg.df.DFPHM": "pH-Minus je 0,1 pH",
+  "cfg.df.DFPHP": "pH-Plus je 0,1 pH",
+  "cfg.df.DFCL": "Chlor-Granulat je 1 mg/l",
+  "cfg.df.DFTAP": "Alka-Plus je 10 mg/l TA",
+  "cfg.df.DFTAM": "pH-Minus je 10 mg/l weniger TA",
+  "cfg.dfUnit": "g / 1000 l"
 }

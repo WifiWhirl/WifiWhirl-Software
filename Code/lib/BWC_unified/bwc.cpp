@@ -26,6 +26,19 @@ constexpr float HLCAL_MAX_NET_LOSS_W = 4500.0f;
 // the loss mostly without the pump running (tester decision)
 constexpr float HLCAL_PUMP_SHARE = 0.75f;
 constexpr size_t COMMAND_QUEUE_JSON_CAPACITY = 4096;
+// Dosing factors for the care-product suggestion, grams per m3 of water:
+// pH-/pH+ per 0.1 pH, chlorine granules per 1 mg/l, TA+/TA- per 10 mg/l.
+// Defaults: Bayrol SpaTime granules (pH 10 g, Alca-Plus 20 g; chlorine from its
+// active ingredient dichloroisocyanurate ~56 % -> ~2 g; TA- = pH-Minus
+// (bisulfate) ~24 g). Users adapt them to their own product's label.
+static const char DF0[] PROGMEM = "DFPHM";
+static const char DF1[] PROGMEM = "DFPHP";
+static const char DF2[] PROGMEM = "DFCL";
+static const char DF3[] PROGMEM = "DFTAP";
+static const char DF4[] PROGMEM = "DFTAM";
+static const char *const DOSE_FACTOR_KEYS[BWC::DOSE_FACTORS] PROGMEM = {DF0, DF1, DF2, DF3, DF4};
+static const uint8_t DOSE_FACTOR_DEFAULTS[BWC::DOSE_FACTORS] = {10, 10, 2, 20, 24};
+#define DF_KEY(i) FPSTR((PGM_P)pgm_read_ptr(&DOSE_FACTOR_KEYS[i]))
 
 enum HlCalError : uint8_t
 {
@@ -2014,6 +2027,8 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("CLOUD")] = _cloud_on; // weather needs it
     doc[F("HASJETS")] = cio->getHasjets();
     doc[F("POOLCAP")] = _pool_capacity;
+    for (uint8_t i = 0; i < DOSE_FACTORS; i++)
+        doc[DF_KEY(i)] = _dose_factor[i];
     doc[F("HLOSS")] = _heat_loss;
     doc[F("AIRTO")] = _airjet_timeout_minutes;
     doc[F("HJTO")] = _hydrojet_timeout_minutes;
@@ -2338,6 +2353,13 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
     {
         return false;
     }
+    int64_t doseFactor[DOSE_FACTORS];
+    for (uint8_t i = 0; i < DOSE_FACTORS; i++)
+    {
+        doseFactor[i] = _dose_factor[i];
+        if (!readBoundedInteger(obj, DF_KEY(i), 1, 250, doseFactor[i], errorMessage))
+            return false;
+    }
 
     // Copy values from the JsonDocument to the variables.
     // Only assign keys actually present in the POST body, otherwise a partial
@@ -2388,6 +2410,8 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
     }
     if (doc.containsKey(F("POOLCAP")))
         _pool_capacity = (int)poolCapacity;
+    for (uint8_t i = 0; i < DOSE_FACTORS; i++)
+        _dose_factor[i] = (uint8_t)doseFactor[i]; // unchanged unless sent
     // Airjet timeout: 5-30 minutes, default 30
     if (doc.containsKey(F("AIRTO")))
     {
@@ -2912,6 +2936,8 @@ void BWC::_loadSettings()
     _weather = doc[F("WEATHER")] | false;
     _weather_auto_off = doc[F("WEATHERAUTO")] | false;
     _pool_capacity = doc[F("POOLCAP")] | 700;
+    for (uint8_t i = 0; i < DOSE_FACTORS; i++)
+        _dose_factor[i] = doc[DF_KEY(i)] | DOSE_FACTOR_DEFAULTS[i];
     _heat_loss = clampHeatLoss(doc[F("HLOSS")] | HEAT_LOSS_DEFAULT);
     _hlcal_planned_at = doc[F("HLCALAT")] | (uint64_t)0;
     _airjet_timeout_minutes = doc[F("AIRTO")] | 30;
@@ -3335,6 +3361,8 @@ void BWC::saveSettings()
     doc[F("WEATHER")] = _weather;
     doc[F("WEATHERAUTO")] = _weather_auto_off;
     doc[F("POOLCAP")] = _pool_capacity;
+    for (uint8_t i = 0; i < DOSE_FACTORS; i++)
+        doc[DF_KEY(i)] = _dose_factor[i];
     doc[F("HLOSS")] = _heat_loss;
     doc[F("HLCALAT")] = _hlcal_planned_at;
     doc[F("AIRTO")] = _airjet_timeout_minutes;

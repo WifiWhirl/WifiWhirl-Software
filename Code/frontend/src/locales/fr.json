@@ -629,5 +629,21 @@
   "setup.wifiSavingTitle": "Connexion…",
   "setup.wifiTitle": "Réseau Wi-Fi",
   "cfg.weatherFromCloud": "La température extérieure vient de l'application cloud, où la localisation est définie.",
-  "cfg.weatherNeedsCloud": "Les données météo ne sont disponibles qu'avec la connexion cloud active. Tant qu'elle est désactivée, tu saisis toi-même la température extérieure dans l'aperçu. Si tu réactives le cloud et qu'un lieu y est défini, les données météo se réactivent automatiquement."
+  "cfg.weatherNeedsCloud": "Les données météo ne sont disponibles qu'avec la connexion cloud active. Tant qu'elle est désactivée, tu saisis toi-même la température extérieure dans l'aperçu. Si tu réactives le cloud et qu'un lieu y est défini, les données météo se réactivent automatiquement.",
+  "dashboard.suggest": "Conseil : ajoute {amount} g de {product}",
+  "dashboard.suggestProduct.phMinus": "pH moins",
+  "dashboard.suggestProduct.phPlus": "pH plus",
+  "dashboard.suggestProduct.clG": "chlore en granulés",
+  "dashboard.suggestProduct.taMinus": "pH moins (baisse le TAC)",
+  "dashboard.suggestProduct.taPlus": "Alca-Plus",
+  "dashboard.suggestWater": "Conseil : renouvelle une partie de l’eau, vide environ {l} litres et remplis avec de l’eau fraîche",
+  "dashboard.suggestNote": "Les conseils sont des valeurs indicatives. Respecte les indications sur l’emballage et mesure à nouveau après environ une heure de filtration.",
+  "cfg.dosing": "Dosage des produits d’entretien",
+  "cfg.dosingHint": "WifiWhirl s’en sert pour calculer les conseils d’entretien de l’eau. Les valeurs par défaut sont celles des granulés Bayrol SpaTime. Si tu utilises un autre produit, saisis les valeurs de ton emballage.",
+  "cfg.df.DFPHM": "pH moins par 0,1 pH",
+  "cfg.df.DFPHP": "pH plus par 0,1 pH",
+  "cfg.df.DFCL": "Chlore en granulés par 1 mg/l",
+  "cfg.df.DFTAP": "Alca-Plus par 10 mg/l de TAC",
+  "cfg.df.DFTAM": "pH moins par 10 mg/l de TAC en moins",
+  "cfg.dfUnit": "g / 1000 l"
 }

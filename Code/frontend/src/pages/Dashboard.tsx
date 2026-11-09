@@ -13,6 +13,7 @@ import { postJson } from '../api';
 import { getTimeSinceText, getTimeUntilText, t2rText, t2rDuration, dhms, comma, money } from '../util/format';
 import { layout, editMode, saveLayout, resetLayout, migrateFromDevice, type WidgetId } from '../util/dashboardLayout';
 import { t } from '../i18n';
+import { suggestCl, suggestCya, suggestPh, suggestTa, type DoseCfg, type Suggestion } from '../util/dosing';
 
 const WIDGET_TITLE: Record<WidgetId, string> = {
   display: 'dashboard.display', thermostat: 'dashboard.temperature', controls: 'dashboard.controls',
@@ -267,6 +268,14 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
   const [alk, setAlk] = useState<string>('100');
   const editing = useRef<{ ph: boolean; cl: boolean; cya: boolean; alk: boolean }>({ ph: false, cl: false, cya: false, alk: false });
   const timers = useRef<{ ph?: number; cl?: number; cya?: number; alk?: number }>({});
+  // pool size + dosing factors for the suggestions
+  const [cfg, setCfg] = useState<DoseCfg>({});
+  const [prefill, setPrefill] = useState<{ kind: Dose; n: number; seq: number } | null>(null);
+  useEffect(() => { postJson<DoseCfg>('/getconfig/').then(setCfg).catch(() => {}); }, []);
+  const num = (v: string) => parseFloat(v.replace(',', '.'));
+  const sPh = suggestPh(num(ph), cfg), sCl = suggestCl(num(cl), cfg);
+  const sCya = showCya ? suggestCya(num(cya), cfg) : null, sTa = showAlk ? suggestTa(num(alk), cfg) : null;
+  const pick = (x: Suggestion) => x.kind !== 'water' && setPrefill({ kind: x.kind, n: x.amount, seq: Date.now() });
 
   useEffect(() => {
     if (!tm) return;
@@ -300,12 +309,14 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
       </Row>
       <RangeBar value={parseFloat(ph.replace(',', '.'))} min={0} max={14} low={7.2} high={7.6} />
       <p class="hint">{t('dashboard.idealRange')}: 7,2 - 7,6 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.PHTIME)) : '-'}</p>
+      <Suggest s={sPh} onPick={pick} />
       <LastDose ts={tm?.DPHTIME} text={tm?.DPH ? `${Math.abs(tm.DPH)} g ${tm.DPH < 0 ? 'pH-' : 'pH+'}` : ''} />
       <Row label={t('dashboard.chlorineValue')}>
         <NumberInput value={cl} min={0} max={10} step={0.1} onInput={(v) => edit('cl', v)} />
       </Row>
       <RangeBar value={parseFloat(cl.replace(',', '.'))} min={0} max={10} low={1.0} high={3.0} />
       <p class="hint">{t('dashboard.idealRange')}: 1,0 - 3,0 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CLVTIME)) : '-'}</p>
+      <Suggest s={sCl} onPick={pick} />
       {tm && <ChlorineDue tm={tm} />}
       {showCya && (
         <>
@@ -314,6 +325,7 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
           </Row>
           <RangeBar value={parseFloat(cya.replace(',', '.'))} min={0} max={200} low={30} high={50} />
           <p class="hint">{t('dashboard.idealRange')}: 30 - 50 · {t('dashboard.lastChecked')}: {tm?.CYATIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CYATIME)) : '-'}</p>
+          <Suggest s={sCya} onPick={pick} />
         </>
       )}
       {showAlk && (
@@ -323,10 +335,11 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
           </Row>
           <RangeBar value={parseFloat(alk.replace(',', '.'))} min={0} max={300} low={80} high={120} />
           <p class="hint">{t('dashboard.idealRange')}: 80 - 120 · {t('dashboard.lastChecked')}: {tm?.ALKTIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.ALKTIME)) : '-'}</p>
+          <Suggest s={sTa} onPick={pick} />
           <LastDose ts={tm?.DTATIME} text={tm?.DTA ? `${Math.abs(tm.DTA)} g ${tm.DTA < 0 ? 'TA-' : 'TA+'}` : ''} />
         </>
       )}
-      <AddDose showAlk={showAlk} />
+      <AddDose showAlk={showAlk} prefill={prefill} note={!!(sPh || sCl || sTa)} />
     </Card>
   );
 }
@@ -351,6 +364,21 @@ function ChlorineDue({ tm }: { tm: NonNullable<typeof lastTimes.value> }) {
   );
 }
 
+/**
+ * "Recommendation: 40 g pH-Minus" under a value outside its ideal range; a
+ * click fills in "care product added". Cyanuric acid only goes with
+ * fresh water, so that one is a plain hint.
+ */
+function Suggest({ s, onPick }: { s: Suggestion | null; onPick: (s: Suggestion) => void }) {
+  if (!s) return null;
+  if (s.kind === 'water') return <p class="hint warn-text">{t('dashboard.suggestWater', { l: s.amount })}</p>;
+  return (
+    <button type="button" class="suggest" onClick={() => onPick(s)}>
+      {t('dashboard.suggest', { amount: s.amount, product: t(`dashboard.suggestProduct.${s.kind}`) })}
+    </button>
+  );
+}
+
 /** "Last added: 50 g pH- · 2 days ago", nothing before the first entry. */
 function LastDose({ ts, text }: { ts?: number; text: string }) {
   if (!ts || !text) return null;
@@ -366,9 +394,18 @@ const DOSES = {
 type Dose = keyof typeof DOSES;
 
 /** Record a care product added to the water, stamped with the current time. */
-function AddDose({ showAlk }: { showAlk: boolean }) {
+function AddDose({ showAlk, prefill, note }: {
+  showAlk: boolean;
+  /** a clicked suggestion */
+  prefill: { kind: Dose; n: number; seq: number } | null;
+  /** a suggestion is shown: the one safety note goes here, once */
+  note: boolean;
+}) {
   const [what, setWhat] = useState<Dose>('phMinus');
   const [amount, setAmount] = useState('');
+  useEffect(() => {
+    if (prefill) { setWhat(prefill.kind); setAmount(String(prefill.n)); }
+  }, [prefill?.seq]);
   const d = DOSES[what];
   const n = Math.round(Number(amount.replace(',', '.')));
   const ok = n >= 1 && n <= d.max;
@@ -388,6 +425,7 @@ function AddDose({ showAlk }: { showAlk: boolean }) {
           {t('dashboard.doseSave')}
         </button>
       </div>
+      {note && <p class="hint">{t('dashboard.suggestNote')}</p>}
     </div>
   );
 }

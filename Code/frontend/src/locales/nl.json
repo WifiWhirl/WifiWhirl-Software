@@ -629,5 +629,21 @@
   "setup.wifiSavingTitle": "Verbinden…",
   "setup.wifiTitle": "Wifi-netwerk",
   "cfg.weatherFromCloud": "De buitentemperatuur komt uit de cloud-app, waar de locatie wordt ingesteld.",
-  "cfg.weatherNeedsCloud": "Weergegevens zijn er alleen met een actieve cloudverbinding. Zolang die uit staat, vul je de buitentemperatuur zelf in op het overzicht. Zet je de cloud weer aan en is daar een locatie ingesteld, dan gaan de weergegevens vanzelf weer aan."
+  "cfg.weatherNeedsCloud": "Weergegevens zijn er alleen met een actieve cloudverbinding. Zolang die uit staat, vul je de buitentemperatuur zelf in op het overzicht. Zet je de cloud weer aan en is daar een locatie ingesteld, dan gaan de weergegevens vanzelf weer aan.",
+  "dashboard.suggest": "Advies: voeg {amount} g {product} toe",
+  "dashboard.suggestProduct.phMinus": "pH-min",
+  "dashboard.suggestProduct.phPlus": "pH-plus",
+  "dashboard.suggestProduct.clG": "chloorgranulaat",
+  "dashboard.suggestProduct.taMinus": "pH-min (verlaagt TA)",
+  "dashboard.suggestProduct.taPlus": "Alka-Plus",
+  "dashboard.suggestWater": "Advies: ververs een deel van het water, laat ongeveer {l} liter weglopen en vul aan met vers water",
+  "dashboard.suggestNote": "Adviezen zijn richtwaarden. Volg de aanwijzingen op de verpakking en meet na ongeveer een uur filteren opnieuw.",
+  "cfg.dosing": "Dosering onderhoudsmiddelen",
+  "cfg.dosingHint": "Hiermee berekent WifiWhirl de adviezen bij het wateronderhoud. Standaard staan de waarden van Bayrol SpaTime-granulaat ingesteld. Gebruik je een ander middel, vul dan de waarden van je verpakking in.",
+  "cfg.df.DFPHM": "pH-min per 0,1 pH",
+  "cfg.df.DFPHP": "pH-plus per 0,1 pH",
+  "cfg.df.DFCL": "Chloorgranulaat per 1 mg/l",
+  "cfg.df.DFTAP": "Alka-Plus per 10 mg/l TA",
+  "cfg.df.DFTAM": "pH-min per 10 mg/l minder TA",
+  "cfg.dfUnit": "g / 1000 l"
 }

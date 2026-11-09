@@ -116,6 +116,7 @@ class BWC
 {
 
 public:
+    static constexpr uint8_t DOSE_FACTORS = 5; // care-product dosing factors
     BWC();
     ~BWC();
     void setup(void);
@@ -334,6 +335,7 @@ private:
     bool _cloud_on = true;
     bool _weather_auto_off = false; // switched off by setCloudOn(false), persisted
     int _pool_capacity = 700;
+    uint8_t _dose_factor[DOSE_FACTORS] = {10, 10, 2, 20, 24}; // DFPHM..DFTAM, see bwc.cpp
     uint8_t _airjet_timeout_minutes = 30;   // 1-30 min, default 30 (no software timeout)
     uint8_t _hydrojet_timeout_minutes = 60; // 1-60 min, default 60 (no software timeout)
     bool _host_mode = false;                    // GSTMODE: guest/host mode for rentals

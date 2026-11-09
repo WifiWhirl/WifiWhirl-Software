@@ -15,11 +15,14 @@ interface Cfg {
   CLINT: number; FINT: number; FCINT: number; WCINT: number;
   AUDIO: boolean; TIMEZONE: string; TIMEZONE_NAME: string; REBOOTTIME: number;
   WEATHER: boolean; CLOUD?: boolean; HASJETS: boolean; POOLCAP: number;
+  DFPHM?: number; DFPHP?: number; DFCL?: number; DFTAP?: number; DFTAM?: number;
   AIRTO: number; HJTO: number; JETCD: boolean; STBYORIG: boolean; BRTSTEP: number; BRTDUR: number;
   GSTMODE: boolean; GSTMAXTGT: number; GSTHTRTO: number;
   LCK: boolean; TMR: boolean; AIR: boolean; UNT: boolean; HTR: boolean;
   FLT: boolean; DN: boolean; UP: boolean; PWR: boolean; HJT: boolean;
 }
+
+const DOSE_FACTORS = ['DFPHM', 'DFPHP', 'DFCL', 'DFTAP', 'DFTAM'] as const;
 
 const BTNS: { k: keyof Cfg; key: string; jetsOnly?: boolean }[] = [
   { k: 'PWR', key: 'dashboard.power' }, { k: 'LCK', key: 'dashboard.lock' },
@@ -275,6 +278,21 @@ export function Config() {
           ))}
         </div>
         {save(() => ({ CLINT: Number(d.CLINT), FINT: Number(d.FINT), FCINT: Number(d.FCINT), WCINT: Number(d.WCINT) }))}
+      </Card>
+
+      {/* dosing factors for the care-product suggestion */}
+      <Card className="cfg-section">
+        <div class="auto-section-head">
+          <div>
+            <p class="eyebrow">{t('dashboard.waterQuality')}</p>
+            <h2>{t('cfg.dosing')}</h2>
+          </div>
+        </div>
+        <p class="hint">{t('cfg.dosingHint')}</p>
+        {DOSE_FACTORS.map((k) => (
+          <NumField key={k} label={t(`cfg.df.${k}`)} value={d[k] ?? ''} min={1} max={250} unit={t('cfg.dfUnit')} onInput={(v) => set(k, v)} />
+        ))}
+        {save(() => Object.fromEntries(DOSE_FACTORS.filter((k) => d[k] != null).map((k) => [k, Number(d[k])])))}
       </Card>
 
       <Card className="cfg-section">

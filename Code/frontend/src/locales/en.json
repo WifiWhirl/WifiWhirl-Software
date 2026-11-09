@@ -629,5 +629,21 @@
   "upd.authFailed": "Authentication failed - the update was not uploaded.",
   "upd.aborted": "Upload cancelled!",
   "cfg.weatherFromCloud": "The outdoor temperature comes from the cloud app, where the location is set.",
-  "cfg.weatherNeedsCloud": "Weather data is only available with the cloud connection on. While it is off, you enter the outdoor temperature yourself on the overview. If you switch the cloud back on and a location is set there, weather data comes back on by itself."
+  "cfg.weatherNeedsCloud": "Weather data is only available with the cloud connection on. While it is off, you enter the outdoor temperature yourself on the overview. If you switch the cloud back on and a location is set there, weather data comes back on by itself.",
+  "dashboard.suggest": "Recommendation: add {amount} g {product}",
+  "dashboard.suggestProduct.phMinus": "pH minus",
+  "dashboard.suggestProduct.phPlus": "pH plus",
+  "dashboard.suggestProduct.clG": "chlorine granules",
+  "dashboard.suggestProduct.taMinus": "pH minus (lowers TA)",
+  "dashboard.suggestProduct.taPlus": "Alka-Plus",
+  "dashboard.suggestWater": "Recommendation: partial water change, drain about {l} litres and refill with fresh water",
+  "dashboard.suggestNote": "Recommendations are guide values. Follow the instructions on the pack and measure again after about an hour of filtering.",
+  "cfg.dosing": "Care product dosing",
+  "cfg.dosingHint": "WifiWhirl uses these to work out the recommendations in water care. The defaults are the values for Bayrol SpaTime granules. If you use a different product, enter the values from your pack.",
+  "cfg.df.DFPHM": "pH minus per 0.1 pH",
+  "cfg.df.DFPHP": "pH plus per 0.1 pH",
+  "cfg.df.DFCL": "Chlorine granules per 1 mg/l",
+  "cfg.df.DFTAP": "Alka-Plus per 10 mg/l TA",
+  "cfg.df.DFTAM": "pH minus per 10 mg/l less TA",
+  "cfg.dfUnit": "g / 1000 l"
 }
