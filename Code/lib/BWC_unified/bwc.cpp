@@ -22,6 +22,9 @@ constexpr uint32_t HLCAL_MIN_ELAPSED_S = 900;
 // typical 800 l tub is ~3700 W net, so the cap has to sit above that or a
 // genuinely lossy tub could never finish (every tick would re-anchor).
 constexpr float HLCAL_MAX_NET_LOSS_W = 4500.0f;
+// share of the filter pump heat counted in the calibration: k then describes
+// the loss mostly without the pump running (tester decision)
+constexpr float HLCAL_PUMP_SHARE = 0.75f;
 constexpr size_t COMMAND_QUEUE_JSON_CAPACITY = 4096;
 
 enum HlCalError : uint8_t
@@ -1545,8 +1548,10 @@ void BWC::_handleHeatLossCalibration()
         {
             // Finish: exactly one tick fell between two known boundary
             // crossings. Energy balance while idle: C*drop over the interval
-            // is the NET power leaving; the running pump feeds PUMPPOWER of
-            // heat back in, so true loss = netLoss + pump. k = loss / dTavg.
+            // is the NET power leaving; the running pump feeds heat back in.
+            // Only HLCAL_PUMP_SHARE of it is counted, so k describes the loss
+            // with the pump mostly at rest (tester decision).
+            // k = (netLoss + share*pump) / dTavg.
             float drop_c = _hlcal.anchor_water_c - waterC;
             float elapsed_h = (float)interval_s / 3600.0f;
             float amb_avg = _hlcal.amb_sum / (float)_hlcal.amb_n;
@@ -1568,7 +1573,7 @@ void BWC::_handleHeatLossCalibration()
                 _anchorHeatLossCalibration(now, waterC);
                 return;
             }
-            float k = clampHeatLoss((netLossW + cio->getPower().PUMPPOWER) / dTavg);
+            float k = clampHeatLoss((netLossW + HLCAL_PUMP_SHARE * cio->getPower().PUMPPOWER) / dTavg);
             _heat_loss = k;
             _hlcal.result = k;
             _finishHeatLossCalibration(HLCAL_ERR_NONE);
