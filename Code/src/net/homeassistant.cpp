@@ -180,6 +180,29 @@ static const char EC7[] PROGMEM = "Energiekosten heute";
 static const char EC8[] PROGMEM = "{{ value_json.COSTD | round(2) }}";
 static const char EC9[] PROGMEM = "total";
 static const char EC10[] PROGMEM = "700";
+// Last care-product doses: amount + when, from /times. Unset
+// timestamps render "None" so HA shows "unknown" instead of 1970.
+static const char DS0[] PROGMEM = "_dose_ph";
+static const char DS1[] PROGMEM = "Letzte Dosierung pH";
+static const char DS2[] PROGMEM = "{{ value_json.DPH }}";
+static const char DS3[] PROGMEM = "_dose_ph_time";
+static const char DS4[] PROGMEM = "Letzte Dosierung pH Zeitpunkt";
+static const char DS5[] PROGMEM = "{{ as_datetime(value_json.DPHTIME | int) if value_json.DPHTIME | int > 0 else None }}";
+static const char DS6[] PROGMEM = "_dose_cl";
+static const char DS7[] PROGMEM = "Letzte Dosierung Chlor";
+static const char DS8[] PROGMEM = "{{ value_json.DCL }} {{ 'Tabletten' if value_json.DCLTAB else 'g' }}";
+static const char DS9[] PROGMEM = "_dose_cl_time";
+static const char DS10[] PROGMEM = "Letzte Dosierung Chlor Zeitpunkt";
+static const char DS11[] PROGMEM = "{{ as_datetime(value_json.DCLTIME | int) if value_json.DCLTIME | int > 0 else None }}";
+static const char DS12[] PROGMEM = "_dose_ta";
+static const char DS13[] PROGMEM = "Letzte Dosierung Alkalität";
+static const char DS14[] PROGMEM = "{{ value_json.DTA }}";
+static const char DS15[] PROGMEM = "_dose_ta_time";
+static const char DS16[] PROGMEM = "Letzte Dosierung Alkalität Zeitpunkt";
+static const char DS17[] PROGMEM = "{{ as_datetime(value_json.DTATIME | int) if value_json.DTATIME | int > 0 else None }}";
+static const char DS18[] PROGMEM = "mdi:beaker-plus-outline";
+static const char DS19[] PROGMEM = "g";
+static const char DS20[] PROGMEM = "timestamp";
 static const HaEntityConfig entities[] PROGMEM = {
     // Control entities
     {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRTBASE }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
@@ -208,6 +231,14 @@ static const HaEntityConfig entities[] PROGMEM = {
     {"sensor", "_filter_age", "Letzter Filterwechsel", "sensor.", "/times", "{{ as_datetime(value_json.FTIME | int) }}", nullptr, nullptr, "hass:air-filter", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_filter_clean_age", "Letzte Filterreinigung", "sensor.", "/times", "{{ as_datetime(value_json.FCTIME | int) }}", nullptr, nullptr, "mdi:filter-check-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {"sensor", "_water_change_age", "Letzter Wasserwechsel", "sensor.", "/times", "{{ as_datetime(value_json.WCTIME | int) }}", nullptr, nullptr, "mdi:water-sync", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+
+    // Last care-product doses: pH/TA in g (minus = reducer), chlorine in g or tablets
+    {EC0, DS0, DS1, EC3, EC4, DS2, nullptr, nullptr, DS18, DS19, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {EC0, DS3, DS4, EC3, EC4, DS5, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {EC0, DS6, DS7, EC3, EC4, DS8, nullptr, nullptr, DS18, nullptr, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {EC0, DS9, DS10, EC3, EC4, DS11, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {EC0, DS12, DS13, EC3, EC4, DS14, nullptr, nullptr, DS18, DS19, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {EC0, DS15, DS16, EC3, EC4, DS17, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
 
     // Maintenance interval configuration sensors (read-only)
     {"sensor", "_chlorine_interval", "Chlorintervall", "sensor.", "/times", "{{ value_json.CLINT }}", nullptr, nullptr, "hass:hand-coin-outline", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
