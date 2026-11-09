@@ -213,9 +213,9 @@ export function Expert() {
               </div>
             ) : (
               <div class="actions">
-                {/* plan first, then "start now" */}
+                {/* plan first, then "start now"; ghost style like "reset to defaults" */}
                 {!cal?.PLANNED && <button class="btn" onClick={planCal}>{t('expert.calPlan')}</button>}
-                <button class={cal?.PLANNED ? 'btn' : 'btn secondary'} onClick={startCal}>{t('expert.calStart')}</button>
+                <button class={cal?.PLANNED ? 'btn' : 'btn ghost'} onClick={startCal}>{t('expert.calStart')}</button>
               </div>
             )}
             {!active && !cal?.PLANNED && <p class="hint">{t('expert.calPlanHint')}</p>}
