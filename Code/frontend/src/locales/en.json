@@ -278,6 +278,7 @@
   "link.spa": "Spa",
   "link.exclusiveNote": "The cloud connection and MQTT can't be active at the same time. Turning one on keeps the other off.",
   "info.softwareUpdate": "Software update",
+  "info.softwareTitle": "Software",
   "info.basedOn": "This software is based on the project",
   "info.basedOnAuthor": "by visualapproach",
   "info.license": "GNU General Public License v3.0",

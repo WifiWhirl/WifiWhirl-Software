@@ -87,7 +87,7 @@ export function Info() {
   return (
     <>
       <h1>{t('nav.info')}</h1>
-      <Card title="Software">
+      <Card title={t('info.softwareTitle')}>
         <div class="row"><label>{t('info.installedVersion')}</label><b>{fw}</b></div>
         {buildEnv && <div class="row"><label>{t('info.buildEnv')}</label><b>{buildEnv}</b></div>}
         <button class="btn" style="margin-top:12px" onClick={() => navigate('/update')}>

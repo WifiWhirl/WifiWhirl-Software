@@ -278,6 +278,7 @@
   "link.spa": "Whirlpool",
   "link.exclusiveNote": "Cloud-Verbindung und MQTT können nicht gleichzeitig aktiv sein. Wird eines eingeschaltet, bleibt das andere aus.",
   "info.softwareUpdate": "Softwareupdate",
+  "info.softwareTitle": "Software",
   "info.basedOn": "Diese Software basiert auf dem Projekt",
   "info.basedOnAuthor": "von visualapproach",
   "info.license": "GNU General Public License v3.0",
