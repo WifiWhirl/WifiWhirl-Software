@@ -1950,7 +1950,9 @@ input[aria-invalid="true"] {
 .dash-toolbar-hint { color: var(--muted); font-size: 0.85em; }
 .dash-toolbar .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .dashboard-layout.editing .dash-widget {
-  border: 2px dashed var(--border); border-radius: var(--radius);
+  /* outline + overlaid chrome: edit mode must not change a widget's height,
+     or the masonry packs differently than the normal view */
+  outline: 2px dashed var(--border); outline-offset: -2px; border-radius: var(--radius);
 }
 .dashboard-layout.editing .dash-widget.sized {
   height: auto;
@@ -1959,8 +1961,16 @@ input[aria-invalid="true"] {
   height: var(--h);
 }
 .dashboard-layout.editing .dash-widget.disabled { opacity: 0.5; }
-.dash-chrome { position: relative; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
+.dash-chrome {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 4;
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  /* covers the card's own title row, which it repeats */
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0; border-bottom: 1px dashed var(--border);
+}
 .dash-chrome .dash-title { flex: 1; font-weight: 600; font-size: 0.9em; }
+/* the chrome repeats the widget title: hide the card's own (keeps its space, so no height change) */
+.dashboard-layout.editing .dash-widget > .card :is(.card-head, .hero-head, .target-label) { visibility: hidden; }
 .dash-chrome-extra { display: inline-flex; align-items: center; gap: 8px; flex: none; }
 .dash-mini-toggle { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.72rem; font-weight: 760; white-space: nowrap; }
 .dash-mini-toggle .switch { width: 38px; height: 24px; }
@@ -1969,7 +1979,7 @@ input[aria-invalid="true"] {
 .dash-mini-toggle .switch input:checked + .slider::before { transform: translateX(14px); }
 .dash-grip { cursor: grab; touch-action: none; display: inline-flex; color: var(--muted); }
 .dash-grip:active { cursor: grabbing; }
-.dash-placeholder { padding: 8px 12px 12px; color: var(--muted); }
+.dash-placeholder { padding: 48px 12px 12px; color: var(--muted); }
 /* Resize handles are edge bars: easy to grab and clearly directional. */
 .dash-resize { position: absolute; z-index: 3; touch-action: none; background: transparent; }
 .dash-resize::after {
