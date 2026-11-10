@@ -67,6 +67,33 @@ void handleGetSmartSchedule()
 }
 
 /**
+ * Validate a smart schedule object and set it. Shared by /setsmartschedule/ and
+ * the webhook (/hook/?schedule=...), so both accept the same fields:
+ * TARGETTIME (epoch), TARGETTEMP (20-40), KEEPON, optional KEEPPUMP and REPEAT.
+ * Returns an empty string on success, else the reason.
+ */
+String setSmartScheduleFromJson(JsonObjectConst obj)
+{
+    String validationError;
+    int64_t targetTimeValue;
+    int64_t targetTempValue;
+    bool keep_heater_on;
+    bool keep_pump_on = false; // optional
+    int64_t repeatValue = 0; // optional: 0 = one-shot, else repeat every N days
+    if (!readRequiredScheduleInteger(obj, F("TARGETTIME"), 1, MAX_SCHEDULE_EPOCH_SECONDS, targetTimeValue, validationError) ||
+        !readRequiredScheduleInteger(obj, F("TARGETTEMP"), 20, 40, targetTempValue, validationError) ||
+        !readRequiredScheduleBool(obj, F("KEEPON"), keep_heater_on, validationError) ||
+        (obj.containsKey(F("KEEPPUMP")) && !readRequiredScheduleBool(obj, F("KEEPPUMP"), keep_pump_on, validationError)) ||
+        (obj.containsKey(F("REPEAT")) &&
+         !readRequiredScheduleInteger(obj, F("REPEAT"), 0, 30, repeatValue, validationError)) ||
+        !validateScheduleTargetTime(targetTimeValue, validationError))
+        return validationError;
+    if (!bwc->setSmartSchedule((uint64_t)targetTimeValue, (uint8_t)targetTempValue, keep_heater_on, (uint8_t)repeatValue, keep_pump_on))
+        return F("Invalid schedule parameters or NTP not synced");
+    return String();
+}
+
+/**
  * response for /setsmartschedule/
  * set a new smart schedule
  */
@@ -90,37 +117,11 @@ void handleSetSmartSchedule()
         return;
     }
 
-    JsonObjectConst obj = doc.as<JsonObjectConst>();
-    String validationError;
-    int64_t targetTimeValue;
-    int64_t targetTempValue;
-    bool keep_heater_on;
-    bool keep_pump_on = false; // optional
-    int64_t repeatValue = 0; // optional: 0 = one-shot, else repeat every N days
-    if (!readRequiredScheduleInteger(obj, F("TARGETTIME"), 1, MAX_SCHEDULE_EPOCH_SECONDS, targetTimeValue, validationError) ||
-        !readRequiredScheduleInteger(obj, F("TARGETTEMP"), 20, 40, targetTempValue, validationError) ||
-        !readRequiredScheduleBool(obj, F("KEEPON"), keep_heater_on, validationError) ||
-        (obj.containsKey(F("KEEPPUMP")) && !readRequiredScheduleBool(obj, F("KEEPPUMP"), keep_pump_on, validationError)) ||
-        (obj.containsKey(F("REPEAT")) &&
-         !readRequiredScheduleInteger(obj, F("REPEAT"), 0, 30, repeatValue, validationError)) ||
-        !validateScheduleTargetTime(targetTimeValue, validationError))
-    {
-        server->send(400, F("text/plain"), validationError);
-        return;
-    }
-
-    uint64_t target_time = (uint64_t)targetTimeValue;
-    uint8_t target_temp = (uint8_t)targetTempValue;
-
-    // Validate and set schedule
-    if (bwc->setSmartSchedule(target_time, target_temp, keep_heater_on, (uint8_t)repeatValue, keep_pump_on))
-    {
-        server->send(200, F("text/plain"), F("Schedule set successfully"));
-    }
+    String err = setSmartScheduleFromJson(doc.as<JsonObjectConst>());
+    if (err.length())
+        server->send(400, F("text/plain"), err);
     else
-    {
-        server->send(400, F("text/plain"), F("Invalid schedule parameters or NTP not synced"));
-    }
+        server->send(200, F("text/plain"), F("Schedule set successfully"));
 }
 
 /**

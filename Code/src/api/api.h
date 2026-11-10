@@ -24,6 +24,7 @@ void handleSetHardware();
 // --- Smart schedule (api_schedule.cpp) ---
 void handleGetSmartSchedule();
 void handleSetSmartSchedule();
+String setSmartScheduleFromJson(JsonObjectConst obj);
 void handleUpdateSmartSchedule();
 void handleCancelSmartSchedule();
 

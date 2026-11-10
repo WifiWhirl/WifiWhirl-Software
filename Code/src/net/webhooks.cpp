@@ -11,6 +11,8 @@
  * Pump off: http://[ipaddress]/hook/?send={"CMD":4,"VALUE":false}
  * Heating on: http://[ipaddress]/hook/?send={"CMD":3,"VALUE":true}
  * Heating off: http://[ipaddress]/hook/?send={"CMD":3,"VALUE":false}
+ * Smart Schedule: http://[ipaddress]/hook/?schedule={"TARGETTIME":1767283200,"TARGETTEMP":38,"KEEPPUMP":true}
+ * Cancel it:      http://[ipaddress]/hook/?schedule=cancel
  * 
  * See https://wifiwhirl.de/Integrationen/Webhooks/ for details
  */
@@ -41,6 +43,32 @@ void handleWebhook()
 
     if (!checkWebhookAuth())
         return;
+
+    // Smart Schedule: same fields as /setsmartschedule/, KEEPON optional here
+    if (server->hasArg(F("schedule")))
+    {
+        String arg = server->arg(F("schedule"));
+        if (arg == F("cancel"))
+        {
+            bwc->cancelSmartSchedule();
+            server->send(200, F("text/plain"), F("Schedule cancelled"));
+            return;
+        }
+        StaticJsonDocument<256> sdoc;
+        if (deserializeJson(sdoc, arg) || !sdoc.is<JsonObject>())
+        {
+            server->send(400, F("text/plain"), F("Schedule must be a JSON object or \"cancel\""));
+            return;
+        }
+        if (!sdoc.containsKey(F("KEEPON")))
+            sdoc[F("KEEPON")] = false;
+        String err = setSmartScheduleFromJson(sdoc.as<JsonObjectConst>());
+        if (err.length())
+            server->send(400, F("text/plain"), err);
+        else
+            server->send(200, F("text/plain"), F("Schedule set"));
+        return;
+    }
 
     StaticJsonDocument<256> doc;
     String message = server->arg("send");
