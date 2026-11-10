@@ -60,7 +60,12 @@ void handleWebhook()
     }
     if (!bwc->add_live_command(item))
     {
-        server->send(409, F("text/plain"), F("Queue full (max. 20 commands)"));
+        // same answer as /sendcommand/: a running heat-loss calibration drops
+        // live commands, the queue isn't actually full
+        if (bwc->calibrating())
+            server->send(423, F("text/plain"), F("Calibration running"));
+        else
+            server->send(409, F("text/plain"), F("Queue full (max. 20 commands)"));
         return;
     }
 
