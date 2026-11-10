@@ -155,7 +155,7 @@
   "hardware.save": "Speichern",
   "web.showCyanuric": "Zeige \"Cyanursäure\"",
   "web.showAlkalinity": "Zeige \"Alkalinität\"",
-  "web.layoutHint": "Ordne, skaliere und zeige oder verberge Dashboard-Elemente über die Schaltfläche \"Bearbeiten\" im Dashboard.",
+  "web.layoutHint": "Ziehe Elemente, um sie umzusortieren, ändere ihre Größe oder blende sie ein und aus. Mit dem Häkchen oben rechts bist du fertig.",
   "dash.edit": "Bearbeiten",
   "dash.done": "Fertig",
   "dash.reset": "Layout zurücksetzen",

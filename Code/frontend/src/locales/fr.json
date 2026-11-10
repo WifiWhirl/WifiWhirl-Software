@@ -188,7 +188,7 @@
   "hardware.save": "Enregistrer",
   "web.showCyanuric": "Afficher \"Acide cyanurique\"",
   "web.showAlkalinity": "Afficher \"Alcalinité\"",
-  "web.layoutHint": "Organise, redimensionne et affiche ou masque les widgets du tableau de bord avec le bouton Modifier.",
+  "web.layoutHint": "Fais glisser les widgets pour les réorganiser, redimensionne-les, affiche-les ou masque-les. Appuie sur la coche en haut à droite quand tu as fini.",
   "dash.edit": "Modifier",
   "dash.done": "Terminé",
   "dash.reset": "Réinitialiser la disposition",

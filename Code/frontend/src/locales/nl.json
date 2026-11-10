@@ -188,7 +188,7 @@
   "hardware.save": "Opslaan",
   "web.showCyanuric": "\"Cyaanzuur\" tonen",
   "web.showAlkalinity": "\"Alkaliniteit\" tonen",
-  "web.layoutHint": "Orden, vergroot/verklein en toon of verberg dashboardwidgets met de knop Bewerken op het dashboard.",
+  "web.layoutHint": "Sleep widgets om ze te herschikken, wijzig hun grootte of toon en verberg ze. Tik op het vinkje rechtsboven als je klaar bent.",
   "dash.edit": "Bewerken",
   "dash.done": "Klaar",
   "dash.reset": "Lay-out resetten",

@@ -155,7 +155,7 @@
   "hardware.save": "Save",
   "web.showCyanuric": "Show \"Cyanuric acid\"",
   "web.showAlkalinity": "Show \"Alkalinity\"",
-  "web.layoutHint": "Arrange, resize and show or hide dashboard widgets with the Edit button on the dashboard.",
+  "web.layoutHint": "Drag widgets to reorder them, resize them or show and hide them. Tap the check mark at the top right when you're done.",
   "dash.edit": "Edit",
   "dash.done": "Done",
   "dash.reset": "Reset layout",

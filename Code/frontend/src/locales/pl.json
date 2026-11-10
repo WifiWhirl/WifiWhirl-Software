@@ -188,7 +188,7 @@
   "hardware.save": "Zapisz",
   "web.showCyanuric": "Pokaż \"Kwas cyjanurowy\"",
   "web.showAlkalinity": "Pokaż \"Zasadowość\"",
-  "web.layoutHint": "Rozmieszczaj, zmieniaj rozmiar oraz pokazuj lub ukrywaj widżety pulpitu za pomocą przycisku Edytuj na pulpicie.",
+  "web.layoutHint": "Przeciągaj widżety, aby zmienić ich kolejność, zmieniaj ich rozmiar albo je pokazuj i ukrywaj. Gdy skończysz, dotknij znacznika w prawym górnym rogu.",
   "dash.edit": "Edytuj",
   "dash.done": "Gotowe",
   "dash.reset": "Resetuj układ",
