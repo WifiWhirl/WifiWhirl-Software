@@ -339,7 +339,7 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
           <LastDose ts={tm?.DTATIME} text={tm?.DTA ? `${Math.abs(tm.DTA)} g ${tm.DTA < 0 ? 'TA-' : 'TA+'}` : ''} />
         </>
       )}
-      <AddDose showAlk={showAlk} prefill={prefill} note={!!(sPh || sCl || sTa)} />
+      <AddDose showAlk={showAlk} prefill={prefill} note={!!(sPh || sCl || sTa)} phWatch={sTa?.kind === 'taMinus'} />
     </Card>
   );
 }
@@ -394,12 +394,14 @@ const DOSES = {
 type Dose = keyof typeof DOSES;
 
 /** Record a care product added to the water, stamped with the current time. */
-function AddDose({ showAlk, prefill, note }: {
+function AddDose({ showAlk, prefill, note, phWatch }: {
   showAlk: boolean;
   /** a clicked suggestion */
   prefill: { kind: Dose; n: number; seq: number } | null;
   /** a suggestion is shown: the one safety note goes here, once */
   note: boolean;
+  /** pH-Minus suggested for too much TA: it lowers the pH too */
+  phWatch: boolean;
 }) {
   const [what, setWhat] = useState<Dose>('phMinus');
   const [amount, setAmount] = useState('');
@@ -425,7 +427,7 @@ function AddDose({ showAlk, prefill, note }: {
           {t('dashboard.doseSave')}
         </button>
       </div>
-      {note && <p class="hint">{t('dashboard.suggestNote')}</p>}
+      {note && <p class="hint">{t('dashboard.suggestNote')}{phWatch && <> {t('dashboard.suggestNoteTa')}</>}</p>}
     </div>
   );
 }

@@ -645,5 +645,6 @@
   "cfg.df.DFCL": "Chlor w granulacie na 1 mg/l",
   "cfg.df.DFTAP": "Alka-Plus na 10 mg/l TA",
   "cfg.df.DFTAM": "pH minus na 10 mg/l mniej TA",
-  "cfg.dfUnit": "g / 1000 l"
+  "cfg.dfUnit": "g / 1000 l",
+  "dashboard.suggestNoteTa": "pH minus obniża przy tym także pH. Zmierz je również i uważaj, żeby nie spadło poniżej 7,2."
 }

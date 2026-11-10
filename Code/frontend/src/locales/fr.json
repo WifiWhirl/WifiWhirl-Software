@@ -645,5 +645,6 @@
   "cfg.df.DFCL": "Chlore en granulés par 1 mg/l",
   "cfg.df.DFTAP": "Alca-Plus par 10 mg/l de TAC",
   "cfg.df.DFTAM": "pH moins par 10 mg/l de TAC en moins",
-  "cfg.dfUnit": "g / 1000 l"
+  "cfg.dfUnit": "g / 1000 l",
+  "dashboard.suggestNoteTa": "Le pH moins fait aussi baisser le pH. Mesure-le aussi et veille à ce qu’il ne descende pas sous 7,2."
 }

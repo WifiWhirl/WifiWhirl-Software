@@ -2341,8 +2341,12 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 
 /* care-product suggestion under a water value, click fills the dose form */
 .suggest {
-  display: block; background: none; border: 0; padding: 0 0 6px; margin: 0;
-  font: inherit; font-size: 0.86rem; font-weight: 650; color: var(--accent);
-  text-align: left; cursor: pointer;
+  display: block; background: none; border: 0; padding: 0; margin: 3px 0 0;
+  font: inherit; font-size: 0.85rem; line-height: 1.4; font-weight: 650; color: var(--accent);
+  text-align: left; cursor: pointer; user-select: none; /* a double click selected the text */
 }
 .suggest:hover { text-decoration: underline; }
+.suggest:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 4px; }
+/* the lines under a water value (ideal range, suggestion, last dose) as one
+   evenly spaced block */
+.water-card .hint { margin-top: 3px; line-height: 1.4; }
