@@ -305,41 +305,48 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
 
   return (
     <Card title={t('dashboard.waterQuality')} className="water-card">
-      <Row label={t('dashboard.phValue')}>
-        <NumberInput value={ph} min={0} max={14} step={0.1} onInput={(v) => edit('ph', v)} />
-      </Row>
-      <RangeBar value={parseFloat(ph.replace(',', '.'))} min={0} max={14} low={7.2} high={7.6} />
-      <p class="hint">{t('dashboard.idealRange')}: 7,2 - 7,6 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.PHTIME)) : '-'}</p>
-      <Suggest s={sPh} onPick={pick} />
-      <LastDose ts={tm?.DPHTIME} text={tm?.DPH ? `${Math.abs(tm.DPH)} g ${tm.DPH < 0 ? 'pH-' : 'pH+'}` : ''} />
-      <Row label={t('dashboard.chlorineValue')}>
-        <NumberInput value={cl} min={0} max={10} step={0.1} onInput={(v) => edit('cl', v)} />
-      </Row>
-      <RangeBar value={parseFloat(cl.replace(',', '.'))} min={0} max={10} low={1.0} high={3.0} />
-      <p class="hint">{t('dashboard.idealRange')}: 1,0 - 3,0 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CLVTIME)) : '-'}</p>
-      <Suggest s={sCl} onPick={pick} />
-      {tm && <ChlorineDue tm={tm} />}
-      {showCya && (
-        <>
-          <Row label={t('dashboard.cyanuricValue')}>
-            <NumberInput value={cya} min={0} max={200} step={1} onInput={(v) => edit('cya', v)} />
+      {/* desktop: two columns once the card is wide enough (prototype B) */}
+      <div class="wq-wrap"><div class="wq-grid">
+        <div class="wq-item">
+          <Row label={t('dashboard.phValue')}>
+            <NumberInput value={ph} min={0} max={14} step={0.1} onInput={(v) => edit('ph', v)} />
           </Row>
-          <RangeBar value={parseFloat(cya.replace(',', '.'))} min={0} max={200} low={30} high={50} />
-          <p class="hint">{t('dashboard.idealRange')}: 30 - 50 · {t('dashboard.lastChecked')}: {tm?.CYATIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CYATIME)) : '-'}</p>
-          <Suggest s={sCya} onPick={pick} />
-        </>
-      )}
-      {showAlk && (
-        <>
-          <Row label={t('dashboard.alkalinityValue')}>
-            <NumberInput value={alk} min={0} max={300} step={1} onInput={(v) => edit('alk', v)} />
+          <RangeBar value={parseFloat(ph.replace(',', '.'))} min={0} max={14} low={7.2} high={7.6} />
+          <p class="hint">{t('dashboard.idealRange')}: 7,2 - 7,6 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.PHTIME)) : '-'}</p>
+          <Suggest s={sPh} onPick={pick} />
+          <LastDose ts={tm?.DPHTIME} text={tm?.DPH ? `${Math.abs(tm.DPH)} g ${tm.DPH < 0 ? 'pH-' : 'pH+'}` : ''} />
+        </div>
+        <div class="wq-item">
+          <Row label={t('dashboard.chlorineValue')}>
+            <NumberInput value={cl} min={0} max={10} step={0.1} onInput={(v) => edit('cl', v)} />
           </Row>
-          <RangeBar value={parseFloat(alk.replace(',', '.'))} min={0} max={300} low={80} high={120} />
-          <p class="hint">{t('dashboard.idealRange')}: 80 - 120 · {t('dashboard.lastChecked')}: {tm?.ALKTIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.ALKTIME)) : '-'}</p>
-          <Suggest s={sTa} onPick={pick} />
-          <LastDose ts={tm?.DTATIME} text={tm?.DTA ? `${Math.abs(tm.DTA)} g ${tm.DTA < 0 ? 'TA-' : 'TA+'}` : ''} />
-        </>
-      )}
+          <RangeBar value={parseFloat(cl.replace(',', '.'))} min={0} max={10} low={1.0} high={3.0} />
+          <p class="hint">{t('dashboard.idealRange')}: 1,0 - 3,0 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CLVTIME)) : '-'}</p>
+          <Suggest s={sCl} onPick={pick} />
+          {tm && <ChlorineDue tm={tm} />}
+        </div>
+        {showCya && (
+          <div class="wq-item">
+            <Row label={t('dashboard.cyanuricValue')}>
+              <NumberInput value={cya} min={0} max={200} step={1} onInput={(v) => edit('cya', v)} />
+            </Row>
+            <RangeBar value={parseFloat(cya.replace(',', '.'))} min={0} max={200} low={30} high={50} />
+            <p class="hint">{t('dashboard.idealRange')}: 30 - 50 · {t('dashboard.lastChecked')}: {tm?.CYATIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CYATIME)) : '-'}</p>
+            <Suggest s={sCya} onPick={pick} />
+          </div>
+        )}
+        {showAlk && (
+          <div class="wq-item">
+            <Row label={t('dashboard.alkalinityValue')}>
+              <NumberInput value={alk} min={0} max={300} step={1} onInput={(v) => edit('alk', v)} />
+            </Row>
+            <RangeBar value={parseFloat(alk.replace(',', '.'))} min={0} max={300} low={80} high={120} />
+            <p class="hint">{t('dashboard.idealRange')}: 80 - 120 · {t('dashboard.lastChecked')}: {tm?.ALKTIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.ALKTIME)) : '-'}</p>
+            <Suggest s={sTa} onPick={pick} />
+            <LastDose ts={tm?.DTATIME} text={tm?.DTA ? `${Math.abs(tm.DTA)} g ${tm.DTA < 0 ? 'TA-' : 'TA+'}` : ''} />
+          </div>
+        )}
+      </div></div>
       <AddDose showAlk={showAlk} prefill={prefill} note={!!(sPh || sCl || sTa)} phWatch={sTa?.kind === 'taMinus'} />
     </Card>
   );
