@@ -455,7 +455,6 @@ void BWC::setup(void)
 void BWC::begin()
 {
     // _save_melody("melody.bin");
-    // if(_audio_enabled) dsp->playIntro();
     // dsp->LEDshow();
     _save_settings_ticker.attach(600.0f, save_settings_cb, this);
     _scroll_text_ticker.attach(0.25f, scroll_text_cb, this);
@@ -537,6 +536,7 @@ void BWC::loop()
     cio->cio_toggles = dsp->dsp_toggles;
 
     play_sound();
+    _soundEvents();
 
     if (_dsp_tgt_used)
         cio->cio_toggles.target = cio->cio_states.target;
@@ -657,23 +657,24 @@ void BWC::adjust_brightness()
 
 void BWC::play_sound()
 {
+    // buttons never cut a running sound, so a held button does not restart it every frame
     if (!dsp->dsp_states.locked && dsp->dsp_states.power)
     {
         switch (dsp->dsp_toggles.pressed_button)
         {
         case UP:
             if (dsp->EnabledButtons[UP])
-                _sweepup();
+                playSound(SND_UP, false);
             _dsp_tgt_used = true;
             break;
         case DOWN:
             if (dsp->EnabledButtons[DOWN])
-                _sweepdown();
+                playSound(SND_DOWN, false);
             _dsp_tgt_used = true;
             break;
         case TIMER:
             if (dsp->EnabledButtons[TIMER])
-                _beep();
+                playSound(SND_CLICK, false);
             break;
         default:
 
@@ -685,7 +686,7 @@ void BWC::play_sound()
         dsp->dsp_toggles.bubbles_change || dsp->dsp_toggles.heat_change ||
         dsp->dsp_toggles.jets_change || dsp->dsp_toggles.power_change ||
         dsp->dsp_toggles.pump_change || dsp->dsp_toggles.unit_change)
-        _accord();
+        playSound(SND_CLICK, false);
     /* Lock button sound is taken care of in _handleStateChanges() */
 }
 
@@ -853,7 +854,8 @@ bool BWC::_handlecommand(Commands cmd, int64_t val, const String &txt = "")
 {
     bool restartESP = false;
 
-    dsp->text += String(" ") + txt;
+    if (!(cmd == SETBEEP && txt.startsWith(F("mel:"))))
+        dsp->text += String(" ") + txt;
     switch (cmd)
     {
     // VALUE 0/1 is the wanted state (schedule "off at 23:00", HA switch),
@@ -1211,9 +1213,9 @@ void BWC::_handleStateChanges()
         _jets_change_timestamp_ms = millis();
     }
 
-    if ((cio->cio_states.locked != _prev_cio_states.locked) && dsp->EnabledButtons[LOCK] && _audio_enabled && (dsp->dsp_toggles.pressed_button == LOCK))
+    if ((cio->cio_states.locked != _prev_cio_states.locked) && dsp->EnabledButtons[LOCK] && (dsp->dsp_toggles.pressed_button == LOCK))
     {
-        _beep();
+        playSound(cio->cio_states.locked ? SND_CONFIRM : SND_CLICK);
     }
 
     if (
@@ -2648,6 +2650,30 @@ void BWC::_checkJetTimeouts()
         }
     }
     
+    // Reminder sound one minute before a jet goes off, by WifiWhirl or by the pump itself
+    if (cio->cio_states.bubbles && _prev_cio_states.bubbles)
+    {
+        uint32_t limit_ms = (uint32_t)(_airjet_timeout_minutes < 30 ? _airjet_timeout_minutes : 30) * 60000UL;
+        if (!_airjet_warned && limit_ms > 60000UL && now - _bubbles_change_timestamp_ms >= limit_ms - 60000UL)
+        {
+            _airjet_warned = true;
+            playSound(SND_REMINDER);
+        }
+    }
+    else
+        _airjet_warned = false;
+    if (cio->cio_states.jets && _prev_cio_states.jets)
+    {
+        uint32_t limit_ms = (uint32_t)(_hydrojet_timeout_minutes < 60 ? _hydrojet_timeout_minutes : 60) * 60000UL;
+        if (!_hydrojet_warned && limit_ms > 60000UL && now - _jets_change_timestamp_ms >= limit_ms - 60000UL)
+        {
+            _hydrojet_warned = true;
+            playSound(SND_REMINDER);
+        }
+    }
+    else
+        _hydrojet_warned = false;
+
     // Check hydrojet timeout (only if configured below hardware default of 60 min)
     if (cio->cio_states.jets && _prev_cio_states.jets && _hydrojet_timeout_minutes < 60)
     {
@@ -2779,7 +2805,9 @@ void BWC::_updateTimes()
 
     if (_notes.size())
     {
-        _note_duration += (int)elapsedtime_ms;
+        // capped: a stalled loop() (end of setup, HA discovery) holds the note a bit
+        // longer instead of skipping the whole melody in one step
+        _note_duration += (int)(elapsedtime_ms < 50 ? elapsedtime_ms : 50);
         while (_notes.size() && _note_duration >= _notes.back().duration_ms)
         {
             _note_duration -= _notes.back().duration_ms;
@@ -3516,29 +3544,85 @@ bool BWC::_load_melody_json(const String &filename)
 //     std::reverse(_notes.begin(), _notes.end());
 // }
 
-void BWC::_sweepdown()
+// Sound identity: "beat_ms duty freq beats freq beats ...", same format as the .mel
+// files in Sound/identity/ (render.py turns them into WAVs to listen to).
+static const char MEL_BOOT[] PROGMEM = "120 0.85 1568 1 2093 1 2637 1 3136 1 0 1 4186 3";
+static const char MEL_CONNECTED[] PROGMEM = "110 0.85 2093 1 3136 1 4186 3";
+static const char MEL_CLICK[] PROGMEM = "60 1 2794 1";
+static const char MEL_CONFIRM[] PROGMEM = "70 0.85 2637 1 3136 1";
+static const char MEL_ERROR[] PROGMEM = "160 0.8 1568 1 1175 1 0 0.5 1175 2";
+static const char MEL_READY[] PROGMEM = "140 0.85 2093 1 2637 1 3136 1 2637 1 3136 1 4186 3";
+static const char MEL_REMINDER[] PROGMEM = "120 0.6 2637 1 0 1 2637 1";
+static const char MEL_UP[] PROGMEM = "45 0.9 2349 1 2794 1 3136 1";
+static const char MEL_DOWN[] PROGMEM = "45 0.9 3136 1 2794 1 2349 1";
+static const char *const MELODIES[] PROGMEM = {MEL_BOOT, MEL_CONNECTED, MEL_CLICK, MEL_CONFIRM, MEL_ERROR,
+                                               MEL_READY, MEL_REMINDER, MEL_UP, MEL_DOWN};
+
+void BWC::playSound(Sound s, bool interrupt)
 {
-    if (_notes.size() || !_audio_enabled)
+    if (!_audio_enabled || s >= sizeof(MELODIES) / sizeof(MELODIES[0]))
         return;
-    for (int i = 0; i < 128; i++)
+    if (_notes.size())
     {
-        sNote n;
-        n.duration_ms = 2;
-        n.frequency_hz = 1000 + 8 * i;
-        _notes.push_back(n);
+        if (!interrupt)
+            return;
+        _notes.clear(); // events win over whatever is playing
     }
+    _note_duration = 0;
+    _load_melody_json(String(F("mel:")) + FPSTR((const char *)pgm_read_ptr(&MELODIES[s])));
 }
 
-void BWC::_sweepup()
+/** Event sounds: error (every 10 s), target reached, maintenance timer due. */
+void BWC::_soundEvents()
 {
-    if (_notes.size() || !_audio_enabled)
-        return;
-    for (int i = 0; i < 128; i++)
+    uint32_t now = millis();
+    if (_queued_sound >= 0 && !_notes.size())
     {
-        sNote n;
-        n.duration_ms = 2;
-        n.frequency_hz = 2000 - 8 * i;
-        _notes.push_back(n);
+        playSound((Sound)_queued_sound);
+        _queued_sound = -1;
+    }
+
+    if (cio->cio_states.error)
+    {
+        // waits until nothing else plays or waits (boot, connected), then every 10 s
+        if ((!_error_sound_ms || now - _error_sound_ms >= 10000) && !_notes.size() && _queued_sound < 0)
+        {
+            _error_sound_ms = now | 1;
+            playSound(SND_ERROR);
+        }
+    }
+    else
+        _error_sound_ms = 0;
+
+    // Ready once per heating session: armed when the heater goes on or the target
+    // changes, so the thermostat switching red/green while holding stays quiet.
+    // Not armed in the first 30 s, the boot restore switches a running heater on again.
+    if (now > 30000 && cio->cio_states.heat &&
+        (!_prev_cio_states.heat || cio->cio_states.target != _prev_cio_states.target))
+        _ready_armed = true;
+    if (!cio->cio_states.heat)
+        _ready_armed = false;
+    if (_ready_armed && cio->cio_states.heatgrn && !_prev_cio_states.heatgrn)
+    {
+        _ready_armed = false;
+        playSound(SND_READY);
+    }
+
+    // Maintenance timers, once when one becomes due (checked every minute, needs NTP)
+    if (now - _reminder_check_ms >= 60000 || _due_mask < 0)
+    {
+        _reminder_check_ms = now;
+        if (_timestamp_secs < 1600000000)
+            return;
+        const uint32_t ts[] = {_cl_timestamp_s, _filter_timestamp_s, _fc_timestamp_s, _wc_timestamp_s, _ph_timestamp_s};
+        const uint32_t days[] = {_cl_interval, _filter_interval, _fc_interval, _wc_interval, _ph_interval};
+        int8_t mask = 0;
+        for (int i = 0; i < 5; i++)
+            if (ts[i] && days[i] && (uint64_t)_timestamp_secs >= (uint64_t)ts[i] + (uint64_t)days[i] * 86400ULL)
+                mask |= 1 << i;
+        if (_due_mask >= 0 && (mask & ~_due_mask))
+            playSound(SND_REMINDER);
+        _due_mask = mask;
     }
 }
 

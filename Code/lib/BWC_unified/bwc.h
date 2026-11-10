@@ -126,6 +126,10 @@ public:
     void loop();
     void adjust_brightness();
     void play_sound();
+    // WifiWhirl sound identity, melodies in bwc.cpp (designed in Sound/identity/*.mel)
+    enum Sound : uint8_t { SND_BOOT, SND_CONNECTED, SND_CLICK, SND_CONFIRM, SND_ERROR, SND_READY, SND_REMINDER, SND_UP, SND_DOWN };
+    void playSound(Sound s, bool interrupt = true);
+    void queueSound(Sound s) { _queued_sound = s; } // plays once the current sound is done
     // String get_fromcio();
     // String get_todsp();
     // String get_fromdsp();
@@ -234,8 +238,7 @@ private:
     bool _load_melody_json(const String &filename);
     void _add_melody(const String &filename);
     void _save_melody(const String &filename);
-    void _sweepdown();
-    void _sweepup();
+    void _soundEvents();
     void _beep();
     void _accord();
     void _log();
@@ -279,7 +282,14 @@ private:
     bool _command_queue_enabled = true;
     bool _command_queue_paused_for_calibration = false;
     std::vector<sNote> _notes;
-    int _note_duration;
+    int _note_duration = 0;
+    int8_t _queued_sound = -1;
+    bool _ready_armed = false;
+    bool _airjet_warned = false;
+    bool _hydrojet_warned = false;
+    uint32_t _error_sound_ms = 0;
+    uint32_t _reminder_check_ms = 0;
+    int8_t _due_mask = -1; // -1 = not evaluated yet (no reminder for timers already due at boot)
     uint32_t _cl_timestamp_s;
     uint32_t _filter_timestamp_s;
     uint32_t _fc_timestamp_s;

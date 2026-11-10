@@ -155,6 +155,10 @@ void setup()
     bwc->print(WiFi.localIP().toString());
     bwc->print("   ");
     bwc->print(FW_VERSION);
+    // Sounds only now: notes advance in loop(), and setup() above stalls it for seconds
+    bwc->playSound(BWC::SND_BOOT);
+    if (WiFi.status() == WL_CONNECTED)
+        bwc->queueSound(BWC::SND_CONNECTED);
     Serial.println(F("End of setup()"));
     heap_water_mark = ESP.getFreeHeap();
     Serial.println(ESP.getFreeHeap()); // 26216
@@ -300,6 +304,7 @@ void loop()
             // Serial.println(" IP: \"" + WiFi.localIP().toString() + "\"");
             startOTA();
             startHttpServer();
+            bwc->queueSound(BWC::SND_CONNECTED); // reconnected, with IP (not: a phone joined the setup AP)
         }
 
         // reset marker
