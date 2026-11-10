@@ -7,13 +7,19 @@ import { confirmDialog } from '../components/feedback';
 import { PageSkeleton } from '../components/Skeleton';
 import { lastStates, sendCommand } from '../comms';
 import { t } from '../i18n';
+
+// Firmware SNDMASK bits (BWC::Sound); up and down share one switch
+const SOUNDS: [string, number][] = [
+  ['boot', 1 << 0], ['connected', 1 << 1], ['click', 1 << 2], ['updown', (1 << 7) | (1 << 8)],
+  ['confirm', 1 << 3], ['error', 1 << 4], ['ready', 1 << 5], ['reminder', 1 << 6],
+];
 import { currencies, currency, currencySymbol, setCurrency } from '../currency';
 
 interface Cfg {
   PRICE: number; PRICE_NIGHT: number; NIGHT_ENABLED: boolean;
   NIGHT_START_MIN: number; NIGHT_END_MIN: number; NIGHT_WEEKEND: boolean;
   CLINT: number; FINT: number; FCINT: number; WCINT: number;
-  AUDIO: boolean; TIMEZONE: string; TIMEZONE_NAME: string; REBOOTTIME: number;
+  AUDIO: boolean; SNDMASK?: number; TIMEZONE: string; TIMEZONE_NAME: string; REBOOTTIME: number;
   WEATHER: boolean; CLOUD?: boolean; HASJETS: boolean; POOLCAP: number;
   DFPHM?: number; DFPHP?: number; DFCL?: number; DFTAP?: number; DFTAM?: number;
   AIRTO: number; HJTO: number; JETCD: boolean; STBYORIG: boolean; BRTSTEP: number; BRTDUR: number;
@@ -303,6 +309,17 @@ export function Config() {
           </div>
         </div>
         <Row label={t('spa.audio')}><Toggle checked={d.AUDIO} onChange={(v) => set('AUDIO', v)} /></Row>
+        {d.AUDIO && d.SNDMASK != null && (
+          <div class="cfg-subsection">
+            <h3>{t('snd.title')}</h3>
+            <p class="hint">{t('snd.hint')}</p>
+            {SOUNDS.map(([key, bits]) => (
+              <Row key={key} label={t(`snd.${key}`)}>
+                <Toggle checked={(d.SNDMASK! & bits) !== 0} onChange={(v) => set('SNDMASK', v ? d.SNDMASK! | bits : d.SNDMASK! & ~bits)} />
+              </Row>
+            ))}
+          </div>
+        )}
         <NumField label={t('cfg.airjetTimeout')} value={d.AIRTO} min={1} max={30} unit={t('cfg.minUnit')} onInput={(v) => set('AIRTO', v)} />
         {d.HASJETS && <NumField label={t('cfg.hydrojetTimeout')} value={d.HJTO} min={1} max={60} unit={t('cfg.minUnit')} onInput={(v) => set('HJTO', v)} />}
         <Row label={t('cfg.jetCountdown')}><Toggle checked={!!d.JETCD} onChange={(v) => set('JETCD', v)} /></Row>
@@ -317,7 +334,7 @@ export function Config() {
           <NumField label={t('config.brtBoostDuration')} value={d.BRTDUR} min={1} max={60} unit={t('config.seconds')} onInput={(v) => set('BRTDUR', v)} />
         </div>
         {save(() => ({
-          AUDIO: d.AUDIO, AIRTO: Number(d.AIRTO) || 30, HJTO: Number(d.HJTO) || 60, JETCD: !!d.JETCD, STBYORIG: d.STBYORIG !== false,
+          AUDIO: d.AUDIO, ...(d.SNDMASK != null && { SNDMASK: d.SNDMASK }), AIRTO: Number(d.AIRTO) || 30, HJTO: Number(d.HJTO) || 60, JETCD: !!d.JETCD, STBYORIG: d.STBYORIG !== false,
           BRTSTEP: Number(d.BRTSTEP) || 1, BRTDUR: Number(d.BRTDUR) || 5,
         }))}
       </Card>

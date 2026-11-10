@@ -2017,6 +2017,7 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("WCINT")] = _wc_interval;
     doc[F("PHINT")] = _ph_interval;
     doc[F("AUDIO")] = _audio_enabled;
+    doc[F("SNDMASK")] = _sound_mask;
     doc[F("JETCD")] = _jet_countdown;
     doc[F("STBYORIG")] = _standby_original;
     doc[F("TIMEZONE")] = _timezone;
@@ -2301,6 +2302,7 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
     int64_t wcInterval = _wc_interval;
     int64_t phInterval = _ph_interval;
     bool audioEnabled = _audio_enabled;
+    int64_t soundMask = _sound_mask;
     bool jetCountdown = _jet_countdown;
     bool standbyOriginal = _standby_original;
     String timezone = _timezone;
@@ -2330,6 +2332,7 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
         !readBoundedInteger(obj, F("WCINT"), 0, 3650, wcInterval, errorMessage) ||
         !readBoundedInteger(obj, F("PHINT"), 0, 3650, phInterval, errorMessage) ||
         !readBooleanSetting(obj, F("AUDIO"), audioEnabled, errorMessage) ||
+        !readBoundedInteger(obj, F("SNDMASK"), 0, SND_ALL, soundMask, errorMessage) ||
         !readBooleanSetting(obj, F("JETCD"), jetCountdown, errorMessage) ||
         !readBooleanSetting(obj, F("STBYORIG"), standbyOriginal, errorMessage) ||
         !readBoundedString(obj, F("TIMEZONE"), 96, timezone, errorMessage) ||
@@ -2391,6 +2394,8 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
         _ph_interval = (uint32_t)phInterval;
     if (doc.containsKey(F("AUDIO")))
         _audio_enabled = audioEnabled;
+    if (doc.containsKey(F("SNDMASK")))
+        _sound_mask = (uint16_t)soundMask;
     if (doc.containsKey(F("JETCD")))
         _jet_countdown = jetCountdown;
     if (doc.containsKey(F("STBYORIG")))
@@ -2932,6 +2937,7 @@ void BWC::_loadSettings()
     _dose_ta = doc[F("DTA")] | 0;
     _dose_ta_ts = doc[F("DTATIME")] | 0;
     _audio_enabled = doc[F("AUDIO")] | true;
+    _sound_mask = (doc[F("SNDMASK")] | (int)SND_ALL) & SND_ALL;
     _jet_countdown = doc[F("JETCD")] | false;
     _standby_original = doc[F("STBYORIG")] | true;
     _energy_total_kWh = doc[F("KWH")] | 0.0;
@@ -3374,6 +3380,7 @@ void BWC::saveSettings()
     doc[F("DTA")] = _dose_ta;
     doc[F("DTATIME")] = _dose_ta_ts;
     doc[F("AUDIO")] = _audio_enabled;
+    doc[F("SNDMASK")] = _sound_mask;
     doc[F("JETCD")] = _jet_countdown;
     doc[F("STBYORIG")] = _standby_original;
     doc[F("KWH")] = _energy_total_kWh;
@@ -3560,7 +3567,7 @@ static const char *const MELODIES[] PROGMEM = {MEL_BOOT, MEL_CONNECTED, MEL_CLIC
 
 void BWC::playSound(Sound s, bool interrupt)
 {
-    if (!_audio_enabled || s >= sizeof(MELODIES) / sizeof(MELODIES[0]))
+    if (!_audio_enabled || s >= sizeof(MELODIES) / sizeof(MELODIES[0]) || !(_sound_mask & (1 << s)))
         return;
     if (_notes.size())
     {

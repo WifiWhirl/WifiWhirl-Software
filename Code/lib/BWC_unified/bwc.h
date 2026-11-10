@@ -127,7 +127,9 @@ public:
     void adjust_brightness();
     void play_sound();
     // WifiWhirl sound identity, melodies in bwc.cpp (designed in Sound/identity/*.mel)
+    // SNDMASK bit n switches Sound n on; the SPA switches UP and DOWN together
     enum Sound : uint8_t { SND_BOOT, SND_CONNECTED, SND_CLICK, SND_CONFIRM, SND_ERROR, SND_READY, SND_REMINDER, SND_UP, SND_DOWN };
+    static constexpr uint16_t SND_ALL = 0x1FF;
     void playSound(Sound s, bool interrupt = true);
     void queueSound(Sound s) { _queued_sound = s; } // plays once the current sound is done
     // String get_fromcio();
@@ -284,6 +286,7 @@ private:
     std::vector<sNote> _notes;
     int _note_duration = 0;
     int8_t _queued_sound = -1;
+    uint16_t _sound_mask = SND_ALL;
     bool _ready_armed = false;
     bool _airjet_warned = false;
     bool _hydrojet_warned = false;
