@@ -515,6 +515,7 @@
   "dev.statWebhooks": "Webhooks",
   "cfg.energyCost": "Energiekosten",
   "cfg.weather": "Buitentemperatuur",
+  "cfg.weatherStat": "Weer automatisch ophalen",
   "cfg.disabled": "Uitgeschakeld",
   "cfg.enabled": "Ingeschakeld",
   "cfg.currency": "Valuta",

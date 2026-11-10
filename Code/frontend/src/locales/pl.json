@@ -515,6 +515,7 @@
   "dev.statWebhooks": "Webhooki",
   "cfg.energyCost": "Koszt energii",
   "cfg.weather": "Temperatura zewnętrzna",
+  "cfg.weatherStat": "Automatyczne pobieranie pogody",
   "cfg.disabled": "Wyłączone",
   "cfg.enabled": "Włączone",
   "cfg.currency": "Waluta",

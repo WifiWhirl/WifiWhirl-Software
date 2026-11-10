@@ -143,7 +143,7 @@ export function Config() {
         </div>
         <div class="cfg-hero-grid">
           <ConfigStat label={t('cfg.pool')} value={`${Number(d.POOLCAP) || 0} ${t('spa.liters')}`} />
-          <ConfigStat label={t('cfg.weather')} value={weatherSummary} tone={!weatherReady ? 'warn' : undefined} />
+          <ConfigStat label={t('cfg.weatherStat')} value={weatherSummary} tone={!weatherReady ? 'warn' : undefined} />
           <ConfigStat label={t('cfg.energy')} value={`${Number(d.PRICE).toFixed(2)} ${currencySymbol()}/kWh`} />
           <ConfigStat label={t('config.unit')} value={unitC ? '°C' : '°F'} />
           <ConfigStat label={t('spa.lastBoot')} value={lastBoot || '--'} />

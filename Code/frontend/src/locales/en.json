@@ -553,6 +553,7 @@
   "cfg.attentionHint": "Complete the highlighted setting before saving this profile.",
   "cfg.pool": "Spa",
   "cfg.weather": "Outdoor temperature",
+  "cfg.weatherStat": "Automatic weather lookup",
   "cfg.energy": "Energy",
   "cfg.essentials": "Essentials",
   "cfg.essentialsHint": "These values affect the heat-up time calculation, cost estimates and Smart Schedule.",
