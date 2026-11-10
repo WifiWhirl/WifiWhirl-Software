@@ -1,3 +1,4 @@
+#include <StreamString.h>
 #include "bwc.h"
 #include "util.h"
 #include "pitches.h"
@@ -3441,12 +3442,25 @@ bool BWC::_load_melody_json(const String &filename)
         // Serial.println("Q busy");
         return false;
     }
-    File file = LittleFS.open(filename, "r");
-    if (!file)
+    // experiment: "mel:<beat> <duty> <freq> <dur> ..." plays an inline melody, no file needed
+    StreamString inl;
+    File file;
+    if (filename.startsWith(F("mel:")))
     {
-        Serial.println(F("FS: Failed to open melody file for read"));
-        return false;
+        String m = filename.substring(4);
+        m.replace(' ', '\n');
+        inl.print(m);
     }
+    else
+    {
+        file = LittleFS.open(filename, "r");
+        if (!file)
+        {
+            Serial.println(F("FS: Failed to open melody file for read"));
+            return false;
+        }
+    }
+    Stream &in = file ? (Stream &)file : (Stream &)inl;
     int beat_period;
     float note_duty_cycle;
     sNote n;
@@ -3460,15 +3474,15 @@ bool BWC::_load_melody_json(const String &filename)
     duration
     ...eof
     */
-    String s = file.readStringUntil('\n');
+    String s = in.readStringUntil('\n');
     beat_period = s.toInt();
-    s = file.readStringUntil('\n');
+    s = in.readStringUntil('\n');
     note_duty_cycle = s.toFloat();
-    while (file.available())
+    while (in.available())
     {
-        s = file.readStringUntil('\n');
+        s = in.readStringUntil('\n');
         n.frequency_hz = s.toInt();
-        s = file.readStringUntil('\n');
+        s = in.readStringUntil('\n');
         n.duration_ms = beat_period * s.toFloat();
         n.duration_ms *= note_duty_cycle;
         _notes.push_back(n);
