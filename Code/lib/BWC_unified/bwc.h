@@ -287,6 +287,7 @@ private:
     int _note_duration = 0;
     int8_t _queued_sound = -1;
     uint16_t _sound_mask = SND_ALL;
+    Buttons _prev_sound_button = NOBTN;
     bool _ready_armed = false;
     bool _airjet_warned = false;
     bool _hydrojet_warned = false;

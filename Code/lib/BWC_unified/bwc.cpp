@@ -657,23 +657,28 @@ void BWC::adjust_brightness()
 
 void BWC::play_sound()
 {
-    // buttons never cut a running sound, so a held button does not restart it every frame
+    // Only on the press itself, never again while the button is held: a tone
+    // replayed during the hold kept the pump from seeing a steady press, so
+    // holding UP/DOWN no longer ran the target up or down.
+    Buttons btn = dsp->dsp_toggles.pressed_button;
+    bool pressed = btn != _prev_sound_button;
+    _prev_sound_button = btn;
     if (!dsp->dsp_states.locked && dsp->dsp_states.power)
     {
-        switch (dsp->dsp_toggles.pressed_button)
+        switch (btn)
         {
         case UP:
-            if (dsp->EnabledButtons[UP])
+            if (pressed && dsp->EnabledButtons[UP])
                 playSound(SND_UP, false);
             _dsp_tgt_used = true;
             break;
         case DOWN:
-            if (dsp->EnabledButtons[DOWN])
+            if (pressed && dsp->EnabledButtons[DOWN])
                 playSound(SND_DOWN, false);
             _dsp_tgt_used = true;
             break;
         case TIMER:
-            if (dsp->EnabledButtons[TIMER])
+            if (pressed && dsp->EnabledButtons[TIMER])
                 playSound(SND_CLICK, false);
             break;
         default:
