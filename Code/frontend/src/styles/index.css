@@ -2352,11 +2352,3 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 /* the lines under a water value (ideal range, suggestion, last dose) as one
    evenly spaced block */
 .water-card .hint { margin-top: 3px; line-height: 1.4; }
-
-/* prototype B: water values in two columns when the card is wide */
-.wq-wrap { container-type: inline-size; }
-@container (min-width: 400px) {
-  .wq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; align-items: start; }
-  .wq-item .row { flex-direction: column; align-items: stretch; gap: 4px; border-bottom: 0; min-height: 0; padding: 4px 0 2px; }
-  .wq-item .row > div:last-child { justify-content: flex-start; }
-}
