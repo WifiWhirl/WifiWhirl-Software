@@ -2327,7 +2327,9 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   padding-top: 12px;
   border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
 }
-.dose-add h3 { margin: 0 0 8px; font-size: 0.92rem; font-weight: 780; }
+.dose-add .btn { min-height: 40px; padding: 8px 16px; }
+.dose-modal .dose-row { margin: 14px 0 4px; }
+.dose-modal .hint { margin: 10px 0 18px; }
 /* product on top, amount + button below: two lines at any width */
 .dose-row { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 8px; }
 .dose-row select { grid-column: 1 / -1; width: 100%; min-width: 0; }

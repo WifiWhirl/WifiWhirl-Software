@@ -646,5 +646,6 @@
   "cfg.df.DFTAP": "Alka-Plus per 10 mg/l TA",
   "cfg.df.DFTAM": "pH-min per 10 mg/l minder TA",
   "cfg.dfUnit": "g / 1000 l",
-  "dashboard.suggestNoteTa": "pH-min verlaagt daarbij ook de pH. Meet die ook en let erop dat hij niet onder 7,2 zakt."
+  "dashboard.suggestNoteTa": "pH-min verlaagt daarbij ook de pH. Meet die ook en let erop dat hij niet onder 7,2 zakt.",
+  "dashboard.doseAddOpen": "Onderhoudsmiddel noteren"
 }

@@ -646,5 +646,6 @@
   "cfg.df.DFTAP": "Alka-Plus per 10 mg/l TA",
   "cfg.df.DFTAM": "pH minus per 10 mg/l less TA",
   "cfg.dfUnit": "g / 1000 l",
-  "dashboard.suggestNoteTa": "pH minus also lowers the pH. Measure it too and make sure it doesn't drop below 7.2."
+  "dashboard.suggestNoteTa": "pH minus also lowers the pH. Measure it too and make sure it doesn't drop below 7.2.",
+  "dashboard.doseAddOpen": "Record care product"
 }

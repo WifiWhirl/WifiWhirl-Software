@@ -646,5 +646,6 @@
   "cfg.df.DFTAP": "Alka-Plus na 10 mg/l TA",
   "cfg.df.DFTAM": "pH minus na 10 mg/l mniej TA",
   "cfg.dfUnit": "g / 1000 l",
-  "dashboard.suggestNoteTa": "pH minus obniża przy tym także pH. Zmierz je również i uważaj, żeby nie spadło poniżej 7,2."
+  "dashboard.suggestNoteTa": "pH minus obniża przy tym także pH. Zmierz je również i uważaj, żeby nie spadło poniżej 7,2.",
+  "dashboard.doseAddOpen": "Zapisz środek pielęgnacyjny"
 }

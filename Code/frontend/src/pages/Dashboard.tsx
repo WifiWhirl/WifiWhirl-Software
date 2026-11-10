@@ -1,6 +1,6 @@
 import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { Card, Row, NumberInput, Slider, Toggle } from '../components/ui';
+import { Card, Row, NumberInput, Slider, Toggle, Modal } from '../components/ui';
 import { ControlTile } from '../components/ControlTile';
 import { LedDisplay } from '../components/LedDisplay';
 import { Thermostat } from '../components/Thermostat';
@@ -396,38 +396,50 @@ type Dose = keyof typeof DOSES;
 /** Record a care product added to the water, stamped with the current time. */
 function AddDose({ showAlk, prefill, note, phWatch }: {
   showAlk: boolean;
-  /** a clicked suggestion */
+  /** a clicked suggestion: opens the dialog filled in */
   prefill: { kind: Dose; n: number; seq: number } | null;
-  /** a suggestion is shown: the one safety note goes here, once */
+  /** a suggestion is shown: the one safety note goes into the dialog */
   note: boolean;
   /** pH-Minus suggested for too much TA: it lowers the pH too */
   phWatch: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const [what, setWhat] = useState<Dose>('phMinus');
   const [amount, setAmount] = useState('');
   useEffect(() => {
-    if (prefill) { setWhat(prefill.kind); setAmount(String(prefill.n)); }
+    if (prefill) { setWhat(prefill.kind); setAmount(String(prefill.n)); setOpen(true); }
   }, [prefill?.seq]);
   const d = DOSES[what];
   const n = Math.round(Number(amount.replace(',', '.')));
   const ok = n >= 1 && n <= d.max;
   const kinds = (Object.keys(DOSES) as Dose[]).filter((k) => showAlk || !k.startsWith('ta'));
   return (
-    // one compact line, so the card with every value shown still fits the
-    // largest box
+    // only a button in the card, the form opens as a dialog: the water card
+    // with every value shown fits its box without scrolling (variant A)
     <div class="dose-add">
-      <h3>{t('dashboard.doseAdd')}</h3>
-      <div class="dose-row">
-        <select aria-label={t('dashboard.doseProduct')} value={what}
-          onChange={(e) => setWhat((e.target as HTMLSelectElement).value as Dose)}>
-          {kinds.map((k) => <option key={k} value={k}>{t(`dashboard.dose.${k}`)}</option>)}
-        </select>
-        <NumberInput value={amount} min={1} max={d.max} step={1} unit={what === 'clTab' ? t('dashboard.doseTabUnit') : 'g'} onInput={setAmount} />
-        <button class="btn" disabled={!ok} onClick={() => { sendCommand(d.cmd, d.sign * n); setAmount(''); }}>
-          {t('dashboard.doseSave')}
-        </button>
-      </div>
-      {note && <p class="hint">{t('dashboard.suggestNote')}{phWatch && <> {t('dashboard.suggestNoteTa')}</>}</p>}
+      <button type="button" class="btn ghost" onClick={() => setOpen(true)}>+ {t('dashboard.doseAddOpen')}</button>
+      {open && (
+        <Modal onClose={() => setOpen(false)}>
+          <div class="confirm-modal dose-modal">
+            <h2>{t('dashboard.doseAdd')}</h2>
+            <div class="dose-row">
+              <select aria-label={t('dashboard.doseProduct')} value={what}
+                onChange={(e) => setWhat((e.target as HTMLSelectElement).value as Dose)}>
+                {kinds.map((k) => <option key={k} value={k}>{t(`dashboard.dose.${k}`)}</option>)}
+              </select>
+              <NumberInput value={amount} min={1} max={d.max} step={1} unit={what === 'clTab' ? t('dashboard.doseTabUnit') : 'g'} onInput={setAmount} />
+            </div>
+            {note && <p class="hint">{t('dashboard.suggestNote')}{phWatch && <> {t('dashboard.suggestNoteTa')}</>}</p>}
+            <div class="modal-actions">
+              <button type="button" class="btn secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</button>
+              <button type="button" class="btn" disabled={!ok}
+                onClick={() => { sendCommand(d.cmd, d.sign * n); setAmount(''); setOpen(false); }}>
+                {t('dashboard.doseSave')}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
