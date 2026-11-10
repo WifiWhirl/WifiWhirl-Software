@@ -71,7 +71,6 @@
   "dashboard.dose.phPlus": "pH plus (g)",
   "dashboard.dose.clG": "Chlorine (g)",
   "dashboard.dose.clTab": "Chlorine (tablets)",
-  "dashboard.dose.taMinus": "TA minus (g)",
   "dashboard.dose.taPlus": "TA plus (g)",
   "dashboard.idealRange": "Ideal range",
   "dashboard.counters": "Totals",

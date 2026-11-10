@@ -275,7 +275,8 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
   const num = (v: string) => parseFloat(v.replace(',', '.'));
   const sPh = suggestPh(num(ph), cfg), sCl = suggestCl(num(cl), cfg);
   const sCya = showCya ? suggestCya(num(cya), cfg) : null, sTa = showAlk ? suggestTa(num(alk), cfg) : null;
-  const pick = (x: Suggestion) => x.kind !== 'water' && setPrefill({ kind: x.kind, n: x.amount, seq: Date.now() });
+  // too much TA is lowered with pH-Minus (there is no TA-Minus product): record it as that
+  const pick = (x: Suggestion) => x.kind !== 'water' && setPrefill({ kind: x.kind === 'taMinus' ? 'phMinus' : x.kind, n: x.amount, seq: Date.now() });
 
   useEffect(() => {
     if (!tm) return;
@@ -389,7 +390,7 @@ function LastDose({ ts, text }: { ts?: number; text: string }) {
 const DOSES = {
   phMinus: { cmd: 'addPh', sign: -1, max: 2000 }, phPlus: { cmd: 'addPh', sign: 1, max: 2000 },
   clG: { cmd: 'addCl', sign: 1, max: 2000 }, clTab: { cmd: 'addClTab', sign: 1, max: 50 },
-  taMinus: { cmd: 'addTa', sign: -1, max: 2000 }, taPlus: { cmd: 'addTa', sign: 1, max: 2000 },
+  taPlus: { cmd: 'addTa', sign: 1, max: 2000 }, // no TA-Minus: that is pH-Minus
 } as const;
 type Dose = keyof typeof DOSES;
 
