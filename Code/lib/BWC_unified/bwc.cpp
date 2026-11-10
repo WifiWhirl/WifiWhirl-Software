@@ -3449,7 +3449,8 @@ bool BWC::_load_melody_json(const String &filename)
     {
         String m = filename.substring(4);
         m.replace(' ', '\n');
-        inl.print(m);
+        inl.print(m + '\n'); // trailing newline: readStringUntil would wait out its 1 s timeout on the last value
+        inl.setTimeout(0);
     }
     else
     {
