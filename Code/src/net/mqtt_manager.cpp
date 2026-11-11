@@ -51,7 +51,7 @@ void publishSmartSchedule()
         ssPendTime = ss["TARGETTIME"] | (time_t)0;
         ssPendAfter = (ss["KEEPON"] | false) ? 2 : (ss["KEEPPUMP"] | false) ? 1 : 0;
     }
-    StaticJsonDocument<192> out;
+    StaticJsonDocument<256> out;
     out[F("ACTIVE")] = active;
     out[F("TEMP")] = ssPendTemp ? ssPendTemp : 38;
     char buf[24] = "";
@@ -62,6 +62,16 @@ void publishSmartSchedule()
         strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tmv);
     }
     out[F("TIME")] = buf;
+    // same target as an ISO UTC time for Home Assistant's date/time picker
+    if (ssPendTime)
+    {
+        struct tm tmv;
+        gmtime_r(&ssPendTime, &tmv);
+        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tmv);
+        out[F("TS")] = buf;
+    }
+    else
+        out[F("TS")] = nullptr;
     out[F("AFTER")] = FPSTR((PGM_P)pgm_read_ptr(&SS_AFTER[ssPendAfter]));
     time_t start = ss["STARTTIME"] | (time_t)0;
     if (active && start > 0)
@@ -97,6 +107,12 @@ static void handleScheduleSet(JsonObjectConst o)
             tmv.tm_isdst = -1;
             ssPendTime = mktime(&tmv); // local time of the module's timezone
         }
+    }
+    if (o.containsKey(F("EPOCH"))) // from the date/time picker: Unix time, no time zone guessing
+    {
+        time_t t = o[F("EPOCH")] | (time_t)0;
+        if (t > 1600000000)
+            ssPendTime = t;
     }
     if (o.containsKey(F("AFTER")))
     {
