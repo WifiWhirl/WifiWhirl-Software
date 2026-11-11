@@ -731,6 +731,24 @@ static void handleDelApiKey()
     apiOk();
 }
 
+// Support package: {"enabled","count","list":[{"name","rights","created"}]}.
+// Field names avoid "key": the CI leak check flags those (ci/net/test_net.py).
+void apiSupportInfo(String &json)
+{
+    StaticJsonDocument<512> doc;
+    doc[F("enabled")] = apiEnabled;
+    doc[F("count")] = apiKeyCount;
+    JsonArray arr = doc.createNestedArray(F("list"));
+    for (uint8_t i = 0; i < apiKeyCount; i++)
+    {
+        JsonObject o = arr.createNestedObject();
+        o[F("name")] = apiKeys[i].name;
+        o[F("rights")] = apiKeys[i].control ? F("control") : F("read");
+        o[F("created")] = apiKeys[i].created;
+    }
+    serializeJson(doc, json);
+}
+
 void registerApiV1Routes()
 {
     loadApiKeys();

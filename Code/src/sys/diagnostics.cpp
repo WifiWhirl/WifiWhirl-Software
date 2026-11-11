@@ -1,5 +1,6 @@
 #include "sys/sys.h"
 #include "web/web.h"
+#include "api/api.h"
 #include <ArduinoJson.h>
 #include <initializer_list>
 
@@ -309,6 +310,11 @@ void handleSupportPackage()
     json += F(",\"longestWriteMs\":");
     json += String(mqttLongestWriteMs);
     json += F("}");
+    flush();
+
+    // API: on/off and which keys exist - names and rights, never the keys
+    json += F(",\"api\":");
+    apiSupportInfo(json);
     flush();
 
     // heat-loss calibration: phase, measured values, result or abort reason,
