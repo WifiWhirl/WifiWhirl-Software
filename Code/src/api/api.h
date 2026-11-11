@@ -15,6 +15,7 @@ void handle_cmdq_file();
 
 // --- Public API /api/v1 (api_v1.cpp) ---
 extern bool apiEnabled; // persisted in /devuser.json
+extern bool apiRequest; // true while an /api/v1 handler runs
 void registerApiV1Routes();
 
 // --- Config (api_config.cpp) ---
