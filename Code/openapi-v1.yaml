@@ -6,25 +6,31 @@ info:
     Local API of the WifiWhirl module (firmware 2.1.0 or newer), for integrations
     such as the ioBroker adapter, Home Assistant or your own scripts.
 
-    * Turn it on in the web interface: expert mode page, card **API**. It needs a
-      user name and password under Device settings → Webhooks; the same
-      credentials are used here (HTTP Basic Auth) and for `/hook/`.
+    * Turn it on in the web interface: expert mode page, card **API**, and create
+      an API key there (up to 4, each with a name). The key is shown only once;
+      the module keeps a salted SHA-256 hash.
+    * Send it with every request: `Authorization: Bearer ww_...`.
+    * "Read only" keys may only use GET, "read and control" keys everything.
+    * `GET /api/v1/info` also answers without a key (API version, firmware,
+      whether the API is on), so programs can tell an old firmware from a
+      switched-off API.
     * Plain HTTP inside your network, no encryption: don't expose the module to
       the internet.
-    * 5 wrong passwords from one address block it for 30 seconds (429).
+    * 5 wrong keys from one address block it for 30 seconds (429).
     * Temperatures are always °C, times are Unix seconds (UTC), `null` = never.
-    * Errors answer `{"error": "..."}` with 400 (bad input), 401 (login),
-      403 (API off or no credentials), 405, 409 (command queue full),
+    * Errors answer `{"error": "..."}` with 400 (bad input), 401 (key missing
+      or wrong), 403 (API off or read-only key), 405, 409 (command queue full),
       423 (heat-loss calibration running) or 429.
 servers:
   - url: http://192.168.178.42
 security:
-  - basic: []
+  - apiKey: []
 components:
   securitySchemes:
-    basic:
+    apiKey:
       type: http
-      scheme: basic
+      scheme: bearer
+      description: API key from the expert mode page, e.g. ww_3fK9...
   schemas:
     Ok:
       type: object
@@ -58,12 +64,14 @@ paths:
   /api/v1/info:
     get:
       summary: Module information
+      description: Works without a key (first three fields only, also with the API off). With a valid key you also get the key's name and rights and the device details.
+      security: [{}, { apiKey: [] }]
       responses:
         "200":
           description: Info
           content:
             application/json:
-              example: { apiVersion: 1, firmware: "2.1.0", model: "MIAMI2021", hasJets: false, hostname: "wifiwhirl", ip: "192.168.178.42", rssi: -58, uptime: 3600 }
+              example: { apiVersion: 1, firmware: "2.1.0", apiEnabled: true, keyName: "ioBroker", keyControl: true, model: "MIAMI2021", hasJets: false, hostname: "wifiwhirl", ip: "192.168.178.42", rssi: -58, uptime: 3600 }
   /api/v1/status:
     get:
       summary: All current values

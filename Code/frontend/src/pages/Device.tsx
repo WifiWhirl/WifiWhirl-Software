@@ -17,7 +17,6 @@ interface DevCfg {
   authEnabled: boolean; authUser: string;
   webhookEnabled: boolean;
   webhookAuthEnabled: boolean; webhookAuthUser: string; webhookAuthConfigured: boolean;
-  apiEnabled: boolean;
   expertMode: boolean;
 }
 
@@ -40,7 +39,6 @@ export function Device() {
   const [webhookPwd, setWebhookPwd] = useState('');
   const [webhookPwd2, setWebhookPwd2] = useState('');
   const [webhookConfigured, setWebhookConfigured] = useState(false);
-  const [apiEnabled, setApiEnabled] = useState(false); // set on the Expert page, forces the login on
   const [expert, setExpert] = useState(false);
   const [tzName, setTzName] = useState(DEFAULT_TZ_NAME);
   const [loaded, setLoaded] = useState(false);
@@ -55,7 +53,6 @@ export function Device() {
       setWebhookAuthEnabled(!!j.webhookAuthEnabled);
       setWebhookAuthUser(j.webhookAuthUser || '');
       setWebhookConfigured(!!j.webhookAuthConfigured);
-      setApiEnabled(!!j.apiEnabled);
       setExpert(!!j.expertMode);
       setLoaded(true);
     }).catch(() => {});
@@ -92,10 +89,8 @@ export function Device() {
   }
 
   async function saveWebhookAuth() {
-    // the API only works with the webhook credentials
-    const authOn = webhookAuthEnabled || apiEnabled;
-    const data: Record<string, unknown> = { webhookEnabled, webhookAuthEnabled: authOn };
-    if ((webhookEnabled || apiEnabled) && authOn) {
+    const data: Record<string, unknown> = { webhookEnabled, webhookAuthEnabled };
+    if (webhookEnabled && webhookAuthEnabled) {
       if (!webhookAuthUser) { showToast(t('dev.errNoUser'), true); return; }
       data.webhookAuthUser = webhookAuthUser;
       if (webhookPwd || webhookPwd2 || !webhookConfigured) {
@@ -111,7 +106,7 @@ export function Device() {
     if (r.kind === 'restart') showRestart(r.reason);
     else if (r.kind === 'error') showToast(t('common.error'), true);
     else {
-      if (authOn && webhookPwd) setWebhookConfigured(true);
+      if (webhookAuthEnabled && webhookPwd) setWebhookConfigured(true);
       setWebhookPwd('');
       setWebhookPwd2('');
       showToast(t('common.saved'));
@@ -240,13 +235,13 @@ export function Device() {
         <Row label={t('dev.webhookEnable')}>
           <Toggle checked={webhookEnabled} onChange={setWebhookEnabled} />
         </Row>
-        {(webhookEnabled || apiEnabled) && (
+        {webhookEnabled && (
           <>
-            <p class="hint">{apiEnabled ? t('dev.apiAuthRequired') : t('dev.webhookAuthInfo')}</p>
+            <p class="hint">{t('dev.webhookAuthInfo')}</p>
             <Row label={t('dev.webhookAuthEnable')}>
-              <Toggle checked={webhookAuthEnabled || apiEnabled} disabled={apiEnabled} onChange={setWebhookAuthEnabled} />
+              <Toggle checked={webhookAuthEnabled} onChange={setWebhookAuthEnabled} />
             </Row>
-            {(webhookAuthEnabled || apiEnabled) && (
+            {webhookAuthEnabled && (
               <>
                 <TextField label={t('login.user')} value={webhookAuthUser} onInput={setWebhookAuthUser} />
                 <TextField label={t('login.password')} type="password" value={webhookPwd}

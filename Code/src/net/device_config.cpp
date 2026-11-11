@@ -610,13 +610,7 @@ void handleSetDevice()
         bool wantWebhookAuth = doc.containsKey("webhookAuthEnabled")
                                    ? doc[F("webhookAuthEnabled")].as<bool>()
                                    : webhookAuthEnabled;
-        bool wantApi = doc.containsKey("apiEnabled") ? doc[F("apiEnabled")].as<bool>() : apiEnabled;
-        if (wantApi && !wantWebhookAuth)
-        {
-            server->send(400, F("text/plain"), F("Die API braucht die Zugangsdaten für Webhooks."));
-            return;
-        }
-        if ((wantWebhookEnabled || wantApi) && wantWebhookAuth)
+        if (wantWebhookEnabled && wantWebhookAuth)
         {
             String u = doc.containsKey("webhookAuthUser")
                            ? doc[F("webhookAuthUser")].as<String>()
@@ -741,7 +735,7 @@ void handleSetDevice()
 
     // --- Webhook Basic Auth (live setting; no reboot required) ---
     if (doc.containsKey("apiEnabled"))
-        apiEnabled = doc[F("apiEnabled")].as<bool>(); // validated in the pre-pass
+        apiEnabled = doc[F("apiEnabled")].as<bool>(); // the API checks its own keys
     if (doc.containsKey("webhookEnabled") ||
         doc.containsKey("webhookAuthEnabled") ||
         doc.containsKey("webhookAuthUser") ||

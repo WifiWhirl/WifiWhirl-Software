@@ -2362,3 +2362,10 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 /* the lines under a water value (ideal range, suggestion, last dose) as one
    evenly spaced block */
 .water-card .hint { margin-top: 3px; line-height: 1.4; }
+
+/* API keys on the expert page */
+.api-keys { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.api-keys h3 { margin: 0 0 8px; font-size: 1rem; }
+.api-key { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.api-key-new { margin: 10px 0 14px; }
+.api-key-new input.mono { width: 100%; font-family: var(--mono); font-size: 0.95rem; }

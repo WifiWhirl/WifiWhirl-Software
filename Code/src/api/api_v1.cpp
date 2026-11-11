@@ -5,9 +5,11 @@
 
 /*
  * Public, documented API for integrations (ioBroker, Home Assistant, scripts),
- * Unlike the SPA endpoints it never depends on the global login: it
- * always needs HTTP Basic Auth with the webhook credentials, and it only exists
- * while "API aktivieren" is on. No CORS headers, so other web pages can't use it.
+ * Unlike the SPA endpoints it never depends on the global login: every
+ * request needs an API key ("Authorization: Bearer ww_..."), and it only exists
+ * while "API aktivieren" is on. Keys are made on the expert page, shown once and
+ * stored as SHA-256(salt + key); a key may be read-only (GET) or full.
+ * No CORS headers, so other web pages can't use it.
  *
  * Names are spelled out (pump, not FLT), temperatures are always °C, times are
  * Unix seconds (null = never). Commands take the same path as the SPA buttons
@@ -60,6 +62,102 @@ static void setTime(JsonObject o, const __FlashStringHelper *key, uint64_t ts)
         o[key] = nullptr;
 }
 
+// --- API keys -------------------------------------------------------------------
+
+/*
+ * plain salted SHA-256, no PBKDF2. Keys are 32 random [A-Za-z0-9]
+ * (~190 bits), so stretching adds nothing, and PBKDF2 would cost ~0.5 s on
+ * every request. Upgrade path: key ids if more than 4 keys are ever needed.
+ */
+static const uint8_t API_MAX_KEYS = 4;
+static const char API_KEYS_FILE[] = "/apikeys.json";
+struct ApiKey
+{
+    String name, salt, hash;
+    bool control;     // false = read only (GET)
+    uint32_t created; // Unix seconds, 0 = clock wasn't set
+};
+static ApiKey apiKeys[API_MAX_KEYS];
+static uint8_t apiKeyCount = 0;
+
+static void saveApiKeys()
+{
+    DynamicJsonDocument doc(1024);
+    JsonArray arr = doc.to<JsonArray>();
+    for (uint8_t i = 0; i < apiKeyCount; i++)
+    {
+        JsonObject o = arr.createNestedObject();
+        o[F("n")] = apiKeys[i].name;
+        o[F("s")] = apiKeys[i].salt;
+        o[F("h")] = apiKeys[i].hash;
+        o[F("c")] = apiKeys[i].control;
+        o[F("t")] = apiKeys[i].created;
+    }
+    File f = LittleFS.open(API_KEYS_FILE, "w");
+    if (!f)
+        return;
+    serializeJson(doc, f);
+    f.close();
+}
+
+static void loadApiKeys()
+{
+    apiKeyCount = 0;
+    File f = LittleFS.open(API_KEYS_FILE, "r");
+    if (!f)
+        return;
+    DynamicJsonDocument doc(1024);
+    bool ok = !deserializeJson(doc, f);
+    f.close();
+    if (!ok)
+        return;
+    for (JsonObject o : doc.as<JsonArray>())
+    {
+        if (apiKeyCount >= API_MAX_KEYS)
+            break;
+        apiKeys[apiKeyCount++] = {o[F("n")].as<String>(), o[F("s")].as<String>(), o[F("h")].as<String>(),
+                                  o[F("c")].as<bool>(), o[F("t")].as<uint32_t>()};
+    }
+}
+
+// Index of the key in "Authorization: Bearer <key>", -1 if none matches.
+static int matchApiKey(const String &header)
+{
+    if (!header.startsWith(F("Bearer ")))
+        return -1;
+    String key = header.substring(7);
+    key.trim();
+    int found = -1;
+    for (uint8_t i = 0; i < apiKeyCount; i++) // no early exit: same time for every key
+        if (secureEquals(sha256Hex(apiKeys[i].salt + key), apiKeys[i].hash))
+            found = i;
+    return found;
+}
+
+/*
+ * Checks the API key of this request (throttled like /login). Answers 401/429
+ * itself and returns -1, else the key index.
+ */
+static int apiKeyFromRequest()
+{
+    if (!server->hasHeader(F("Authorization")))
+    {
+        server->sendHeader(F("WWW-Authenticate"), F("Bearer"));
+        apiError(401, F("API key missing: send \"Authorization: Bearer <key>\""));
+        return -1;
+    }
+    if (!authAttemptAllowed())
+        return -1;
+    int k = matchApiKey(server->header(F("Authorization")));
+    authAttemptResult(k >= 0);
+    if (k < 0)
+    {
+        server->sendHeader(F("WWW-Authenticate"), F("Bearer"));
+        apiError(401, F("Invalid API key"));
+    }
+    return k;
+}
+
 /*
  * One path, several methods: answers 405 for the others instead of falling
  * through to the SPA's 404. Every route runs behind the API guard.
@@ -71,16 +169,17 @@ static void route(const __FlashStringHelper *path, WebServerT::THandlerFunction 
                {
         if (!apiEnabled)
             return apiError(403, F("API is disabled. Turn it on in the expert mode page, card API."));
-        if (!webhookAuthEnabled || webhookAuthUser.length() == 0 || webhookAuthPassword.length() == 0)
-            return apiError(403, F("API needs the webhook credentials to be enabled."));
         if (crossSiteRequest())
             return apiError(403, F("Cross-site request rejected."));
-        if (!basicAuthOk(webhookAuthUser, webhookAuthPassword))
+        int k = apiKeyFromRequest();
+        if (k < 0)
             return;
         HTTPMethod m = server->method();
         WebServerT::THandlerFunction h = m == HTTP_GET ? get : m == HTTP_POST ? post : m == HTTP_DELETE ? del : nullptr;
         if (!h)
             return apiError(405, F("Method not allowed"));
+        if (m != HTTP_GET && !apiKeys[k].control)
+            return apiError(403, F("This API key may only read"));
         apiRequest = true;
         h();
         apiRequest = false; });
@@ -121,12 +220,24 @@ static void queueAll(const ApiCmd *cmds, uint8_t n)
 
 // --- GET /api/v1/info ---------------------------------------------------------
 
+/*
+ * Public on purpose (even with the API off): lets an integration tell "too old
+ * firmware" from "API off". The rest only with a valid key.
+ */
 static void handleApiInfo()
 {
     StaticJsonDocument<384> doc;
-    bool sta = WiFi.status() == WL_CONNECTED;
     doc[F("apiVersion")] = 1;
     doc[F("firmware")] = FW_VERSION;
+    doc[F("apiEnabled")] = apiEnabled;
+    if (!apiEnabled || !server->hasHeader(F("Authorization")))
+        return apiSend(doc);
+    int k = apiKeyFromRequest();
+    if (k < 0)
+        return;
+    bool sta = WiFi.status() == WL_CONNECTED;
+    doc[F("keyName")] = apiKeys[k].name;
+    doc[F("keyControl")] = apiKeys[k].control;
     doc[F("model")] = bwc->getModel();
     doc[F("hasJets")] = bwc->hasjets;
     doc[F("hostname")] = deviceName;
@@ -553,9 +664,80 @@ static void handleApiRestart()
     restartWithReason("api"); // answers {"restart":true,"reason":"api"} itself
 }
 
+// --- key management for the web interface (behind guard()) -------------------
+
+// POST /getapikeys/ -> {"max":4,"keys":[{"id","name","control","created"}]}
+static void handleGetApiKeys()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+    StaticJsonDocument<768> doc;
+    doc[F("max")] = API_MAX_KEYS;
+    JsonArray arr = doc.createNestedArray(F("keys"));
+    for (uint8_t i = 0; i < apiKeyCount; i++)
+    {
+        JsonObject o = arr.createNestedObject();
+        o[F("id")] = i;
+        o[F("name")] = apiKeys[i].name;
+        o[F("control")] = apiKeys[i].control;
+        o[F("created")] = apiKeys[i].created;
+    }
+    apiSend(doc);
+}
+
+// POST /addapikey/ {"name","control"} -> {"id","key"}: the only time the key is shown
+static void handleAddApiKey()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+    StaticJsonDocument<192> in;
+    if (!apiBody(in))
+        return;
+    String name = in[F("name")] | "";
+    name.trim();
+    if (name.length() == 0 || name.length() > 32)
+        return apiError(400, F("Name: 1-32 characters"));
+    for (char c : name)
+        if ((uint8_t)c < 32 || c == '"' || c == '\\')
+            return apiError(400, F("Name contains invalid characters"));
+    if (apiKeyCount >= API_MAX_KEYS)
+        return apiError(409, F("Maximum number of API keys reached"));
+    String key = String(F("ww_")) + randomToken(32);
+    String salt = makeSalt();
+    uint32_t now = time(nullptr) > 1600000000 ? (uint32_t)time(nullptr) : 0;
+    apiKeys[apiKeyCount] = {name, salt, sha256Hex(salt + key), in[F("control")].as<bool>(), now};
+    StaticJsonDocument<128> out;
+    out[F("id")] = apiKeyCount++;
+    out[F("key")] = key;
+    saveApiKeys();
+    apiSend(out);
+}
+
+// POST /delapikey/ {"id"}
+static void handleDelApiKey()
+{
+    if (!checkHttpPost(server->method()))
+        return;
+    StaticJsonDocument<64> in;
+    if (!apiBody(in))
+        return;
+    int id = in[F("id")] | -1;
+    if (id < 0 || id >= apiKeyCount)
+        return apiError(400, F("Unknown key"));
+    for (uint8_t i = id; i + 1 < apiKeyCount; i++)
+        apiKeys[i] = apiKeys[i + 1];
+    apiKeys[--apiKeyCount] = ApiKey();
+    saveApiKeys();
+    apiOk();
+}
+
 void registerApiV1Routes()
 {
-    route(F("/api/v1/info"), handleApiInfo);
+    loadApiKeys();
+    server->on(F("/api/v1/info"), HTTP_GET, handleApiInfo);
+    server->on(F("/getapikeys/"), guard(handleGetApiKeys));
+    server->on(F("/addapikey/"), guard(handleAddApiKey));
+    server->on(F("/delapikey/"), guard(handleDelApiKey));
     route(F("/api/v1/status"), handleApiStatus);
     route(F("/api/v1/controls"), nullptr, handleApiControls);
     route(F("/api/v1/maintenance"), nullptr, handleApiMaintenance);
