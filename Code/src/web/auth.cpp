@@ -464,6 +464,35 @@ static void resetLoginThrottle(LoginThrottle &t)
 
 // --- public guard / endpoints ---------------------------------------------
 
+// HTTP Basic Auth for machine endpoints (/hook/, /api/v1/), throttled per
+// client like /login so the password can't be guessed at full speed.
+// Answers 401/429 itself and returns false when the caller may not continue.
+bool basicAuthOk(const String &user, const String &pwd)
+{
+    uint32_t nowMs = millis();
+    LoginThrottle &t = throttleFor(clientIp());
+    t.lastMs = nowMs;
+    if (loginThrottleActive(t, nowMs))
+    {
+        server->sendHeader(F("Retry-After"), String(loginRetryAfterSeconds(t, nowMs)));
+        server->send(429, F("text/plain"), F("Too many failed attempts, try again later."));
+        return false;
+    }
+    if (!server->hasHeader(F("Authorization")))
+    {
+        server->requestAuthentication(); // first request without credentials: not a failure
+        return false;
+    }
+    if (!server->authenticate(user.c_str(), pwd.c_str()))
+    {
+        recordFailedLogin(t);
+        server->requestAuthentication();
+        return false;
+    }
+    resetLoginThrottle(t);
+    return true;
+}
+
 bool isAuthed()
 {
     return !globalAuthEnabled || validSession(cookieToken());

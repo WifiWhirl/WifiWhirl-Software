@@ -1,5 +1,6 @@
 #include "net/net.h"
 #include "web/web.h"
+#include "api/api.h"
 #include "cloud_psk_storage.h"
 #include "cloud_protocol.h" // POOLLINK_MAX_HOSTNAME
 
@@ -163,6 +164,7 @@ void saveDeviceUser()
     doc[F("webhookAuthEnabled")] = webhookAuthEnabled;
     doc[F("webhookAuthUser")] = webhookAuthUser;
     doc[F("webhookAuthPassword")] = webhookAuthPassword;
+    doc[F("apiEnabled")] = apiEnabled;
     doc[F("webUpdateEnabled")] = webUpdateEnabled;
     doc[F("setupComplete")] = setupComplete;
     doc[F("expertMode")] = expertMode;
@@ -323,6 +325,8 @@ void loadDevice()
                 webhookAuthUser = doc[F("webhookAuthUser")].as<String>();
             if (doc.containsKey("webhookAuthPassword"))
                 webhookAuthPassword = doc[F("webhookAuthPassword")].as<String>();
+            if (doc.containsKey("apiEnabled"))
+                apiEnabled = doc[F("apiEnabled")].as<bool>();
             if (doc.containsKey("webUpdateEnabled"))
                 webUpdateEnabled = doc[F("webUpdateEnabled")].as<bool>();
             if (doc.containsKey("setupComplete"))
@@ -541,6 +545,7 @@ void handleGetDevice()
     doc[F("webhookAuthEnabled")] = webhookAuthEnabled;
     doc[F("webhookAuthUser")] = webhookAuthUser;
     doc[F("webhookAuthConfigured")] = webhookAuthPassword.length() > 0;
+    doc[F("apiEnabled")] = apiEnabled;
     doc[F("webUpdateEnabled")] = webUpdateEnabled;
     doc[F("expertMode")] = expertMode;
     if (bwc && bwc->cio)
@@ -605,7 +610,13 @@ void handleSetDevice()
         bool wantWebhookAuth = doc.containsKey("webhookAuthEnabled")
                                    ? doc[F("webhookAuthEnabled")].as<bool>()
                                    : webhookAuthEnabled;
-        if (wantWebhookEnabled && wantWebhookAuth)
+        bool wantApi = doc.containsKey("apiEnabled") ? doc[F("apiEnabled")].as<bool>() : apiEnabled;
+        if (wantApi && !wantWebhookAuth)
+        {
+            server->send(400, F("text/plain"), F("Die API braucht die Zugangsdaten für Webhooks."));
+            return;
+        }
+        if ((wantWebhookEnabled || wantApi) && wantWebhookAuth)
         {
             String u = doc.containsKey("webhookAuthUser")
                            ? doc[F("webhookAuthUser")].as<String>()
@@ -729,6 +740,8 @@ void handleSetDevice()
     }
 
     // --- Webhook Basic Auth (live setting; no reboot required) ---
+    if (doc.containsKey("apiEnabled"))
+        apiEnabled = doc[F("apiEnabled")].as<bool>(); // validated in the pre-pass
     if (doc.containsKey("webhookEnabled") ||
         doc.containsKey("webhookAuthEnabled") ||
         doc.containsKey("webhookAuthUser") ||

@@ -13,6 +13,10 @@ void handleDelCommand();
 void handleSetCommandQueue();
 void handle_cmdq_file();
 
+// --- Public API /api/v1 (api_v1.cpp) ---
+extern bool apiEnabled; // persisted in /devuser.json
+void registerApiV1Routes();
+
 // --- Config (api_config.cpp) ---
 void handleGetConfig();
 void handleSetConfig();

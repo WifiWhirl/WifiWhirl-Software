@@ -73,6 +73,7 @@ void startHttpServer()
     server->on(F("/debug-off/"), []()
                {if(!legacyAuthOk("debug")) { return; } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/cmdq_file/"), guard(handle_cmdq_file));
+    registerApiV1Routes(); // public API, own Basic Auth
     server->on(F("/hook/"), handleWebhook); // machine endpoint: left open (no cookie possible)
     server->on(F("/getsmartschedule/"), guard(handleGetSmartSchedule));
     server->on(F("/setsmartschedule/"), guard(handleSetSmartSchedule));

@@ -21,13 +21,12 @@ bool checkWebhookAuth()
 {
     if (!webhookAuthEnabled)
         return true;
-    if (webhookAuthUser.length() == 0 || webhookAuthPassword.length() == 0 ||
-        !server->authenticate(webhookAuthUser.c_str(), webhookAuthPassword.c_str()))
+    if (webhookAuthUser.length() == 0 || webhookAuthPassword.length() == 0)
     {
         server->requestAuthentication();
         return false;
     }
-    return true;
+    return basicAuthOk(webhookAuthUser, webhookAuthPassword);
 }
 
 void handleWebhook()
