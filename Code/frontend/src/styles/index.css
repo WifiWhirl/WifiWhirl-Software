@@ -812,8 +812,9 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 .actions, .inline-actions { flex-wrap: wrap; }
 .actions { margin-top: 12px; }
 .range-control { width: min(320px, 100%); }
-.range-control input[type="range"] { flex: 1; min-width: 160px; }
+.range-control input[type="range"] { flex: 1 1 96px; min-width: 0; } /* shrinks before the value leaves the card */
 .range-control b {
+  flex: none;
   min-width: 2.2rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -1435,6 +1436,10 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
   background: color-mix(in srgb, var(--surface) 78%, var(--accent-soft));
   color: var(--muted);
 }
+/* Long compound words ("Knopvergrendeling", "Tastensperre" on tablets) break
+   with a hyphen where the browser knows the language (<html lang>), else
+   anywhere rather than sticking out of the tile. */
+.tile-lbl, .auto-command > span:last-child { hyphens: auto; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
 .tile-lbl { font-weight: 780; line-height: 1.15; }
 .tile-state {
   display: inline-flex;
