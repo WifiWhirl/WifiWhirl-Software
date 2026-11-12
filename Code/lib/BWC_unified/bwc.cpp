@@ -660,17 +660,24 @@ void BWC::adjust_brightness()
 
 void BWC::play_sound()
 {
+    // UP/DOWN sound once per press and per target step, not every pass while
+    // held (that beeped every 0.26 s and sounded like a hang)
+    static Buttons prev_btn = NOBTN;
+    static uint8_t prev_target = 0;
+    bool step = dsp->dsp_toggles.pressed_button != prev_btn || cio->cio_states.target != prev_target;
+    prev_btn = dsp->dsp_toggles.pressed_button;
+    prev_target = cio->cio_states.target;
     if (!dsp->dsp_states.locked && dsp->dsp_states.power)
     {
         switch (dsp->dsp_toggles.pressed_button)
         {
         case UP:
-            if (dsp->EnabledButtons[UP])
+            if (dsp->EnabledButtons[UP] && step)
                 _sweepup();
             _dsp_tgt_used = true;
             break;
         case DOWN:
-            if (dsp->EnabledButtons[DOWN])
+            if (dsp->EnabledButtons[DOWN] && step)
                 _sweepdown();
             _dsp_tgt_used = true;
             break;

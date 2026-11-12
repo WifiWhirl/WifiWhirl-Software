@@ -84,8 +84,7 @@ void DSP_6W::updateToggles()
     }
     // LOCK toggles once per press, short or held: CIO_6W holds the key until
     // the lock flipped (only on the edge above, a re-press while still held
-    // flipped it straight back). UP/DOWN reach the pump only while held (CIO_6W
-    // passes them through), so the pump repeats them itself.
+    // flipped it straight back). Held UP/DOWN: CIO_6W taps them at a steady pace.
     if ((btn == UP || btn == DOWN) && EnabledButtons[btn])
         dsp_toggles.held_button = btn;
     else
