@@ -3568,15 +3568,17 @@ bool BWC::_load_melody_json(const String &filename)
 
 // Sound identity: "beat_ms duty freq beats freq beats ...", same format as the .mel
 // files in Sound/identity/ (render.py turns them into WAVs to listen to).
+// Everything but BOOT sits around 4 kHz like the original pump beep;
+// the boot jingle is still being chosen.
 static const char MEL_BOOT[] PROGMEM = "120 0.85 1568 1 2093 1 2637 1 3136 1 0 1 4186 3";
-static const char MEL_CONNECTED[] PROGMEM = "110 0.85 2093 1 3136 1 4186 3";
-static const char MEL_CLICK[] PROGMEM = "60 1 2794 1";
-static const char MEL_CONFIRM[] PROGMEM = "70 0.85 2637 1 3136 1";
-static const char MEL_ERROR[] PROGMEM = "160 0.8 1568 1 1175 1 0 0.5 1175 2";
-static const char MEL_READY[] PROGMEM = "140 0.85 2093 1 2637 1 3136 1 2637 1 3136 1 4186 3";
-static const char MEL_REMINDER[] PROGMEM = "120 0.6 2637 1 0 1 2637 1";
-static const char MEL_UP[] PROGMEM = "45 0.9 2349 1 2794 1 3136 1";
-static const char MEL_DOWN[] PROGMEM = "45 0.9 3136 1 2794 1 2349 1";
+static const char MEL_CONNECTED[] PROGMEM = "110 0.85 3520 1 4000 1 4186 3";
+static const char MEL_CLICK[] PROGMEM = "60 1 4000 1";
+static const char MEL_CONFIRM[] PROGMEM = "70 0.85 3951 1 4186 1";
+static const char MEL_ERROR[] PROGMEM = "160 0.8 4000 1 3520 1 0 0.5 3520 2";
+static const char MEL_READY[] PROGMEM = "140 0.85 3520 1 3951 1 4186 1 3951 1 4186 1 4000 3";
+static const char MEL_REMINDER[] PROGMEM = "120 0.6 4000 1 0 1 4000 1";
+static const char MEL_UP[] PROGMEM = "45 0.9 3520 1 3951 1 4186 1";
+static const char MEL_DOWN[] PROGMEM = "45 0.9 4186 1 3951 1 3520 1";
 static const char *const MELODIES[] PROGMEM = {MEL_BOOT, MEL_CONNECTED, MEL_CLICK, MEL_CONFIRM, MEL_ERROR,
                                                MEL_READY, MEL_REMINDER, MEL_UP, MEL_DOWN};
 
