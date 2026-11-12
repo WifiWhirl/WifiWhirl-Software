@@ -222,9 +222,8 @@ void CIO_6W::_handleButtonQ(void)
         return;
     if (_button_que_len == 0)
     {
-        // Held LOCK/UP/DOWN go to the pump as they are, for as long as they are
-        // held: the pump wants LOCK held ~3 s and repeats UP/DOWN itself.
-        // Queued taps broke both (a held LOCK toggled back, UP/DOWN stepped once).
+        // Held UP/DOWN go to the pump as they are, for as long as they are
+        // held, so the pump repeats them itself (queued taps stepped once).
         uint16_t code = getButtonCode(cio_toggles.held_button);
         if (_button_code == code)
             return;
