@@ -197,6 +197,8 @@ struct sToggles
     bool up_pressed = 0;
     bool down_pressed = 0;
     Buttons pressed_button = NOBTN;
+    /*6-wire: panel key passed straight to the pump while held (LOCK/UP/DOWN)*/
+    Buttons held_button = NOBTN;
     /*Requested state, not toggled*/
     bool godmode = false;
     /*Requested state, not toggled*/

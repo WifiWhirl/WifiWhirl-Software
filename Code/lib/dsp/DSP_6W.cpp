@@ -25,9 +25,6 @@ void DSP_6W::updateToggles()
             /*Pump is ON and UNLOCKED*/
             switch (btn)
             {
-            case LOCK:
-                dsp_toggles.locked_pressed = 1;
-                break;
             case TIMER:
                 dsp_toggles.timer_pressed = 1;
                 break;
@@ -42,12 +39,6 @@ void DSP_6W::updateToggles()
                 break;
             case PUMP:
                 dsp_toggles.pump_change = 1;
-                break;
-            case DOWN:
-                dsp_toggles.down_pressed = 1;
-                break;
-            case UP:
-                dsp_toggles.up_pressed = 1;
                 break;
             case POWER:
                 dsp_toggles.power_change = 1;
@@ -66,10 +57,6 @@ void DSP_6W::updateToggles()
             /*Pump is LOCKED and ON*/
             switch (btn)
             {
-            case LOCK:
-                if (dsp_states.power)
-                    dsp_toggles.locked_pressed = 1;
-                break;
             case NOBTN:
             default:
                 break;
@@ -89,27 +76,12 @@ void DSP_6W::updateToggles()
             }
         }
     }
+    // LOCK/UP/DOWN reach the pump only while held (CIO_6W passes them
+    // through): the pump locks after ~3 s held and repeats UP/DOWN itself.
+    if ((btn == LOCK || btn == UP || btn == DOWN) && EnabledButtons[btn])
+        dsp_toggles.held_button = btn;
     else
-    /*no change in button pressed*/
-    {
-        switch (btn)
-        {
-        case LOCK:
-            dsp_toggles.locked_pressed = 1;
-            break;
-        // case TIMER:
-        //     dsp_toggles.timer_pressed = 1;
-        //     break;
-        // case UP:
-        //     dsp_toggles.up_pressed = 1;
-        //     break;
-        // case DOWN:
-        //     dsp_toggles.down_pressed = 1;
-        //     break;
-        default:
-            break;
-        }
-    }
+        dsp_toggles.held_button = NOBTN;
     _prev_btn = btn;
 
     /* Filter enabled buttons */

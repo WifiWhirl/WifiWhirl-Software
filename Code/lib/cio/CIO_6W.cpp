@@ -221,17 +221,19 @@ void CIO_6W::_handleButtonQ(void)
     if (!cio_states.dsp_ok)
         return;
     if (_button_que_len == 0)
-        // {
-        //     /*Buttonqueue is empty, so let the touchbuttons from display/bwc through*/
-        //     /*Avoiding write to variable when it's beeing sent to the cio*/
-        //     waitlimit = 0;
-        //     while(_packet_transm_active && ++waitlimit < 10) delay(1);
-        //     _button_code = getButtonCode(NOBTN);
-        //     if(_pressed_button == TIMER) _button_code = getButtonCode(TIMER);
-        //     if(_pressed_button == UP) _button_code = getButtonCode(UP);
-        //     if(_pressed_button == DOWN) _button_code = getButtonCode(DOWN);
+    {
+        // Held LOCK/UP/DOWN go to the pump as they are, for as long as they are
+        // held: the pump wants LOCK held ~3 s and repeats UP/DOWN itself.
+        // Queued taps broke both (a held LOCK toggled back, UP/DOWN stepped once).
+        uint16_t code = getButtonCode(cio_toggles.held_button);
+        if (_button_code == code)
+            return;
+        waitlimit = 0;
+        while (_packet_transm_active && ++waitlimit < 10)
+            delay(1);
+        _button_code = code;
         return;
-    // }
+    }
     // First subtract elapsed time from maxduration
     _button_que[0].duration_ms -= elapsedTime;
     // check if state is as desired, or duration is up. If so - remove row. Else set BTNCODE

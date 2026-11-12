@@ -559,7 +559,11 @@ void BWC::loop()
         if (cio->cio_toggles.target > max_t)
             cio->cio_toggles.target = max_t;
         if (cio->cio_states.target >= max_t)
+        {
             cio->cio_toggles.up_pressed = 0;
+            if (cio->cio_toggles.held_button == UP)
+                cio->cio_toggles.held_button = NOBTN;
+        }
     }
 
     /*following method will change target temp and set _dsp_tgt_used to false if target temp is changed*/
