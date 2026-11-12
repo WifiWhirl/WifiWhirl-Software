@@ -1,0 +1,320 @@
+openapi: 3.1.0
+info:
+  title: WifiWhirl module API
+  version: "1"
+  description: |
+    Local API of the WifiWhirl module (firmware 2.1.0 or newer), for integrations
+    such as the ioBroker adapter, Home Assistant or your own scripts.
+
+    * Turn it on in the web interface: expert mode page, card **API**, and create
+      an API key there (up to 4, each with a name). The key is shown only once;
+      the module keeps a salted SHA-256 hash.
+    * Send it with every request: `Authorization: Bearer ww_...`.
+    * "Read only" keys may only use GET, "read and control" keys everything.
+    * `GET /api/v1/info` also answers without a key (API version, firmware,
+      whether the API is on), so programs can tell an old firmware from a
+      switched-off API.
+    * Plain HTTP inside your network, no encryption: don't expose the module to
+      the internet.
+    * 5 wrong keys from one address block it for 30 seconds (429).
+    * Temperatures are always °C, times are Unix seconds (UTC), `null` = never.
+    * Errors answer `{"error": "..."}` with 400 (bad input), 401 (key missing
+      or wrong), 403 (API off or read-only key), 405, 409 (command queue full),
+      423 (heat-loss calibration running) or 429.
+servers:
+  - url: http://192.168.178.42
+security:
+  - apiKey: []
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: API key from the expert mode page, e.g. ww_3fK9...
+  schemas:
+    Ok:
+      type: object
+      properties:
+        ok: { type: boolean, const: true }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    Time:
+      type: [integer, "null"]
+      description: Unix seconds, null = never
+    Maintenance:
+      type: object
+      properties:
+        last: { $ref: "#/components/schemas/Time" }
+        intervalDays: { type: integer }
+    WaterValue:
+      type: object
+      properties:
+        value: { type: [number, "null"] }
+        measured: { $ref: "#/components/schemas/Time" }
+  responses:
+    Ok:
+      description: Done
+      content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } }
+    BadRequest:
+      description: Invalid input, nothing was changed
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+paths:
+  /api/v1/info:
+    get:
+      summary: Module information
+      description: Works without a key (first three fields only, also with the API off). With a valid key you also get the key's name and rights and the device details.
+      security: [{}, { apiKey: [] }]
+      responses:
+        "200":
+          description: Info
+          content:
+            application/json:
+              example: { apiVersion: 1, firmware: "2.1.0", apiEnabled: true, keyName: "ioBroker", keyControl: true, model: "MIAMI2021", hasJets: false, hostname: "wifiwhirl", ip: "192.168.178.42", rssi: -58, uptime: 3600 }
+  /api/v1/status:
+    get:
+      summary: All current values
+      description: |
+        `heater` is on when the heater is switched on, `heating` while it actually
+        heats, `targetReached` when it holds the target. `readyInHours` is 0 when
+        ready and null when the target can't be reached. `error` is the pump's
+        error code (0 = none). `lastDose.ph.grams` < 0 means pH-, > 0 pH+.
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              example:
+                time: 1798124400
+                power: true
+                lock: false
+                pump: true
+                heater: true
+                heating: true
+                targetReached: false
+                bubbles: false
+                jets: false
+                unit: "C"
+                brightness: 7
+                error: 0
+                calibrating: false
+                display: " 32"
+                temperature: { water: 32, target: 38, ambient: 6 }
+                readyInHours: 3.5
+                energy: { powerW: 2050, todayKwh: 6.1, totalKwh: 412.7, todayCost: 2.14, totalCost: 144.45 }
+                runtimeSeconds: { uptime: 86400, pump: 36000, heater: 21000, bubbles: 1800, jets: 0 }
+                maintenance:
+                  chlorine: { last: 1798000000, intervalDays: 7 }
+                  filterCleaned: { last: 1797500000, intervalDays: 60 }
+                  filterChanged: { last: null, intervalDays: 30 }
+                  waterChanged: { last: 1795000000, intervalDays: 90 }
+                  phMeasured: { last: 1798000000, intervalDays: 3 }
+                waterQuality:
+                  ph: { value: 7.2, measured: 1798000000 }
+                  chlorine: { value: 1.5, measured: 1798000000 }
+                  cyanuricAcid: { value: 30, measured: null }
+                  alkalinity: { value: 100, measured: null }
+                lastDose:
+                  ph: { grams: -40, time: 1798000000 }
+                  chlorine: { grams: 0, tablets: 2, time: 1798000000 }
+                  alkalinity: { grams: 0, time: null }
+  /api/v1/controls:
+    post:
+      summary: Switch and set
+      description: |
+        Send only the fields you want to change. All fields are checked first;
+        if one is invalid nothing happens. Switching the heater on also turns
+        the filter pump on (like the button on the pump). `lock` and `power`
+        take the wanted state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                power: { type: boolean }
+                lock: { type: boolean }
+                pump: { type: boolean }
+                heater: { type: boolean }
+                bubbles: { type: boolean }
+                jets: { type: boolean, description: only pumps with HydroJet }
+                targetTemperature: { type: integer, minimum: 20, maximum: 40, description: "°C, converted if the pump shows °F" }
+                unit: { enum: ["C", "F"] }
+                brightness: { type: integer, minimum: 0, maximum: 8 }
+            example: { heater: true, targetTemperature: 38 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /api/v1/maintenance:
+    post:
+      summary: Mark maintenance as done (now)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                done:
+                  type: array
+                  items: { enum: [chlorine, filterCleaned, filterChanged, waterChanged] }
+            example: { done: ["filterCleaned"] }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /api/v1/waterquality:
+    post:
+      summary: Enter measured water values and added care products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ph: { type: number, minimum: 0, maximum: 14 }
+                chlorine: { type: number, description: mg/l }
+                cyanuricAcid: { type: number, description: mg/l }
+                alkalinity: { type: integer, description: mg/l }
+                dose:
+                  type: object
+                  description: Last care product per kind
+                  properties:
+                    ph: { type: integer, description: "grams, < 0 = pH-, > 0 = pH+ (1-2000)" }
+                    chlorine: { type: integer, description: "grams (1-2000)" }
+                    chlorineTablets: { type: integer, description: "1-50" }
+                    alkalinity: { type: integer, description: "grams, < 0 = TA-, > 0 = TA+ (1-2000)" }
+            example: { ph: 7.4, chlorine: 0.8, dose: { ph: -40 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /api/v1/schedule:
+    get:
+      summary: Smart Schedule
+      responses:
+        "200":
+          description: Current schedule
+          content:
+            application/json:
+              example: { active: true, targetTime: 1798135200, targetTemperature: 38, afterTarget: "pump", repeatDays: 0, heatingStart: 1798117200, estimatedHours: 6.1, estimatedKwh: 12.2, estimatedCost: 4.27 }
+    post:
+      summary: Start a Smart Schedule (replaces a running one)
+      description: The module starts heating early enough to reach the temperature at the target time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetTime, targetTemperature]
+              properties:
+                targetTime: { type: integer, description: Unix seconds, in the future }
+                targetTemperature: { type: integer, minimum: 20, maximum: 40 }
+                afterTarget: { enum: ["off", "pump", "heater"], default: "off", description: "off = everything off, pump = filter pump keeps running, heater = keeps the temperature" }
+                repeatDays: { type: integer, minimum: 0, maximum: 30, default: 0, description: "0 = once" }
+            example: { targetTime: 1798135200, targetTemperature: 38, afterTarget: "pump" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+    delete:
+      summary: Cancel the Smart Schedule
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+  /api/v1/config/spa:
+    get:
+      summary: Spa settings
+      responses:
+        "200":
+          description: Settings. model, hasJets, cloud and heatLoss are read-only.
+          content:
+            application/json:
+              example:
+                electricityPrice: 0.35
+                nightPrice: 0.25
+                nightTariff: false
+                nightStartMinute: 1320
+                nightEndMinute: 360
+                nightTariffWeekend: false
+                chlorineIntervalDays: 7
+                filterChangeIntervalDays: 30
+                filterCleanIntervalDays: 60
+                waterChangeIntervalDays: 90
+                phIntervalDays: 3
+                sound: true
+                jetCountdown: false
+                standbyOriginal: true
+                timezone: "CET-1CEST,M3.5.0,M10.5.0/3"
+                timezoneName: "Europe/Berlin"
+                weather: false
+                poolCapacityLiters: 700
+                airjetTimeoutMinutes: 30
+                hydrojetTimeoutMinutes: 60
+                guestMode: false
+                guestMaxTarget: 40
+                guestHeaterTimeoutMinutes: 0
+                brightnessSteps: 1
+                brightnessDuration: 5
+                buttons: { lock: true, timer: true, bubbles: true, unit: true, heater: true, pump: true, down: true, up: true, power: true, jets: true }
+                model: "MIAMI2021"
+                hasJets: false
+                cloud: false
+                heatLoss: 7.5
+    post:
+      summary: Change spa settings
+      description: Send only the fields to change. Unknown or read-only fields are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example: { chlorineIntervalDays: 5, buttons: { timer: false } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /api/v1/config/mqtt:
+    get:
+      summary: MQTT settings (same fields as the web interface, password never returned)
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              example: { enableMqtt: true, mqttServer: "192.168.178.10", mqttPort: 1883, mqttUsername: "wifiwhirl", mqttClientId: "wifiwhirl", mqttBaseTopic: "wifiwhirl", mqttTelemetryInterval: 600 }
+    post:
+      summary: Change MQTT settings (fields to change, mqttPassword optional)
+      responses:
+        "200": { description: Saved }
+  /api/v1/config/wifi:
+    get:
+      summary: WiFi settings (passwords never returned)
+      responses:
+        "200": { description: Settings }
+    post:
+      summary: Change WiFi settings. The module restarts; wrong values can lock it out of your network.
+      responses:
+        "200": { description: Saved, module restarts }
+  /api/v1/config/hardware:
+    get:
+      summary: Pump and display type
+      responses:
+        "200": { description: Settings }
+    post:
+      summary: Change pump and display type (restarts)
+      responses:
+        "200": { description: Saved }
+  /api/v1/system/wifiscan:
+    get:
+      summary: Scan for WiFi networks (takes 2-5 seconds)
+      responses:
+        "200": { description: Networks }
+  /api/v1/system/restart:
+    post:
+      summary: Restart the module
+      responses:
+        "200":
+          description: Restarting
+          content:
+            application/json:
+              example: { restart: true, reason: "api" }

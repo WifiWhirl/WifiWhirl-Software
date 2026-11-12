@@ -1,5 +1,6 @@
 #include "net/net.h"
 #include "web/web.h"
+#include "api/api.h"
 #include "cloud_psk_storage.h"
 #include "cloud_protocol.h" // POOLLINK_MAX_HOSTNAME
 
@@ -163,6 +164,7 @@ void saveDeviceUser()
     doc[F("webhookAuthEnabled")] = webhookAuthEnabled;
     doc[F("webhookAuthUser")] = webhookAuthUser;
     doc[F("webhookAuthPassword")] = webhookAuthPassword;
+    doc[F("apiEnabled")] = apiEnabled;
     doc[F("webUpdateEnabled")] = webUpdateEnabled;
     doc[F("setupComplete")] = setupComplete;
     doc[F("expertMode")] = expertMode;
@@ -323,6 +325,8 @@ void loadDevice()
                 webhookAuthUser = doc[F("webhookAuthUser")].as<String>();
             if (doc.containsKey("webhookAuthPassword"))
                 webhookAuthPassword = doc[F("webhookAuthPassword")].as<String>();
+            if (doc.containsKey("apiEnabled"))
+                apiEnabled = doc[F("apiEnabled")].as<bool>();
             if (doc.containsKey("webUpdateEnabled"))
                 webUpdateEnabled = doc[F("webUpdateEnabled")].as<bool>();
             if (doc.containsKey("setupComplete"))
@@ -541,6 +545,7 @@ void handleGetDevice()
     doc[F("webhookAuthEnabled")] = webhookAuthEnabled;
     doc[F("webhookAuthUser")] = webhookAuthUser;
     doc[F("webhookAuthConfigured")] = webhookAuthPassword.length() > 0;
+    doc[F("apiEnabled")] = apiEnabled;
     doc[F("webUpdateEnabled")] = webUpdateEnabled;
     doc[F("expertMode")] = expertMode;
     if (bwc && bwc->cio)
@@ -729,6 +734,8 @@ void handleSetDevice()
     }
 
     // --- Webhook Basic Auth (live setting; no reboot required) ---
+    if (doc.containsKey("apiEnabled"))
+        apiEnabled = doc[F("apiEnabled")].as<bool>(); // the API checks its own keys
     if (doc.containsKey("webhookEnabled") ||
         doc.containsKey("webhookAuthEnabled") ||
         doc.containsKey("webhookAuthUser") ||

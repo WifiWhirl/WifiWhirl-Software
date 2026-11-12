@@ -43,12 +43,6 @@ void DSP_6W::updateToggles()
             case PUMP:
                 dsp_toggles.pump_change = 1;
                 break;
-            case DOWN:
-                dsp_toggles.down_pressed = 1;
-                break;
-            case UP:
-                dsp_toggles.up_pressed = 1;
-                break;
             case POWER:
                 dsp_toggles.power_change = 1;
                 break;
@@ -67,8 +61,7 @@ void DSP_6W::updateToggles()
             switch (btn)
             {
             case LOCK:
-                if (dsp_states.power)
-                    dsp_toggles.locked_pressed = 1;
+                dsp_toggles.locked_pressed = 1;
                 break;
             case NOBTN:
             default:
@@ -89,27 +82,13 @@ void DSP_6W::updateToggles()
             }
         }
     }
+    // LOCK toggles once per press, short or held: CIO_6W holds the key until
+    // the lock flipped (only on the edge above, a re-press while still held
+    // flipped it straight back). Held UP/DOWN: CIO_6W taps them at a steady pace.
+    if ((btn == UP || btn == DOWN) && EnabledButtons[btn])
+        dsp_toggles.held_button = btn;
     else
-    /*no change in button pressed*/
-    {
-        switch (btn)
-        {
-        case LOCK:
-            dsp_toggles.locked_pressed = 1;
-            break;
-        // case TIMER:
-        //     dsp_toggles.timer_pressed = 1;
-        //     break;
-        // case UP:
-        //     dsp_toggles.up_pressed = 1;
-        //     break;
-        // case DOWN:
-        //     dsp_toggles.down_pressed = 1;
-        //     break;
-        default:
-            break;
-        }
-    }
+        dsp_toggles.held_button = NOBTN;
     _prev_btn = btn;
 
     /* Filter enabled buttons */

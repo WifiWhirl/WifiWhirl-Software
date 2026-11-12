@@ -18,6 +18,7 @@ const apiPaths = [
   '/gethlcal', '/starthlcal', '/cancelhlcal', '/setheatloss',
   '/updatesmartschedule', '/cancelsmartschedule', '/getpolldata',
   '/sendcommand', '/cmdq_file', '/auth/status', '/login', '/logout', '/update', '/support',
+  '/getapikeys', '/addapikey', '/delapikey', '/api/v1',
   '/logo.png', '/icon-192.png', '/icon-512.png', '/maskable-icon-192.png',
   '/maskable-icon-512.png', '/apple-touch-icon.png', '/favicon-light.png',
   '/favicon-dark.png', '/favicon.ico', '/manifest.json',

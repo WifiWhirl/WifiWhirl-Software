@@ -185,7 +185,7 @@ String hashPassword(const String &saltHex, const String &password)
 }
 
 // constant-time-ish string compare (lengths already known/short)
-static bool secureEquals(const String &a, const String &b)
+bool secureEquals(const String &a, const String &b)
 {
     if (a.length() != b.length())
         return false;
@@ -214,7 +214,8 @@ static void clearSlot(uint8_t i)
     sessions[i].persistent = false;
 }
 
-static String hashSessionToken(const String &tok)
+// SHA-256 as hex; also hashes API keys (salt + key) in api_v1.cpp
+String sha256Hex(const String &tok)
 {
     uint8_t digest[32];
 #ifdef ESP8266
@@ -226,6 +227,22 @@ static String hashSessionToken(const String &tok)
     mbedtls_sha256((const uint8_t *)tok.c_str(), tok.length(), digest, 0);
 #endif
     return toHex(digest, sizeof(digest));
+}
+
+// Random token from [A-Za-z0-9] with the hardware RNG (API keys).
+String randomToken(size_t len)
+{
+    static const char ALPHA[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    String out;
+    out.reserve(len);
+    while (out.length() < len)
+    {
+        uint32_t r = RNG_WORD();
+        for (int i = 0; i < 4 && out.length() < len; i++, r >>= 8)
+            if ((r & 0xFF) < 248) // 248 = 4 * 62: no modulo bias
+                out += ALPHA[(r & 0xFF) % 62];
+    }
+    return out;
 }
 
 static bool slotExpired(const SessionSlot &slot)
@@ -327,7 +344,7 @@ static String addSession(bool keepLoggedIn)
     String tok = toHex(buf, sizeof(buf));
     bool persist = keepLoggedIn && hasValidClock(); // shared RNG_WORD() macro picks os_random/esp_random per platform
     bool replacedPersistent = sessions[nextSlot].persistent;
-    sessions[nextSlot].tokenHash = hashSessionToken(tok);
+    sessions[nextSlot].tokenHash = sha256Hex(tok);
     sessions[nextSlot].expiresAt = persist ? nowEpoch() + PERSISTENT_SESSION_SECONDS : 0;
     sessions[nextSlot].persistent = persist;
     nextSlot = (nextSlot + 1) % SESSION_SLOTS;
@@ -341,7 +358,7 @@ static void removeSession(const String &tok)
     if (tok.length() == 0)
         return;
     ensureSessionsLoaded();
-    String hash = hashSessionToken(tok);
+    String hash = sha256Hex(tok);
     bool changedPersistent = false;
     for (uint8_t i = 0; i < SESSION_SLOTS; i++)
     {
@@ -360,7 +377,7 @@ static bool validSession(const String &tok)
     if (tok.length() == 0)
         return false;
     ensureSessionsLoaded();
-    String hash = hashSessionToken(tok);
+    String hash = sha256Hex(tok);
     bool changedPersistent = false;
     for (uint8_t i = 0; i < SESSION_SLOTS; i++)
     {
@@ -463,6 +480,48 @@ static void resetLoginThrottle(LoginThrottle &t)
 }
 
 // --- public guard / endpoints ---------------------------------------------
+
+// HTTP Basic Auth for machine endpoints (/hook/, /api/v1/), throttled per
+// client like /login so the password can't be guessed at full speed.
+// Answers 401/429 itself and returns false when the caller may not continue.
+// Same per-client throttle as /login for other credentials (Basic Auth, API
+// keys). authAttemptAllowed() answers 429 itself while the client is blocked.
+bool authAttemptAllowed()
+{
+    uint32_t nowMs = millis();
+    LoginThrottle &t = throttleFor(clientIp());
+    t.lastMs = nowMs;
+    if (!loginThrottleActive(t, nowMs))
+        return true;
+    server->sendHeader(F("Retry-After"), String(loginRetryAfterSeconds(t, nowMs)));
+    server->send(429, F("text/plain"), F("Too many failed attempts, try again later."));
+    return false;
+}
+
+void authAttemptResult(bool ok)
+{
+    LoginThrottle &t = throttleFor(clientIp());
+    if (ok)
+        resetLoginThrottle(t);
+    else
+        recordFailedLogin(t);
+}
+
+bool basicAuthOk(const String &user, const String &pwd)
+{
+    if (!authAttemptAllowed())
+        return false;
+    if (!server->hasHeader(F("Authorization")))
+    {
+        server->requestAuthentication(); // first request without credentials: not a failure
+        return false;
+    }
+    bool ok = server->authenticate(user.c_str(), pwd.c_str());
+    authAttemptResult(ok);
+    if (!ok)
+        server->requestAuthentication();
+    return ok;
+}
 
 bool isAuthed()
 {

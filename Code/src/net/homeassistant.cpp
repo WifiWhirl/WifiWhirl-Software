@@ -132,6 +132,15 @@ static const char SS16[] PROGMEM = "text.";
 static const char SS17[] PROGMEM = "{{ value_json.TIME }}";
 static const char SS18[] PROGMEM = "{\"TIME\":\"{{ value }}\"}";
 static const char SS19[] PROGMEM = "mdi:calendar-clock";
+// Date/time picker for the target time. MQTT "datetime" exists only in newer
+// Home Assistant (2026.x); older versions skip it and keep the text field above,
+// so both are announced (no breaking change).
+static const char SS56[] PROGMEM = "datetime";
+static const char SS57[] PROGMEM = "_ss_datetime";
+static const char SS58[] PROGMEM = "Smart Schedule Zielzeit";
+static const char SS59[] PROGMEM = "datetime.";
+static const char SS60[] PROGMEM = "{{ value_json.TS if value_json.TS else 'None' }}";
+static const char SS61[] PROGMEM = "{\"EPOCH\":{{ as_timestamp(value) | int }}}";
 static const char SS20[] PROGMEM = "select";
 static const char SS21[] PROGMEM = "_ss_after";
 static const char SS22[] PROGMEM = "Smart Schedule nach der Zielzeit";
@@ -303,6 +312,7 @@ static const HaEntityConfig entities[] PROGMEM = {
     // Smart Schedule: inputs are staged in the module, "Starten" applies them
     {SS0, SS1, SS2, SS3, SS4, SS5, SS6, SS7, SS8, SS9, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS10, SS11, SS12, nullptr},
     {SS13, SS14, SS15, SS16, SS4, SS17, SS6, SS18, SS19, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {SS56, SS57, SS58, SS59, SS4, SS60, SS6, SS61, SS19, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {SS20, SS21, SS22, SS23, SS4, SS24, SS6, SS25, SS26, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     {SS27, SS28, SS29, SS30, nullptr, nullptr, SS6, nullptr, SS31, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS32, nullptr, nullptr, nullptr, nullptr},
     {SS27, SS33, SS34, SS30, nullptr, nullptr, SS6, nullptr, SS35, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS36, nullptr, nullptr, nullptr, nullptr},

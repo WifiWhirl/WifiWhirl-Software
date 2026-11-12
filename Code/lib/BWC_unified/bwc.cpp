@@ -560,7 +560,11 @@ void BWC::loop()
         if (cio->cio_toggles.target > max_t)
             cio->cio_toggles.target = max_t;
         if (cio->cio_states.target >= max_t)
+        {
             cio->cio_toggles.up_pressed = 0;
+            if (cio->cio_toggles.held_button == UP)
+                cio->cio_toggles.held_button = NOBTN;
+        }
     }
 
     /*following method will change target temp and set _dsp_tgt_used to false if target temp is changed*/
@@ -657,23 +661,25 @@ void BWC::adjust_brightness()
 
 void BWC::play_sound()
 {
-    // Only on the press itself, never again while the button is held: a tone
-    // replayed during the hold kept the pump from seeing a steady press, so
-    // holding UP/DOWN no longer ran the target up or down.
+    // Click only on the press itself; UP/DOWN once per press and per target
+    // step while held (CIO_6W taps a held UP/DOWN).
     Buttons btn = dsp->dsp_toggles.pressed_button;
     bool pressed = btn != _prev_sound_button;
     _prev_sound_button = btn;
+    static uint8_t prev_target = 0;
+    bool step = pressed || cio->cio_states.target != prev_target;
+    prev_target = cio->cio_states.target;
     if (!dsp->dsp_states.locked && dsp->dsp_states.power)
     {
         switch (btn)
         {
         case UP:
-            if (pressed && dsp->EnabledButtons[UP])
+            if (step && dsp->EnabledButtons[UP])
                 playSound(SND_UP, false);
             _dsp_tgt_used = true;
             break;
         case DOWN:
-            if (pressed && dsp->EnabledButtons[DOWN])
+            if (step && dsp->EnabledButtons[DOWN])
                 playSound(SND_DOWN, false);
             _dsp_tgt_used = true;
             break;
@@ -2987,16 +2993,20 @@ void BWC::_loadSettings()
     _host_heater_timeout_min = doc[F("GSTHTRTO")] | 0;
     _brightness_boost_steps = doc[F("BRTSTEP")] | 1;
     _brightness_boost_duration_s = doc[F("BRTDUR")] | 5;
-    dsp->EnabledButtons[LOCK] = doc[F("LCK")] | 1;
-    dsp->EnabledButtons[TIMER] = doc[F("TMR")] | 1;
-    dsp->EnabledButtons[BUBBLES] = doc[F("AIR")] | 1;
-    dsp->EnabledButtons[UNIT] = doc[F("UNT")] | 1;
-    dsp->EnabledButtons[HEAT] = doc[F("HTR")] | 1;
-    dsp->EnabledButtons[PUMP] = doc[F("FLT")] | 1;
-    dsp->EnabledButtons[DOWN] = doc[F("DN")] | 1;
-    dsp->EnabledButtons[UP] = doc[F("UP")] | 1;
-    dsp->EnabledButtons[POWER] = doc[F("PWR")] | 1;
-    dsp->EnabledButtons[HYDROJETS] = doc[F("HJT")] | 1;
+    // Saved as true/false: "| 1" (an int default) ignored a stored false, so a
+    // disabled button was enabled again on the very next load.
+    auto enabled = [&](const __FlashStringHelper *key)
+    { return doc[key].isNull() || doc[key].as<bool>(); };
+    dsp->EnabledButtons[LOCK] = enabled(F("LCK"));
+    dsp->EnabledButtons[TIMER] = enabled(F("TMR"));
+    dsp->EnabledButtons[BUBBLES] = enabled(F("AIR"));
+    dsp->EnabledButtons[UNIT] = enabled(F("UNT"));
+    dsp->EnabledButtons[HEAT] = enabled(F("HTR"));
+    dsp->EnabledButtons[PUMP] = enabled(F("FLT"));
+    dsp->EnabledButtons[DOWN] = enabled(F("DN"));
+    dsp->EnabledButtons[UP] = enabled(F("UP"));
+    dsp->EnabledButtons[POWER] = enabled(F("PWR"));
+    dsp->EnabledButtons[HYDROJETS] = enabled(F("HJT"));
 
     Serial.printf("Loaded: PRICE=%.2f, WEATHER=%d\n", _price, _weather);
     file.close();

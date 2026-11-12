@@ -107,6 +107,22 @@ void CIO_6W::handleToggles()
         _qButton(item);
     }
 
+    // Held UP/DOWN on the panel: one tap every ~0.5 s for as long as it is held.
+    // Passed through, the pump waited ~2 s and then raced. The first tap
+    // only shows the target, like on the original panel.
+    // 200 ms tap + 200 ms gap (+100 ms release) chosen by feel, not measured.
+    if ((cio_toggles.held_button == UP || cio_toggles.held_button == DOWN) && _button_que_len == 0)
+    {
+        item.btncode = getButtonCode(cio_toggles.held_button);
+        item.p_state = &sStates::char1; // never met: press for the full duration
+        item.value = 0xFF;
+        item.duration_ms = 200;
+        _qButton(item);
+        item.btncode = getButtonCode(NOBTN);
+        item.duration_ms = 200;
+        _qButton(item);
+    }
+
     // Walk only from a known target (0 = not read yet) and only while the pool is
     // on: unlock() presses POWER, so a walk still running when the user switched
     // the pool off switched it straight back on. It resumes at power on.
@@ -221,17 +237,7 @@ void CIO_6W::_handleButtonQ(void)
     if (!cio_states.dsp_ok)
         return;
     if (_button_que_len == 0)
-        // {
-        //     /*Buttonqueue is empty, so let the touchbuttons from display/bwc through*/
-        //     /*Avoiding write to variable when it's beeing sent to the cio*/
-        //     waitlimit = 0;
-        //     while(_packet_transm_active && ++waitlimit < 10) delay(1);
-        //     _button_code = getButtonCode(NOBTN);
-        //     if(_pressed_button == TIMER) _button_code = getButtonCode(TIMER);
-        //     if(_pressed_button == UP) _button_code = getButtonCode(UP);
-        //     if(_pressed_button == DOWN) _button_code = getButtonCode(DOWN);
         return;
-    // }
     // First subtract elapsed time from maxduration
     _button_que[0].duration_ms -= elapsedTime;
     // check if state is as desired, or duration is up. If so - remove row. Else set BTNCODE

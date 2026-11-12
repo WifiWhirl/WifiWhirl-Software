@@ -11,6 +11,7 @@ export interface OtherMsg {
   MQTT: number;
   FW: string;
   BUILDENV?: string;
+  BUILD?: string; // "<commit>[+], <date>" of a test build, "" for releases without git
   /** Newer firmware version found by the daily check; "" / absent when up to date. */
   NEWFW?: string;
   /** 0 when the STA is not associated: the firmware suppresses the sentinel. */

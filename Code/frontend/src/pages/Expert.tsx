@@ -7,12 +7,14 @@ import { PageSkeleton } from '../components/Skeleton';
 import { t } from '../i18n';
 import { dec, durLong } from '../util/format';
 import { SHOW_HEAT_LOSS_CALIBRATION } from '../flags';
+import { ApiKeys } from '../components/ApiKeys';
 
 interface PowerSet { heater: number; pump: number; air: number; idle: number; jet: number }
 interface DevPower {
   hasjets?: boolean;
   power?: PowerSet;
   powerDefaults?: PowerSet;
+  apiEnabled?: boolean;
 }
 interface HlCal {
   ACTIVE?: boolean; PHASE?: number; CURRENT?: number; DEFAULT?: number; TARGETDROP?: number;
@@ -46,6 +48,7 @@ export function Expert() {
   const [hasjets, setHasjets] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+  const [api, setApi] = useState(false); // public API /api/v1
   const [wmFallback, setWmFallback] = useState(false); // WiFi AP fallback (moved here)
   const [hl, setHl] = useState<number>(HEAT_LOSS_DEFAULT);
   const [cal, setCal] = useState<HlCal | null>(null);
@@ -72,6 +75,7 @@ export function Expert() {
       setPower(j.power || EMPTY);
       setDefaults(j.powerDefaults || EMPTY);
       setHasjets(!!j.hasjets);
+      setApi(!!j.apiEnabled);
       setLoaded(true);
     }).catch(() => {});
     postJson<{ enableWM?: boolean }>('/getwifi/').then((j) => setWmFallback(!!j.enableWM)).catch(() => {});
@@ -226,6 +230,15 @@ export function Expert() {
       {/* Moved off the network page: recovering a device through the fallback AP
           is an expert task. /setwifi/ merges by key, so sending enableWM alone
           leaves SSID and static-IP settings alone (it still reboots). */}
+      <Card title={t('expert.apiTitle')}>
+        <p class="hint">{t('expert.apiInfo')}</p>
+        <CheckField label={t('expert.apiEnable')} checked={api} onChange={setApi} />
+        <div class="card-save">
+          <SaveButton url="/setdevice/" data={() => ({ apiEnabled: api })} />
+        </div>
+        <ApiKeys />
+      </Card>
+
       <Card title={t('wifi.fallback')}>
         <p class="hint">{t('wifi.fallbackInfo')}</p>
         <CheckField label={t('wifi.fallbackEnable')} checked={wmFallback} onChange={setWmFallback} />

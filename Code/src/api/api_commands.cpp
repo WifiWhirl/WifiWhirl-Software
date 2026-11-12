@@ -1,4 +1,5 @@
 #include "api/api.h"
+#include "build_ver.h"
 #include "web/web.h"
 #include "net/net.h"
 #include "cloud_task.h"
@@ -445,6 +446,7 @@ static void buildOtherInfo(JsonObject doc)
     // (WL_DISCONNECTED=6, no WL_WRONG_PASSWORD), so mapping has to happen here.
     doc[F("STA")] = staConnected ? F("up") : staFailReason();
     doc[F("FW")] = FW_VERSION;
+    doc[F("BUILD")] = BUILD_LABEL; // commit + date of a test build, "" otherwise
     doc[F("BUILDENV")] = PIO_ENV_NAME;
     doc[F("NEWFW")] = updateAvailableVersion(); // "" unless a newer version is known
     doc[F("loopfq")] = bwc->loop_count;
