@@ -1,6 +1,7 @@
 #include "sys/sys.h"
 #include "web/web.h"
 #include "api/api.h"
+#include "build_ver.h"
 #include <ArduinoJson.h>
 #include <initializer_list>
 
@@ -222,6 +223,8 @@ void handleSupportPackage()
 
     json += F("{\"firmware\":");
     appendJsonString(json, FW_VERSION);
+    json += F(",\"build\":");
+    appendJsonString(json, BUILD_LABEL);
     json += F(",\"WifiWhirl Model\":"); // full build env, incl. any "_seed" suffix
     appendJsonString(json, PIO_ENV_NAME);
     json += F(",\"model\":");

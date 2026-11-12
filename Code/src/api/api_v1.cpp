@@ -2,6 +2,7 @@
 #include "web/web.h"
 #include "net/net.h"
 #include "cloud_task.h"
+#include "build_ver.h"
 
 /*
  * Public, documented API for integrations (ioBroker, Home Assistant, scripts),
@@ -229,6 +230,7 @@ static void handleApiInfo()
     StaticJsonDocument<384> doc;
     doc[F("apiVersion")] = 1;
     doc[F("firmware")] = FW_VERSION;
+    doc[F("build")] = BUILD_LABEL;
     doc[F("apiEnabled")] = apiEnabled;
     if (!apiEnabled || !server->hasHeader(F("Authorization")))
         return apiSend(doc);

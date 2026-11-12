@@ -23,6 +23,8 @@ export function Info() {
   const fw = lastOther.value?.FW ?? '...';
   // Show the build env as the model name, hiding the internal "_seed" suffix.
   const buildEnv = lastOther.value?.BUILDENV?.replace(/_seed$/, '');
+  // test builds carry their commit and date, e.g. "2fcfb5b, 12.11.2026"
+  const build = lastOther.value?.BUILD;
 
   const [enabled, setEnabled] = useState(false);
   const [latest, setLatest] = useState('');
@@ -88,7 +90,7 @@ export function Info() {
     <>
       <h1>{t('nav.info')}</h1>
       <Card title={t('info.softwareTitle')}>
-        <div class="row"><label>{t('info.installedVersion')}</label><b>{fw}</b></div>
+        <div class="row"><label>{t('info.installedVersion')}</label><b>{fw}{build ? ` (${build})` : ''}</b></div>
         {buildEnv && <div class="row"><label>{t('info.buildEnv')}</label><b>{buildEnv}</b></div>}
         <button class="btn" style="margin-top:12px" onClick={() => navigate('/update')}>
           {t('info.softwareUpdate')}

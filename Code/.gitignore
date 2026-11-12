@@ -21,3 +21,4 @@ data/chunk-*.js
 # firmware signing key (never commit)
 private.key
 public.key
+src/build_info.h
