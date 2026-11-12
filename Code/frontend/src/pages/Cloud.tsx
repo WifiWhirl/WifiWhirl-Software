@@ -17,7 +17,7 @@ const CLOUD_TONE: Record<string, LinkTone> = {
   connected: 'on', connecting: 'pending', handshaking: 'pending', disabled: 'off',
 };
 
-interface Pairing { hostname?: string; nonce_b64?: string; proof_b64?: string; }
+interface Pairing { hostname?: string; nonce_b64?: string; proof_b64?: string; ts?: number; }
 
 /** Host part of the provisioned web URL, for the stat tile. */
 function webHost(url: string): string {
@@ -67,6 +67,7 @@ export function Cloud() {
       if (!p.hostname || !p.nonce_b64 || !p.proof_b64) { setPairErr(t('cloud.pairError')); return; }
       const base = d.webUrl.trim().replace(/\/+$/, '');
       const q = new URLSearchParams({ hostname: p.hostname, nonce: p.nonce_b64, proof: p.proof_b64 });
+      if (p.ts) q.set('ts', String(p.ts)); // v2 link: the cloud only takes it for 15 min
       window.location.href = `${base}/pair?${q.toString()}`;
     } catch { setPairErr(t('cloud.pairError')); }
   }
