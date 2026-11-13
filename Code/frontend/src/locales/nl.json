@@ -351,10 +351,9 @@
   "restart.cloud": "Cloudinstellingen gewijzigd. WifiWhirl start opnieuw op om ze toe te passen.",
   "restart.device": "Apparaatinstellingen gewijzigd. WifiWhirl start opnieuw op om ze toe te passen.",
   "backup.title": "Back-up",
-  "backup.info": "Slaat alle instellingen op in een bestand: pomp- en spa-configuratie, wachtrij, Smart Schedule, tellers, MQTT en webhook. Niet inbegrepen zijn wifi, apparaatnaam, cloudtoegang en de overige wachtwoorden. Zonder globale aanmelding vul je hiervoor het OTA-wachtwoord in.",
+  "backup.info": "Slaat alle instellingen op in een bestand: pomp- en spa-configuratie, wachtrij, Smart Schedule, tellers, MQTT en webhook. Niet inbegrepen zijn wifi, apparaatnaam, cloudtoegang en de overige wachtwoorden. Zonder globale aanmelding vraagt WifiWhirl om het OTA-wachtwoord.",
   "backup.download": "Back-up downloaden",
   "backup.file": "Back-upbestand",
-  "backup.otaPwd": "OTA-wachtwoord",
   "backup.restore": "Herstellen",
   "backup.confirm": "De instellingen uit het bestand vervangen de huidige. WifiWhirl start daarna opnieuw op. Doorgaan?",
   "backup.auth": "Wachtwoord onjuist of niet aangemeld.",
@@ -387,7 +386,7 @@
   "update.title": "Software-update",
   "update.upload": "Uploaden en bijwerken",
   "update.warning": "Koppel de module tijdens de update niet los van de stroom.",
-  "update.authNote": "Voor de software-update is authenticatie nodig met gebruiker 'update' en je OTA-wachtwoord. Je vindt het OTA-wachtwoord op de sticker van je WifiWhirl-module en in de meegeleverde handleiding.",
+  "update.authNote": "Voor de software-update vraagt WifiWhirl om je OTA-wachtwoord. Je vindt het op de sticker van je WifiWhirl-module en in de meegeleverde handleiding.",
   "config.unit": "Temperatuureenheid",
   "config.brightnessBoost": "Displayhelderheid verhogen",
   "config.brightnessBoostInfo": "De displayhelderheid wordt kort verhoogd bij elke knopdruk.",
@@ -676,5 +675,9 @@
   "cfg.df.DFTAM": "pH-min per 10 mg/l minder TA",
   "cfg.dfUnit": "g / 1000 l",
   "dashboard.suggestNoteTa": "pH-min verlaagt daarbij ook de pH. Meet die ook en let erop dat hij niet onder 7,2 zakt.",
-  "dashboard.doseAddOpen": "Onderhoudsmiddel noteren"
+  "dashboard.doseAddOpen": "Onderhoudsmiddel noteren",
+  "ota.password": "OTA-wachtwoord",
+  "ota.hint": "Vul het OTA-wachtwoord van je WifiWhirl in. Je vindt het op de sticker van de module en in de meegeleverde handleiding.",
+  "ota.continue": "Verder",
+  "ota.wrongPwd": "Het wachtwoord klopt niet. Probeer het opnieuw."
 }

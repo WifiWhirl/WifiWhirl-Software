@@ -575,6 +575,18 @@ WebServerT::THandlerFunction guard(WebServerT::THandlerFunction handler)
 // With global auth on, use the session (no extra Basic-Auth prompt); otherwise
 // keep the legacy HTTP Basic Auth against OTAPassword. Returns false and has
 // already answered the client when not authorized.
+// 401 for wrong OTA credentials. The SPA always sends an Authorization header
+// and asks for the password in its own dialog; a WWW-Authenticate challenge would
+// pop up the browser's login box on top of it. A plain browser visit without
+// credentials still gets the challenge.
+void otaAuthFail()
+{
+    if (server->hasHeader(F("Authorization")))
+        server->send(401, F("text/plain"), F("Wrong password."));
+    else
+        server->requestAuthentication();
+}
+
 bool legacyAuthOk(const char *basicUser)
 {
     if (globalAuthEnabled)
@@ -588,7 +600,7 @@ bool legacyAuthOk(const char *basicUser)
     }
     if (!server->authenticate(basicUser, OTAPassword.c_str()))
     {
-        server->requestAuthentication();
+        otaAuthFail();
         return false;
     }
     return true;

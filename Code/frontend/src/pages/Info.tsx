@@ -5,6 +5,7 @@ import { showRestart, showToast } from '../components/feedback';
 import { lastOther, refreshCommsOnce } from '../comms';
 import { navigate } from '../router';
 import { t } from '../i18n';
+import { withOtaAuth, saveBlob } from '../components/OtaAuth';
 
 interface UpdateInfo {
   enabled: boolean;
@@ -31,6 +32,17 @@ export function Info() {
   const [available, setAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  // Support package: OTA password in the app dialog instead of the browser's
+  // login box (which also wanted the user name "support").
+  async function downloadSupport() {
+    try {
+      const r = await withOtaAuth('support', t('info.supportPackage'), (headers) => fetch('/support/', { headers }));
+      if (!r) return;
+      if (!r.res.ok) { showToast(t('common.error'), true); return; }
+      saveBlob(await r.res.blob(), 'wifiwhirl-support.json');
+    } catch { showToast(t('common.error'), true); }
+  }
 
   function applyInfo(j: UpdateInfo) {
     setEnabled(!!j.enabled);
@@ -137,7 +149,7 @@ export function Info() {
         <div class="row"><label>FAQ</label>
           <a href="https://wifiwhirl.de/FAQ/" target="_blank" rel="noreferrer">wifiwhirl.de/FAQ</a></div>
         <div class="row"><label>{t('info.supportPackage')}</label>
-          <a href="/support/" target="_blank" rel="noreferrer">{t('info.createSupportPackage')}</a></div>
+          <a href="/support/" onClick={(e) => { e.preventDefault(); void downloadSupport(); }}>{t('info.createSupportPackage')}</a></div>
         <div class="row"><label>{t('info.contactLabel')}</label>
           <a href="mailto:hilfe@wifiwhirl.de">hilfe@wifiwhirl.de</a></div>
       </Card>

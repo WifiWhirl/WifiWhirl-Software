@@ -381,10 +381,9 @@
   "restart.cloud": "Cloud-Einstellungen geändert. WifiWhirl startet neu, um sie zu übernehmen.",
   "restart.device": "Geräteeinstellungen geändert. WifiWhirl startet neu, um sie zu übernehmen.",
   "backup.title": "Sicherung",
-  "backup.info": "Speichert alle Einstellungen als Datei: Pumpen- und SPA-Konfiguration, Warteschlange, Smart Schedule, Zähler, MQTT und Webhook. Nicht enthalten sind WLAN, Gerätename, Cloud-Zugang und die übrigen Passwörter. Ohne globale Anmeldung gib dafür das OTA-Passwort ein.",
+  "backup.info": "Speichert alle Einstellungen als Datei: Pumpen- und SPA-Konfiguration, Warteschlange, Smart Schedule, Zähler, MQTT und Webhook. Nicht enthalten sind WLAN, Gerätename, Cloud-Zugang und die übrigen Passwörter. Ohne globale Anmeldung fragt WifiWhirl dabei nach dem OTA-Passwort.",
   "backup.download": "Sicherung herunterladen",
   "backup.file": "Sicherungsdatei",
-  "backup.otaPwd": "OTA-Passwort",
   "backup.restore": "Wiederherstellen",
   "backup.confirm": "Die Einstellungen aus der Datei ersetzen die aktuellen. WifiWhirl startet danach neu. Fortfahren?",
   "backup.auth": "Passwort falsch oder Anmeldung fehlt.",
@@ -418,7 +417,7 @@
   "update.title": "Softwareupdate",
   "update.upload": "Hochladen & aktualisieren",
   "update.warning": "Während des Updates das Modul nicht vom Strom trennen.",
-  "update.authNote": "Für das Softwareupdate ist eine Authentifizierung mit dem Benutzer \"update\" und deinem OTA-Passwort nötig. Das OTA-Passwort findest du auf dem Sticker deines WifiWhirl Moduls und auf der mitgelieferten Anleitung.",
+  "update.authNote": "Für das Softwareupdate fragt WifiWhirl nach deinem OTA-Passwort. Du findest es auf dem Sticker deines WifiWhirl Moduls und in der mitgelieferten Anleitung.",
   "config.unit": "Temperatureinheit",
   "config.brightnessBoost": "Display-Aufhellung",
   "config.brightnessBoostInfo": "Bei jedem Tastendruck wird die Displayhelligkeit kurzzeitig angehoben.",
@@ -676,5 +675,9 @@
   "cfg.df.DFTAM": "pH-Minus je 10 mg/l weniger TA",
   "cfg.dfUnit": "g / 1000 l",
   "dashboard.suggestNoteTa": "pH-Minus senkt dabei auch den pH-Wert. Miss ihn mit und achte darauf, dass er nicht unter 7,2 fällt.",
-  "dashboard.doseAddOpen": "Pflegemittel eintragen"
+  "dashboard.doseAddOpen": "Pflegemittel eintragen",
+  "ota.password": "OTA-Passwort",
+  "ota.hint": "Gib das OTA-Passwort deines WifiWhirl ein. Du findest es auf dem Sticker des Moduls und in der mitgelieferten Anleitung.",
+  "ota.continue": "Weiter",
+  "ota.wrongPwd": "Das Passwort stimmt nicht. Versuch es noch einmal."
 }

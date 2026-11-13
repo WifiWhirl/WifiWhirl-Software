@@ -1522,6 +1522,9 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 }
 .confirm-modal p { margin: 8px 0 18px; white-space: pre-line; color: var(--muted); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+/* OTA password dialog (components/OtaAuth.tsx) */
+.confirm-modal input[type="password"] { width: 100%; margin-bottom: 18px; }
+.confirm-modal .ota-error { color: var(--danger); margin: -10px 0 18px; }
 /* native <dialog> wrapper: transparent shell, the inner .modal is the visible box.
    color is set explicitly because <dialog> otherwise resets it to CanvasText. */
 .modal-dialog { border: none; padding: 0; background: transparent; color: var(--ink); max-width: 100vw; max-height: 100dvh; overflow: visible; }

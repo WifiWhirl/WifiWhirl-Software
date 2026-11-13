@@ -351,10 +351,9 @@
   "restart.cloud": "Paramètres cloud modifiés. WifiWhirl redémarre pour les appliquer.",
   "restart.device": "Paramètres de l'appareil modifiés. WifiWhirl redémarre pour les appliquer.",
   "backup.title": "Sauvegarde",
-  "backup.info": "Enregistre tous les réglages dans un fichier : configuration de la pompe et du spa, file d'attente, Smart Schedule, compteurs, MQTT et webhook. Ne sont pas inclus : le Wi-Fi, le nom de l'appareil, l'accès cloud et les autres mots de passe. Sans connexion globale, saisis pour cela le mot de passe OTA.",
+  "backup.info": "Enregistre tous les réglages dans un fichier : configuration de la pompe et du spa, file d'attente, Smart Schedule, compteurs, MQTT et webhook. Ne sont pas inclus : le Wi-Fi, le nom de l'appareil, l'accès cloud et les autres mots de passe. Sans connexion globale, WifiWhirl te demande le mot de passe OTA.",
   "backup.download": "Télécharger la sauvegarde",
   "backup.file": "Fichier de sauvegarde",
-  "backup.otaPwd": "Mot de passe OTA",
   "backup.restore": "Restaurer",
   "backup.confirm": "Les réglages du fichier remplacent les réglages actuels. WifiWhirl redémarre ensuite. Continuer ?",
   "backup.auth": "Mot de passe incorrect ou tu n'es pas connecté.",
@@ -387,7 +386,7 @@
   "update.title": "Mise à jour logicielle",
   "update.upload": "Téléverser et mettre à jour",
   "update.warning": "Ne débranche pas le module pendant la mise à jour.",
-  "update.authNote": "La mise à jour logicielle nécessite une authentification avec l'utilisateur 'update' et ton mot de passe OTA. Tu trouveras le mot de passe OTA sur l'autocollant de ton module WifiWhirl et dans le manuel fourni.",
+  "update.authNote": "Pour la mise à jour logicielle, WifiWhirl te demande ton mot de passe OTA. Tu le trouveras sur l'autocollant de ton module WifiWhirl et dans le manuel fourni.",
   "config.unit": "Unité de température",
   "config.brightnessBoost": "Luminosité renforcée de l'affichage",
   "config.brightnessBoostInfo": "La luminosité de l'affichage est brièvement augmentée à chaque pression sur une touche.",
@@ -676,5 +675,9 @@
   "cfg.df.DFTAM": "pH moins par 10 mg/l de TAC en moins",
   "cfg.dfUnit": "g / 1000 l",
   "dashboard.suggestNoteTa": "Le pH moins fait aussi baisser le pH. Mesure-le aussi et veille à ce qu’il ne descende pas sous 7,2.",
-  "dashboard.doseAddOpen": "Noter un produit d’entretien"
+  "dashboard.doseAddOpen": "Noter un produit d’entretien",
+  "ota.password": "Mot de passe OTA",
+  "ota.hint": "Saisis le mot de passe OTA de ton WifiWhirl. Tu le trouveras sur l'autocollant du module et dans le manuel fourni.",
+  "ota.continue": "Continuer",
+  "ota.wrongPwd": "Mot de passe incorrect. Réessaie."
 }

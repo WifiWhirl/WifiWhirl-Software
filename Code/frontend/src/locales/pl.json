@@ -351,10 +351,9 @@
   "restart.cloud": "Zmieniono ustawienia chmury. WifiWhirl uruchamia się ponownie, aby je zastosować.",
   "restart.device": "Zmieniono ustawienia urządzenia. WifiWhirl uruchamia się ponownie, aby je zastosować.",
   "backup.title": "Kopia zapasowa",
-  "backup.info": "Zapisuje wszystkie ustawienia do pliku: konfigurację pompy i SPA, kolejkę, Smart Schedule, liczniki, MQTT i webhook. Nie zawiera Wi-Fi, nazwy urządzenia, dostępu do chmury ani pozostałych haseł. Bez globalnego logowania podaj do tego hasło OTA.",
+  "backup.info": "Zapisuje wszystkie ustawienia do pliku: konfigurację pompy i SPA, kolejkę, Smart Schedule, liczniki, MQTT i webhook. Nie zawiera Wi-Fi, nazwy urządzenia, dostępu do chmury ani pozostałych haseł. Bez globalnego logowania WifiWhirl zapyta o hasło OTA.",
   "backup.download": "Pobierz kopię zapasową",
   "backup.file": "Plik kopii zapasowej",
-  "backup.otaPwd": "Hasło OTA",
   "backup.restore": "Przywróć",
   "backup.confirm": "Ustawienia z pliku zastąpią obecne. Następnie WifiWhirl uruchomi się ponownie. Kontynuować?",
   "backup.auth": "Błędne hasło lub brak logowania.",
@@ -387,7 +386,7 @@
   "update.title": "Aktualizacja oprogramowania",
   "update.upload": "Prześlij i aktualizuj",
   "update.warning": "Nie odłączaj modułu od zasilania podczas aktualizacji.",
-  "update.authNote": "Aktualizacja oprogramowania wymaga zalogowania jako użytkownik „update” z twoim hasłem OTA. Hasło OTA znajdziesz na naklejce swojego modułu WifiWhirl i w dołączonej instrukcji.",
+  "update.authNote": "Przy aktualizacji oprogramowania WifiWhirl zapyta o twoje hasło OTA. Znajdziesz je na naklejce swojego modułu WifiWhirl i w dołączonej instrukcji.",
   "config.unit": "Jednostka temperatury",
   "config.brightnessBoost": "Podbicie jasności wyświetlacza",
   "config.brightnessBoostInfo": "Jasność wyświetlacza jest chwilowo zwiększana po każdym naciśnięciu przycisku.",
@@ -676,5 +675,9 @@
   "cfg.df.DFTAM": "pH minus na 10 mg/l mniej TA",
   "cfg.dfUnit": "g / 1000 l",
   "dashboard.suggestNoteTa": "pH minus obniża przy tym także pH. Zmierz je również i uważaj, żeby nie spadło poniżej 7,2.",
-  "dashboard.doseAddOpen": "Zapisz środek pielęgnacyjny"
+  "dashboard.doseAddOpen": "Zapisz środek pielęgnacyjny",
+  "ota.password": "Hasło OTA",
+  "ota.hint": "Podaj hasło OTA swojego WifiWhirl. Znajdziesz je na naklejce modułu i w dołączonej instrukcji.",
+  "ota.continue": "Dalej",
+  "ota.wrongPwd": "Hasło jest nieprawidłowe. Spróbuj ponownie."
 }

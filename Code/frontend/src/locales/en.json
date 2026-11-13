@@ -382,10 +382,9 @@
   "restart.cloud": "Cloud settings changed. WifiWhirl is restarting to apply them.",
   "restart.device": "Device settings changed. WifiWhirl is restarting to apply them.",
   "backup.title": "Backup",
-  "backup.info": "Saves all settings to a file: pump and spa configuration, queue, Smart Schedule, counters, MQTT and webhook. Not included: Wi-Fi, device name, cloud access and the other passwords. Without global login, enter the OTA password for this.",
+  "backup.info": "Saves all settings to a file: pump and spa configuration, queue, Smart Schedule, counters, MQTT and webhook. Not included: Wi-Fi, device name, cloud access and the other passwords. Without global login, WifiWhirl asks for the OTA password.",
   "backup.download": "Download backup",
   "backup.file": "Backup file",
-  "backup.otaPwd": "OTA password",
   "backup.restore": "Restore",
   "backup.confirm": "The settings from the file replace the current ones. WifiWhirl restarts afterwards. Continue?",
   "backup.auth": "Wrong password or not logged in.",
@@ -418,7 +417,7 @@
   "update.title": "Software update",
   "update.upload": "Upload & update",
   "update.warning": "Do not disconnect the module from power during the update.",
-  "update.authNote": "The software update requires authentication with the user 'update' and your OTA password. You will find the OTA password on the sticker of your WifiWhirl module and in the supplied manual.",
+  "update.authNote": "For the software update, WifiWhirl asks for your OTA password. You will find it on the sticker of your WifiWhirl module and in the supplied manual.",
   "config.unit": "Temperature unit",
   "config.brightnessBoost": "Display brightness boost",
   "config.brightnessBoostInfo": "The display brightness is briefly raised on every button press.",
@@ -676,5 +675,9 @@
   "cfg.df.DFTAM": "pH minus per 10 mg/l less TA",
   "cfg.dfUnit": "g / 1000 l",
   "dashboard.suggestNoteTa": "pH minus also lowers the pH. Measure it too and make sure it doesn't drop below 7.2.",
-  "dashboard.doseAddOpen": "Log chemical"
+  "dashboard.doseAddOpen": "Log chemical",
+  "ota.password": "OTA password",
+  "ota.hint": "Enter the OTA password of your WifiWhirl. You will find it on the sticker of the module and in the supplied manual.",
+  "ota.continue": "Continue",
+  "ota.wrongPwd": "Wrong password. Please try again."
 }

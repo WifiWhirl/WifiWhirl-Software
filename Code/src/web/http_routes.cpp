@@ -52,7 +52,7 @@ void startHttpServer()
       {
           if (!server->authenticate("update", OTAPassword.c_str()))
           {
-              server->requestAuthentication();
+              otaAuthFail();
               return;
           }
           server->send(200, F("text/plain"), F("ok"));
@@ -76,7 +76,7 @@ void startHttpServer()
             {
                 // the only response for a failed auth: the upload callback used to
                 // send one too, two responses on one socket
-                server->requestAuthentication();
+                otaAuthFail();
                 return;
             }
             if (!otaUploadComplete || !otaUploadSucceeded || Update.hasError())
