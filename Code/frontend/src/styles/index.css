@@ -1289,8 +1289,8 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 }
 .ss-timeline-bar {
   position: absolute;
-  left: 10px;
-  right: 10px;
+  left: 0;
+  right: 0;
   top: 21px; /* dot is 22px border-box under 12px padding -> center at 23px */
   height: 4px;
   border-radius: 999px;
@@ -1299,7 +1299,7 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 }
 .ss-timeline-bar span {
   display: block;
-  width: var(--ss-progress, 0%);
+  width: calc((var(--ss-step, 0) + 0.5) * (100% + 12px) / 4 - 6px); /* centre of dot n in the 4-column grid, gap 12px */
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--accent), var(--heat));
@@ -2226,7 +2226,7 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   }
   .ss-timeline-bar span {
     width: 100%;
-    height: var(--ss-progress, 0%);
+    height: calc(var(--ss-step, 0) / 3 * 100%); /* bar runs from the first to the last dot */
     background: linear-gradient(180deg, var(--accent), var(--heat));
   }
   .ss-timeline-steps {

@@ -272,7 +272,7 @@ function CalTimeline({ cal }: { cal: HlCal }) {
   const gaps = [gap1 > 0 ? durLong(gap1) : '', cal.ANCHORTS && gap2 > 0 ? durLong(gap2) : '', ''];
   return (
     <>
-      <div class="ss-timeline cal-timeline" style={`--ss-progress:${(Math.max(reached, waiting - 0.5, 0) / 3) * 100}%`}>
+      <div class="ss-timeline cal-timeline" style={`--ss-step:${Math.max(reached, waiting - 0.5, 0)}`}>
         <div class="ss-timeline-bar"><span /></div>
         <div class="cal-gaps" aria-hidden="true">
           {gaps.map((g, i) => <span key={i} style={`left:${(i + 1) * 25}%`}>{g}</span>)}
