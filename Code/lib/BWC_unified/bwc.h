@@ -148,10 +148,14 @@ public:
     bool newData();
     bool getWeather();
     size_t writeJSONStates(Print &out);
+    // fill a document directly, for callers that read single fields (/api/v1/status)
+    void buildJSONStates(JsonObject doc) { _buildJSONStates(doc); }
+    void buildJSONTimes(JsonObject doc) { _buildJSONTimes(doc); }
     size_t writeJSONTimes(Print &out);
     void getJSONStates(String &rtn);
     void getJSONTimes(String &rtn);
     void getJSONSettings(String &rtn);
+    void buildJSONSettings(JsonObject doc); // same content, filled in directly
     bool setJSONSettings(const String &message, String &error);
     void getJSONCommandQueue(String &rtn);
     uint8_t getState(int state);
@@ -184,6 +188,7 @@ public:
     bool updateSmartScheduleRepeat(uint8_t repeat_days);
     void cancelSmartSchedule();
     void getJSONSmartSchedule(String &rtn);
+    void buildJSONSmartSchedule(JsonObject doc); // same content, filled in directly
 
     // Heat-loss calibration / coefficient (feeds the time-to-target estimate)
     bool startHeatLossCalibration(String &err);

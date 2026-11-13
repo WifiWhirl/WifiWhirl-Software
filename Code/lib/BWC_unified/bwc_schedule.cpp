@@ -257,12 +257,11 @@ void BWC::_rearmSmartSchedule(uint64_t next_target_time)
 /**
  * Get smart schedule status as JSON
  */
-void BWC::getJSONSmartSchedule(String &rtn)
+void BWC::buildJSONSmartSchedule(JsonObject doc)
 {
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    StaticJsonDocument<1024> doc;
     
     doc[F("CONTENT")] = F("SMARTSCHEDULE");
     doc[F("ACTIVE")] = _smart_schedule.active;
@@ -360,7 +359,12 @@ void BWC::getJSONSmartSchedule(String &rtn)
     {
         doc[F("ESTIMATE_FMT")] = "";
     }
-    
+}
+
+void BWC::getJSONSmartSchedule(String &rtn)
+{
+    StaticJsonDocument<1024> doc;
+    buildJSONSmartSchedule(doc.to<JsonObject>());
     if (serializeJson(doc, rtn) == 0)
     {
         rtn = F("{\"error\": \"Failed to serialize smartschedule\"}");

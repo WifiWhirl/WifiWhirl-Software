@@ -30,18 +30,10 @@ void publishSmartSchedule(bool onlyIfChanged)
 {
     if (!mqttClient || !mqttClient->connected())
         return;
-    String js;
-    bwc->getJSONSmartSchedule(js);
-    StaticJsonDocument<128> filter;
-    filter[F("ACTIVE")] = true;
-    filter[F("TARGETTIME")] = true;
-    filter[F("TARGETTEMP")] = true;
-    filter[F("KEEPON")] = true;
-    filter[F("KEEPPUMP")] = true;
-    filter[F("STARTTIME")] = true;
-    filter[F("ESTIMATED_COST")] = true;
-    StaticJsonDocument<192> ss;
-    deserializeJson(ss, js, DeserializationOption::Filter(filter));
+    // filled directly: building the 1 KB document on the stack, serialising it
+    // and parsing it back through a filter cost ~1.6 KB of the 4 KB loop stack
+    DynamicJsonDocument ss(1024);
+    bwc->buildJSONSmartSchedule(ss.to<JsonObject>());
     bool active = ss["ACTIVE"] | false;
     if (active && !ssPendTemp)
     {

@@ -256,7 +256,7 @@ void BWC::getJSONTimes(String &rtn)
     }
 }
 
-void BWC::getJSONSettings(String &rtn)
+void BWC::buildJSONSettings(JsonObject doc)
 {
 // feed the dog
 #ifdef ESP8266
@@ -267,7 +267,6 @@ void BWC::getJSONSettings(String &rtn)
     // energy/runtime counters, making total/daily jump backwards on every
     // settings poll.
 
-    DynamicJsonDocument doc(2048);
 
     // Set the values in the document
     doc[F("CONTENT")] = F("SETTINGS");
@@ -319,6 +318,12 @@ void BWC::getJSONSettings(String &rtn)
     doc[F("HJT")] = dsp->EnabledButtons[HYDROJETS];
 
     // Serialize JSON to string
+}
+
+void BWC::getJSONSettings(String &rtn)
+{
+    DynamicJsonDocument doc(2048);
+    buildJSONSettings(doc.to<JsonObject>());
     if (serializeJson(doc, rtn) == 0)
     {
         rtn = F("{\"error\": \"Failed to serialize settings\"}");

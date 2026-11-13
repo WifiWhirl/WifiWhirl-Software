@@ -271,12 +271,9 @@ static void handleApiStatus()
 {
     DynamicJsonDocument out(2560);
     {
-        // re-parses the SPA's state JSON instead of reading BWC
-        // internals twice; one source of truth, ~1.5 KB extra heap per call.
-        String raw;
-        bwc->getJSONStates(raw);
+        // the SPA's state document, built directly (no String + re-parse round trip)
         DynamicJsonDocument s(1536);
-        deserializeJson(s, raw);
+        bwc->buildJSONStates(s.to<JsonObject>());
         out[F("time")] = s[F("TIME")];
         out[F("power")] = s[F("PWR")].as<bool>();
         out[F("lock")] = s[F("LCK")].as<bool>();
@@ -298,10 +295,8 @@ static void handleApiStatus()
         t[F("ambient")] = s[F("AMBC")];
     }
     {
-        String raw;
-        bwc->getJSONTimes(raw);
         DynamicJsonDocument s(1536);
-        deserializeJson(s, raw);
+        bwc->buildJSONTimes(s.to<JsonObject>());
         float t2r = s[F("T2R")] | -1.0f; // -2 ready, -1 never
         if (t2r == -2.0f)
             out[F("readyInHours")] = 0;
@@ -515,10 +510,8 @@ static void handleApiWaterQuality()
 
 static void handleApiScheduleGet()
 {
-    String raw;
-    bwc->getJSONSmartSchedule(raw);
-    DynamicJsonDocument s(1024);
-    deserializeJson(s, raw);
+    DynamicJsonDocument s(1024); // same capacity as getJSONSmartSchedule()
+    bwc->buildJSONSmartSchedule(s.to<JsonObject>());
     StaticJsonDocument<512> out;
     bool active = s[F("ACTIVE")];
     out[F("active")] = active;
@@ -617,10 +610,8 @@ static bool knownSpaKey(const String &k)
 
 static void handleApiSpaGet()
 {
-    String raw;
-    bwc->getJSONSettings(raw);
-    DynamicJsonDocument s(1536);
-    deserializeJson(s, raw);
+    DynamicJsonDocument s(2048); // same capacity as getJSONSettings()
+    bwc->buildJSONSettings(s.to<JsonObject>());
     DynamicJsonDocument out(2048);
     JsonObject buttons = out.createNestedObject(F("buttons"));
     auto copy = [&](const String &api, const String &fw)
