@@ -38,10 +38,6 @@ void startHttpServer()
 
     server->on(F("/backup/"), HTTP_GET, handleBackup);  // self-guards via legacyAuthOk()
     server->on(F("/restore/"), HTTP_POST, handleRestore, handleRestoreUpload);
-    server->on(F("/debug-on/"), []()
-               {if(!legacyAuthOk("debug")) { return; } bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok"); });
-    server->on(F("/debug-off/"), []()
-               {if(!legacyAuthOk("debug")) { return; } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
     registerApiV1Routes(); // public API, own Basic Auth
     // server->on(F("/getfiles/"), updateFiles);
 

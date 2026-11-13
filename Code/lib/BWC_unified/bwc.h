@@ -206,7 +206,6 @@ public:
     bool hasjets, hasgod;
     CIO *cio;
     DSP *dsp;
-    bool BWC_DEBUG = false;
     bool weatherEnabled() const { return _weather; }
     // weather data only comes through the cloud. With the cloud off it
     // is switched off (remembered), and back on once the cloud sends a reading.
@@ -243,7 +242,6 @@ private:
     void _soundEvents();
     void _beep();
     void _accord();
-    void _log();
     
     // Smart Schedule private methods
     void _handleSmartSchedule();
