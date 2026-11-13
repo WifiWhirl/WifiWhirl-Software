@@ -611,8 +611,6 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
     
     // Ensure data is sent to network stack
     mqttClient->loop();
-    delay(10); // Brief delay to allow transmission to start
-    mqttClient->loop();
     
     return published;
 }
@@ -710,8 +708,6 @@ bool setupHA()
     Serial.print(F(" entities in batches of "));
     Serial.print(BATCH_SIZE);
     Serial.println(F("..."));
-    
-    delay(100);
 
     for (size_t i = 0; i < totalEntities; i++)
     {
@@ -725,13 +721,6 @@ bool setupHA()
             Serial.println(F(" bytes"));
             
             mqttClient->loop();
-            bwc->loop();
-            delay(50);
-            mqttClient->loop();
-            bwc->loop();
-            delay(200);
-            bwc->loop();
-            delay(200);
             
             if (ESP.getMaxFreeBlockSize() < 3000) {
                 Serial.print(F("HA: CRITICAL - Heap fragmented! Max block: "));
@@ -1006,8 +995,11 @@ bool setupHA()
             continue;
         }
         
-        // Small delay between entities
-        delay(50);
+        // No delay between entities: the fixed delays added up to ~10 s per
+        // discovery in which the pump and the web UI were barely served. Let the
+        // pump, the network stack and the watchdog run instead.
+        bwc->loop();
+        yield();
         
         // Process MQTT messages every 5 entities
         if ((i + 1) % 5 == 0) {
