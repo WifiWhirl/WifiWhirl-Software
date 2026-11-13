@@ -3,6 +3,10 @@
 #include "util.h"
 
 CIO_6_TYPE1 *pointerToClassCIO61;
+// CLK level of the last edge acted on. A ringing bus fires the CLK interrupt
+// twice for one edge (seen ~1 us apart on an ESP32-S3 board); acting on both
+// shifted in one bit twice and broke the packet.
+static volatile bool s_clk_level = true;
 
 static void IRAM_ATTR isr_cs_type1(void)
 {
@@ -369,6 +373,11 @@ void IRAM_ATTR CIO_6_TYPE1::isr_packetHandler()
     {
         // packet start (CS active low)
         _packet_transm_active = true;
+#ifdef ESP8266
+        s_clk_level = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
+#else
+        s_clk_level = digitalRead(_CLK_PIN);
+#endif
     }
 }
 
@@ -388,6 +397,9 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
 #else
     bool clockstate = digitalRead(_CLK_PIN);
 #endif
+    if (clockstate == s_clk_level)
+        return; // same level as the last handled edge: ringing, not a new edge
+    s_clk_level = clockstate;
     // shift out bits on low clock (falling edge)
     if (!clockstate & _data_is_output)
     {
