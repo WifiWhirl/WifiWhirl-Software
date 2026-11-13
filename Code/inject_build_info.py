@@ -35,6 +35,9 @@ if _commit:
     _label = _commit + (", " + _date if _date else "")
 else:
     _label = ""
+# BUILD_TAG=... names a test variant in the stamp, e.g. "1000 Hz"
+if os.environ.get("BUILD_TAG"):
+    _label = (_label + ", " if _label else "") + os.environ["BUILD_TAG"]
 _header = os.path.join(env["PROJECT_DIR"], "src", "build_info.h")
 _text = '#pragma once\n#define BUILD_LABEL "%s"\n' % _label
 try:

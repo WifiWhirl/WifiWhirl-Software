@@ -3485,6 +3485,9 @@ void BWC::saveDebugInfo(const String &s)
 //     file.close();
 // }
 
+#ifndef SND_PITCH_HZ
+#define SND_PITCH_HZ 4000
+#endif
 bool BWC::_load_melody_json(const String &filename)
 {
     if (_notes.size() || !_audio_enabled)
@@ -3532,7 +3535,9 @@ bool BWC::_load_melody_json(const String &filename)
     while (in.available())
     {
         s = in.readStringUntil('\n');
-        n.frequency_hz = s.toInt();
+        // build-time pitch test, every tone is written around 4 kHz and
+        // shifted by SND_PITCH_HZ / 4000. Drop the define once the pitch is chosen.
+        n.frequency_hz = (uint32_t)s.toInt() * SND_PITCH_HZ / 4000;
         s = in.readStringUntil('\n');
         n.duration_ms = beat_period * s.toFloat();
         n.duration_ms *= note_duty_cycle;
@@ -3568,9 +3573,9 @@ bool BWC::_load_melody_json(const String &filename)
 
 // Sound identity: "beat_ms duty freq beats freq beats ...", same format as the .mel
 // files in Sound/identity/ (render.py turns them into WAVs to listen to).
-// Everything but BOOT sits around 4 kHz like the original pump beep;
-// the boot jingle is still being chosen.
-static const char MEL_BOOT[] PROGMEM = "120 0.85 1568 1 2093 1 2637 1 3136 1 0 1 4186 3";
+// Everything sits around 4 kHz like the original pump beep; BOOT is
+// jingle 4 "entspannt".
+static const char MEL_BOOT[] PROGMEM = "150 0.95 5274 2 4186 2 3136 2 3520 2 0 1 3136 1 4186 6";
 static const char MEL_CONNECTED[] PROGMEM = "110 0.85 3520 1 4000 1 4186 3";
 static const char MEL_CLICK[] PROGMEM = "60 1 4000 1";
 static const char MEL_CONFIRM[] PROGMEM = "70 0.85 3951 1 4186 1";
