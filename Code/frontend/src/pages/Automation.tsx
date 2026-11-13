@@ -297,9 +297,6 @@ export function Automation() {
   const queueEnabled = queue?.QEN !== false;
   const next = queueEnabled ? nextEntry(entries) : null;
   const canSaveQueue = !queueError && (queue?.LEN ?? 0) > 0;
-  const hasPumpCycle =
-    entries.some((e) => e.cmd === FILTER_PUMP_CMD && e.value === 1) &&
-    entries.some((e) => e.cmd === FILTER_PUMP_CMD && e.value === 0);
 
   useEffect(() => {
     if (!opts.some((o) => o.v === cmd)) setCmd(4);
@@ -331,7 +328,7 @@ export function Automation() {
         </div>
       </Card>
 
-      {!hasPumpCycle && (
+      {/* always shown: several pump runs a day are fine */}
       <Card className="auto-preset">
         <div class="auto-preset-info">
           <p class="eyebrow">{t('auto.presets')}</p>
@@ -344,7 +341,6 @@ export function Automation() {
           <button class="btn secondary" onClick={addDailyPumpPreset}>{t('auto.addDailyPumpRun')}</button>
         </div>
       </Card>
-      )}
 
       <Card className="auto-planner">
         <div class="auto-section-head">
