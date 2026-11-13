@@ -35,7 +35,11 @@ bool       CloudTask::_notify_pending   = false;
 bool       CloudTask::_force_resync     = false;
 bool       CloudTask::_queue_dirty      = false;
 bool       CloudTask::_settings_dirty   = false;
-uint8_t    CloudTask::_rx_buf[POOLLINK_MAX_FRAME] = {};
+uint8_t   *CloudTask::_rx_buf = nullptr;
+// All three link buffers (rx, scratch, tx frame, ~3.1 KB) are allocated in
+// begin(): as static arrays they cost that RAM even with the cloud off.
+static uint8_t *s_scratch = nullptr; // POOLLINK_MAX_PAYLOAD
+static uint8_t *s_frame = nullptr;   // POOLLINK_MAX_FRAME
 size_t     CloudTask::_rx_buf_len       = 0;
 char       CloudTask::_location[48]     = {0};
 char       CloudTask::_firmware[16]     = {0};
@@ -63,6 +67,18 @@ void CloudTask::begin(const char* hostname, const uint8_t psk[32],
     _host[sizeof(_host) - 1] = '\0';
     memcpy(_psk, psk, 32);
     _port = port;
+    if (!_rx_buf)
+    {
+        uint8_t *m = (uint8_t *)malloc(2 * POOLLINK_MAX_FRAME + POOLLINK_MAX_PAYLOAD);
+        if (!m)
+        {
+            Serial.println(F("[Cloud] no memory for the link buffers"));
+            return;
+        }
+        _rx_buf = m;
+        s_frame = m + POOLLINK_MAX_FRAME;
+        s_scratch = m + 2 * POOLLINK_MAX_FRAME;
+    }
     _state = CLOUD_DISCONNECTED;
     _backoff_index = 0;
     _last_connect_attempt_ms = 0;
@@ -71,6 +87,7 @@ void CloudTask::begin(const char* hostname, const uint8_t psk[32],
 
 void CloudTask::tick()
 {
+    if (!_rx_buf) return; // begin() not run (not provisioned) or out of memory
     switch (_state) {
     case CLOUD_DISCONNECTED:  _doConnect();    break;
     case CLOUD_CONNECTING:    _doConnecting(); break;
@@ -228,7 +245,6 @@ void CloudTask::_doHandshake()
 // send: never in use at once (a handler that sends has read its payload into
 // its own JSON document first, deserializeJson copies from a const buffer).
 // Two static 1 KB buffers held RAM the MQTT socket was short of.
-static uint8_t s_scratch[POOLLINK_MAX_PAYLOAD];
 
 void CloudTask::_doConnected()
 {
@@ -244,7 +260,7 @@ void CloudTask::_doConnected()
     uint8_t *payload = s_scratch;  // too big for the loop stack
     size_t  payload_len = 0;
     while (_state == CLOUD_CONNECTED &&
-           _readFrame(&type, payload, &payload_len, sizeof(s_scratch))) {
+           _readFrame(&type, payload, &payload_len, POOLLINK_MAX_PAYLOAD)) {
         _last_rx_ms = millis();
         switch (type) {
         case POOLLINK_MSG_SENSOR_ACK: _handleSensorAck(payload, payload_len); break;
@@ -374,7 +390,8 @@ bool CloudTask::_sendFrame(uint8_t type, const uint8_t* payload, size_t len)
     if (len > POOLLINK_MAX_PAYLOAD) return false;
 
     // Frame: [length(2)][type(1)][seq(8)][ciphertext(len)][tag(16)]
-    static uint8_t frame[POOLLINK_MAX_FRAME];  // static: ~1 KB, too big for the loop stack
+    uint8_t *frame = s_frame;  // ~1 KB, too big for the loop stack
+    if (!frame) return false;
 
     uint16_t frame_body_len = (uint16_t)(POOLLINK_FRAME_HEADER_SIZE + len + POOLLINK_FRAME_TAG_SIZE);
     frame[0] = (frame_body_len >> 8) & 0xFF;
@@ -497,8 +514,8 @@ bool CloudTask::_sendSensorData(bool force)
     bwc->buildCloudSnapshot(payload.to<JsonObject>(), &state_len);
 
     char *buf = (char *)s_scratch;  // shared with _doConnected(), see there
-    size_t len = serializeJson(payload, buf, sizeof(s_scratch));
-    if (len == 0 || len >= sizeof(s_scratch))
+    size_t len = serializeJson(payload, buf, POOLLINK_MAX_PAYLOAD);
+    if (len == 0 || len >= POOLLINK_MAX_PAYLOAD)
         return false;
 
     // Hash the state section only. ArduinoJson serializes in insertion order, so

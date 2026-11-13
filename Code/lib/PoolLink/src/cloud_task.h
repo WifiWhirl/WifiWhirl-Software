@@ -93,7 +93,7 @@ private:
     static bool       _notify_pending;
     static bool       _force_resync;
 
-    static uint8_t    _rx_buf[POOLLINK_MAX_FRAME];
+    static uint8_t   *_rx_buf; // POOLLINK_MAX_FRAME, allocated in begin()
     static size_t     _rx_buf_len;
 
     static char       _location[48];
