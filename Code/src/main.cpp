@@ -280,7 +280,7 @@ void loop()
                     Serial.print(F(", flag="));
                     Serial.print(sendMQTTFlag);
                     Serial.println(F(")"));
-                    sendMQTT();
+                    sendMQTT(sendMQTTFlag);
                     sendMQTTFlag = false;
                 }
             }

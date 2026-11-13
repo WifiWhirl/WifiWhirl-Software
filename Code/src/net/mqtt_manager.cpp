@@ -26,7 +26,7 @@ static const char SS_AFTER1[] PROGMEM = "Nur Filterpumpe";
 static const char SS_AFTER2[] PROGMEM = "Heizung hält Temperatur";
 static const char *const SS_AFTER[] PROGMEM = {SS_AFTER0, SS_AFTER1, SS_AFTER2};
 
-void publishSmartSchedule()
+void publishSmartSchedule(bool onlyIfChanged)
 {
     if (!mqttClient || !mqttClient->connected())
         return;
@@ -84,7 +84,15 @@ void publishSmartSchedule()
     out[F("COST")] = active ? (float)(ss["ESTIMATED_COST"] | 0.0f) : 0.0f;
     String payload;
     serializeJson(out, payload);
-    mqttClient->publish(mqttTopic(F("/smartschedule")), payload.c_str(), true);
+    // a pump state change re-sent the unchanged schedule every time
+    static uint32_t lastHash = 0;
+    uint32_t h = 2166136261u; // FNV-1a
+    for (size_t i = 0; i < payload.length(); i++)
+        h = (h ^ (uint8_t)payload[i]) * 16777619u;
+    if (onlyIfChanged && h == lastHash)
+        return;
+    if (mqttClient->publish(mqttTopic(F("/smartschedule")), payload.c_str(), true))
+        lastHash = h;
 }
 
 static void handleScheduleSet(JsonObjectConst o)
@@ -129,7 +137,7 @@ static void handleScheduleSet(JsonObjectConst o)
         ssPendTime = 0;
         ssPendAfter = 0;
     }
-    publishSmartSchedule();
+    publishSmartSchedule(false);
 }
 
 // on a weak link a write can time out half way. PubSubClient then
@@ -262,7 +270,11 @@ const char *getMqttTopicButton() { return mqttTopic(F("/button")); }
  * compatible I choose to start a new topic "/times"
  * @author 877dev
  */
-void sendMQTT()
+// full: the telemetry tick and the connect publish everything. A pump state
+// change (newData) only sends STATES and TIMES, which carry what changed, and
+// the schedule when its content changed. OTHER (RSSI, IP, firmware) waits for
+// the tick: it was 4 retained publishes with their JSON on every display blink.
+void sendMQTT(bool full)
 {
     String json;
     json.reserve(320);
@@ -274,11 +286,14 @@ void sendMQTT()
     bwc->getJSONTimes(json);
     mqttClient->publish(mqttTopic(F("/times")), json.c_str(), true);
 
-    json.clear();
-    getOtherInfo(json);
-    mqttClient->publish(mqttTopic(F("/other")), json.c_str(), true);
+    if (full)
+    {
+        json.clear();
+        getOtherInfo(json);
+        mqttClient->publish(mqttTopic(F("/other")), json.c_str(), true);
+    }
 
-    publishSmartSchedule();
+    publishSmartSchedule(!full);
 }
 
 /**
@@ -804,7 +819,7 @@ void mqttConnect()
         bwc->getButtonName(buttonname);
         mqttClient->publish(mqttTopic(F("/button")), buttonname.c_str(), true);
         mqttClient->loop();
-        sendMQTT();
+        sendMQTT(true);
 
         // Only run HA discovery on FIRST connection after boot
         // NOT on every reconnect (would waste memory and cause instability)

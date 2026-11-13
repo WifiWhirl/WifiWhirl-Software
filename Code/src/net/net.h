@@ -29,7 +29,7 @@ void handleGetDevice();
 void handleSetDevice();
 
 // --- MQTT (mqtt_manager.cpp) ---
-void sendMQTT();
+void sendMQTT(bool full);
 void loadMqtt();
 void saveMqtt();
 void handleGetMqtt();
