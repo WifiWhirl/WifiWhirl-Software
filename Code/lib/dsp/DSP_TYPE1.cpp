@@ -15,11 +15,22 @@ void DSP_6_TYPE1::setup(int dsp_data_pin, int dsp_clk_pin, int dsp_cs_pin, int d
     /*Shift on falling, latch on rising edges*/
     digitalWrite(_CLK_PIN, HIGH);
     digitalWrite(_AUDIO_PIN, LOW);
+#ifndef ESP8266
+    // ESP32: keep the buzzer on one LEDC channel and only change the frequency.
+    // Core 3's tone()/noTone() run through a task and noTone() detaches LEDC;
+    // after the boot melody no further tone came out.
+    ledcAttach(_AUDIO_PIN, 1000, 10);
+    ledcWriteTone(_AUDIO_PIN, 0);
+#endif
 }
 
 void DSP_6_TYPE1::stop()
 {
+#ifdef ESP8266
     noTone(_AUDIO_PIN);
+#else
+    ledcWriteTone(_AUDIO_PIN, 0);
+#endif
 }
 
 uint8_t DSP_6_TYPE1::charTo7SegmCode(char c)
@@ -99,6 +110,26 @@ Buttons DSP_6_TYPE1::getPressedButton()
     _raw_payload_from_dsp[1] = newButtonCode & 0xFF;
 
     newButton = buttonCodeToIndex(newButtonCode);
+#ifdef CIO_DIAG
+    {
+        // [0] reads, [1] non-idle reads, [2] reads that decoded to a button,
+        // [3] last non-idle raw code, [4] max ms between two reads
+        extern uint32_t g_dsp_diag[5];
+        static uint32_t last_ms;
+        uint32_t now = millis();
+        if (last_ms && now - last_ms > g_dsp_diag[4])
+            g_dsp_diag[4] = now - last_ms;
+        last_ms = now;
+        g_dsp_diag[0]++;
+        if (newButtonCode != 0x1B1B)
+        {
+            g_dsp_diag[1]++;
+            g_dsp_diag[3] = newButtonCode;
+        }
+        if (newButton != NOBTN)
+            g_dsp_diag[2]++;
+    }
+#endif
     // 0x0000 is POWER's code but also the value an idle/failed read yields, so a lone
     // zero frame fires a phantom POWER press (pump turns on by itself). Require two
     // consecutive zero reads to accept POWER. Any other garbage code already decodes
@@ -186,10 +217,14 @@ void DSP_6_TYPE1::handleStates()
     }
     if (audiofrequency != _prev_audiofrequency)
     {
+#ifdef ESP8266
         if (audiofrequency)
             tone(getAUDIO(), audiofrequency);
         else
             noTone(getAUDIO());
+#else
+        ledcWriteTone(getAUDIO(), audiofrequency); // 0 = silent
+#endif
         _prev_audiofrequency = audiofrequency;
     }
 
