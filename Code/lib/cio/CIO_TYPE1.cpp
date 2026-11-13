@@ -1,8 +1,21 @@
 #include "CIO_TYPE1.h"
 #include "ports.h"
 #include "util.h"
+#ifndef ESP8266
+#include "esp_cpu.h"
+#endif
 
 CIO_6_TYPE1 *pointerToClassCIO61;
+
+#ifdef CIO_DIAG
+// Bus timing seen by the CLK ISR, in CPU cycles: [0] min CLK edge distance,
+// [1] edges where CLK had the same level as the previous ISR (missed edge),
+// [2] CLK ISRs total, [3] button read requests (DSP_CMD2_DATAREAD),
+// [4] button answers with all 16 bits clocked, [5] longest answer.
+volatile uint32_t g_cio_diag[6] = {0xFFFFFFFF, 0, 0, 0, 0, 0};
+static uint32_t s_diag_last_ccount;
+static bool s_diag_last_clk;
+#endif
 
 static void IRAM_ATTR isr_cs_type1(void)
 {
@@ -372,13 +385,28 @@ void IRAM_ATTR CIO_6_TYPE1::isr_packetHandler()
 void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
 {
     // sanity check on clock signal
+#ifdef CIO_DIAG
+    {
+        uint32_t now = esp_cpu_get_cycle_count();
+        bool clk = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
+        uint32_t dt = now - s_diag_last_ccount;
+        s_diag_last_ccount = now;
+        if (dt < g_cio_diag[0])
+            g_cio_diag[0] = dt;
+        if (clk == s_diag_last_clk)
+            g_cio_diag[1]++;
+        s_diag_last_clk = clk;
+        g_cio_diag[2]++;
+    }
+#endif
 
     if (!_packet_transm_active)
         return;
         // CS line is active, so send/receive bits on DATA line
 
     bool clockstate = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
-    // shift out bits on low clock (falling edge)
+#ifdef ESP8266
+    // shift out bits on low clock (falling edge). ESP32: _sendButtonPolled()
     if (!clockstate & _data_is_output)
     {
         // send BTN_OUT
@@ -396,6 +424,7 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         if (_send_bit > 15)
             _send_bit = 0;
     }
+#endif
 
     // read bits on high clock (rising edge)
     if (clockstate & !_data_is_output)
@@ -428,13 +457,58 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
                 _send_bit = 8;
                 _data_is_output = true;
                 // pinMode(_DATA_PIN, OUTPUT);
+#ifdef CIO_DIAG
+                g_cio_diag[3]++;
+#endif
+#ifndef CIO_READ_ONLY // listen only: never drive DATA, so no button reaches the pump
                 WRITE_PERI_REG(PIN_DIR_OUTPUT, 1 << _DATA_PIN);
+#endif
+#ifndef ESP8266
+                _sendButtonPolled();
+#endif
             }
             CIO_CMD_LOG[CIO_CMD_LOG_index++] = (uint8_t)_received_byte;
             CIO_CMD_LOG_index %= 64;
         }
     }
 }
+
+#ifndef ESP8266
+// ESP32: the GPIO interrupt latency is close to the bus clock half period, so
+// an edge-per-interrupt answer lost ~1.6 % of the edges and the pump read
+// phantom buttons. Answer the 16 button bits in one go instead, polling CLK
+// in the register. Called from the CLK ISR right after DSP_CMD2_DATAREAD;
+// stops early on CS high or after ~2 ms (at 240 MHz) if the clock stalls.
+void IRAM_ATTR CIO_6_TYPE1::_sendButtonPolled()
+{
+    const uint32_t clk = 1u << _CLK_PIN, cs = 1u << _CS_PIN, data = 1u << _DATA_PIN;
+    const uint32_t start = esp_cpu_get_cycle_count();
+    const uint16_t code = _button_code;
+    uint8_t bit = 8; // 8..15 then 0..7, same order as the ESP8266 path
+    int n = 0;
+    for (; n < 16; n++)
+    {
+        uint32_t in;
+        while ((in = READ_PERI_REG(PIN_IN)) & clk) // wait for falling edge
+            if ((in & cs) || esp_cpu_get_cycle_count() - start > 480000)
+                goto done;
+        WRITE_PERI_REG((code & (1u << bit)) ? PIN_OUT_SET : PIN_OUT_CLEAR, data);
+        bit = (bit + 1) & 15;
+        while (!((in = READ_PERI_REG(PIN_IN)) & clk)) // pump samples on rising edge
+            if ((in & cs) || esp_cpu_get_cycle_count() - start > 480000)
+                goto done;
+    }
+done:
+#ifdef CIO_DIAG
+    uint32_t took = esp_cpu_get_cycle_count() - start;
+    if (n == 16)
+        g_cio_diag[4]++;
+    if (took > g_cio_diag[5])
+        g_cio_diag[5] = took;
+#endif
+    return;
+}
+#endif
 
 char CIO_6_TYPE1::_getChar(uint8_t value)
 {

@@ -24,6 +24,9 @@ protected:
 private:
     char _getChar(uint8_t value);
     void IRAM_ATTR eopHandler();
+#ifndef ESP8266
+    void IRAM_ATTR _sendButtonPolled();
+#endif
 
 private:
     volatile int _byte_count;

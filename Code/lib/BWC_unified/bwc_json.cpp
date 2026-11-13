@@ -221,6 +221,12 @@ void BWC::_buildJSONTimes(JsonObject doc)
     doc[F("T2R")] = t2r;
     doc[F("RS")] = t2r_string;
     String s = cio->debug();
+#ifdef CIO_DIAG
+    extern volatile uint32_t g_cio_diag[6];
+    s += " | minEdge_ns:" + String((uint32_t)(g_cio_diag[0] * 1000ULL / ESP.getCpuFreqMHz()));
+    s += " missed:" + String(g_cio_diag[1]) + " edges:" + String(g_cio_diag[2]) + " btnReq:" + String(g_cio_diag[3]) + " btn16:" + String(g_cio_diag[4]) + " btnMax_us:" + String(g_cio_diag[5] / ESP.getCpuFreqMHz());
+    s += " | dsp" + dsp->debug();
+#endif
     doc[F("DBG")] = s;
     // cio->clk_per = 1000;  //reset minimum clock period
 }
