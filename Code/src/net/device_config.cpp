@@ -415,7 +415,7 @@ void handleProvisionDevice()
     }
 
     StaticJsonDocument<768> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -588,7 +588,7 @@ void handleSetDevice()
         return;
 
     DynamicJsonDocument doc(1024);
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {

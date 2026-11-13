@@ -553,7 +553,7 @@ void handleGetUpdate()
         return;
 
     bool force = false;
-    String body = getRequestBody();
+    const String &body = getRequestBody();
     if (body.length())
     {
         StaticJsonDocument<64> in;

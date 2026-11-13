@@ -157,7 +157,7 @@ void handleSetWebConfig()
         return;
 
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {

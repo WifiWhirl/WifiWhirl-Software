@@ -27,7 +27,7 @@ void handleSetConfig()
     if (!checkHttpPost(server->method()))
         return;
 
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     String error;
     if (!bwc->setJSONSettings(message, error))
     {

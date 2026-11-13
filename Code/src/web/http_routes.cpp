@@ -377,10 +377,10 @@ bool checkHttpGet(HTTPMethod method)
     return true;
 }
 
-String getRequestBody()
+RequestBody getRequestBody()
 {
     if (!server)
-        return String();
+        return emptyString;
 
     if (server->hasArg(F("plain")))
         return server->arg(F("plain"));
@@ -394,5 +394,5 @@ String getRequestBody()
     if (server->args() == 1)
         return server->arg(0);
 
-    return String();
+    return emptyString;
 }

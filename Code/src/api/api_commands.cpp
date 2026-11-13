@@ -511,7 +511,7 @@ void handleSendCommand()
 
     // Parse the JSON command from the request body
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -562,7 +562,7 @@ void handleAddCommand()
         return;
 
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -598,7 +598,7 @@ void handleEditCommand()
         return;
 
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -643,7 +643,7 @@ void handleDelCommand()
         return;
 
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -680,7 +680,7 @@ void handleSetCommandQueue()
         return;
 
     StaticJsonDocument<128> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error || !doc.is<JsonObject>())
     {
@@ -748,7 +748,7 @@ void handle_cmdq_file()
     if (action.equals("upload"))
     {
         // Upload: body contains raw JSON file content
-        String data = getRequestBody();
+        const String &data = getRequestBody();
         if (data.length() == 0)
         {
             server->send(400, F("text/plain"), F("No data received"));
@@ -952,7 +952,7 @@ void handle_cmdq_file()
     }
 
     // Download: parse JSON body for action
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     StaticJsonDocument<128> doc;
     DeserializationError error = deserializeJson(doc, message);
     if (error)

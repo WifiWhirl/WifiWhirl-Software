@@ -7,7 +7,15 @@ void startHttpServer();
 void handleNotFound();
 bool checkHttpPost(HTTPMethod method);
 bool checkHttpGet(HTTPMethod method);
-String getRequestBody();
+// ESP8266: a reference to the server's own String, no copy of the body.
+// ESP32's WebServer returns args by value, so there it stays a copy.
+// Bind it as `const String &body = getRequestBody();` on both.
+#ifdef ESP8266
+typedef const String &RequestBody;
+#else
+typedef String RequestBody;
+#endif
+RequestBody getRequestBody();
 
 // --- File server (file_server.cpp) ---
 String getContentType(const String &filename);
