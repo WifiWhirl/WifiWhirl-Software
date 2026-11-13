@@ -358,6 +358,7 @@ private:
     bool _save_settings_needed = false;
     bool _save_cmdq_needed = false;
     bool _save_states_needed = false;
+    uint32_t _save_states_at = 0; // millis() from which the pending save may run
     int _ticker_count;
     int _btn_sequence[4] = {NOBTN, NOBTN, NOBTN, NOBTN}; // keep track of the four latest button presses
     int _ambient_temp;               // always in C internally

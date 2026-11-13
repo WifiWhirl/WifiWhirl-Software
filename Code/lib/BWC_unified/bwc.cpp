@@ -332,7 +332,8 @@ void BWC::loop()
     // never restored anything.
     // Not while the target is unknown (0) either: a pool booted in standby is
     // never asked for it, and the save replaced the real one with 0.
-    if (_save_states_needed && !_restore_states_pending && cio->cio_states.target != 0)
+    if (_save_states_needed && !_restore_states_pending && cio->cio_states.target != 0 &&
+        (int32_t)(millis() - _save_states_at) >= 0)
         _saveStates();
     if (_save_smartschedule_needed)
         _saveSmartSchedule();
@@ -485,9 +486,18 @@ void BWC::_handleStateChanges()
         cio->cio_states.power != _prev_cio_states.power ||
         cio->cio_states.unit != _prev_cio_states.unit ||
         cio->cio_states.pump != _prev_cio_states.pump ||
-        cio->cio_states.heat != _prev_cio_states.heat ||
-        cio->cio_states.target != _prev_cio_states.target)
+        cio->cio_states.heat != _prev_cio_states.heat)
+    {
         _save_states_needed = true;
+        _save_states_at = millis(); // the power-cut restore needs these right away
+    }
+    else if (cio->cio_states.target != _prev_cio_states.target && !_save_states_needed)
+    {
+        // a held UP/DOWN steps every ~0.5 s and each step was a flash write
+        // (10-40 ms blocking): save the target at most every 2 s
+        _save_states_needed = true;
+        _save_states_at = millis() + 2000;
+    }
 
     Buttons _currbutton = dsp->dsp_toggles.pressed_button;
     if (_currbutton != _prevbutton && _currbutton != NOBTN)
