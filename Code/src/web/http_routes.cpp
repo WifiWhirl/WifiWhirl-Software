@@ -131,7 +131,11 @@ void startHttpServer()
             }
             if (!otaUploadComplete || !otaUploadSucceeded || Update.hasError())
             {
+#ifdef UPDATE_SIGNING
+                server->send(500, F("text/plain"), String(F("FAIL: ")) + signedUploadError());
+#else
                 server->send(500, F("text/plain"), F("FAIL"));
+#endif
                 otaUploadAuthorized = false;
                 return;
             }
@@ -154,10 +158,11 @@ void startHttpServer()
                     return;
                 }
                 otaUploadAuthorized = true;
-                if (!Update.begin(UPDATE_SIZE_UNKNOWN))
-                {
-                    otaUploadSucceeded = false;
-                }
+#ifdef UPDATE_SIGNING
+                otaUploadSucceeded = signedUploadBegin();
+#else
+                otaUploadSucceeded = Update.begin(UPDATE_SIZE_UNKNOWN);
+#endif
             }
             else if (!otaUploadAuthorized)
             {
@@ -166,7 +171,11 @@ void startHttpServer()
             }
             else if (upload.status == UPLOAD_FILE_WRITE)
             {
+#ifdef UPDATE_SIGNING
+                if (!signedUploadWrite(upload.buf, upload.currentSize))
+#else
                 if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
+#endif
                 {
                     otaUploadSucceeded = false;
                 }
@@ -174,7 +183,12 @@ void startHttpServer()
             else if (upload.status == UPLOAD_FILE_END)
             {
                 otaUploadComplete = true;
-                otaUploadSucceeded = Update.end(true);
+#ifdef UPDATE_SIGNING
+                // unsigned or foreign images end here: nothing gets committed
+                otaUploadSucceeded = otaUploadSucceeded && signedUploadEnd();
+#else
+                otaUploadSucceeded = otaUploadSucceeded && Update.end(true);
+#endif
             }
             else if (upload.status == UPLOAD_FILE_ABORTED)
             {

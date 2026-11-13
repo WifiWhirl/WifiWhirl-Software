@@ -67,6 +67,15 @@ void cloudUpdateTick(); // runs an update the cloud asked for
 const String &updateAvailableVersion();
 void handleGetUpdate();
 void handleDoUpdate();
+#if defined(UPDATE_SIGNING) && !defined(ESP8266)
+// ESP32 /update upload: feed the uploaded file through these instead of Update.
+// The signature trailer is held back, the image is hashed and flashed, and
+// signedUploadEnd() only commits it when the RSA signature checks out.
+bool signedUploadBegin();
+bool signedUploadWrite(const uint8_t *buf, size_t n);
+bool signedUploadEnd();
+const char *signedUploadError(); // why the last upload was refused, "" if not
+#endif
 
 // --- Webhooks (webhooks.cpp) ---
 // Enforce the optional webhook basic-auth credentials. Returns true if the
