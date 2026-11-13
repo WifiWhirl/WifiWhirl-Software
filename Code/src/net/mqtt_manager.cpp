@@ -2,19 +2,15 @@
 #include "api/api.h"
 #include "web/web.h"
 
-static String mqttTopicMessage;
-static String mqttTopicTimes;
-static String mqttTopicOther;
-static String mqttTopicStatus;
-static String mqttTopicMac;
-static String mqttTopicConnCount;
-static String mqttTopicCommand;
-static String mqttTopicCommandBatch;
-static String mqttTopicRebootTime;
-static String mqttTopicRebootReason;
-static String mqttTopicButton;
-static String mqttTopicSchedule;
-static String mqttTopicScheduleSet;
+// Topics are base + suffix, built when used: 13 cached Strings held ~550 B of
+// heap for good. One shared buffer, so never keep two results at the same time.
+static const char *mqttTopic(const __FlashStringHelper *suffix)
+{
+    static char buf[160]; // base topic <= 128 (isValidMqttBaseTopic) + longest suffix
+    strlcpy(buf, mqttBaseTopic.c_str(), sizeof(buf));
+    strncat_P(buf, (PGM_P)suffix, sizeof(buf) - strlen(buf) - 1);
+    return buf;
+}
 
 // Smart Schedule from Home Assistant. Temperature, time and "after"
 // are staged here and only applied on "start", as the tester asked; the
@@ -86,7 +82,7 @@ void publishSmartSchedule()
     out[F("COST")] = active ? (float)(ss["ESTIMATED_COST"] | 0.0f) : 0.0f;
     String payload;
     serializeJson(out, payload);
-    mqttClient->publish(mqttTopicSchedule.c_str(), payload.c_str(), true);
+    mqttClient->publish(mqttTopic(F("/smartschedule")), payload.c_str(), true);
 }
 
 static void handleScheduleSet(JsonObjectConst o)
@@ -252,30 +248,9 @@ static bool validateMqttSettings(bool wantMqtt, const String &serverName, int po
 
 /**
  * Accessor for the MQTT button topic (used by the main loop)
- * @return reference to the cached button topic string
+ * @return the button topic (shared buffer, see mqttTopic())
  */
-const String& getMqttTopicButton() { return mqttTopicButton; }
-
-/**
- * Build all MQTT topic strings from the configured base topic
- * Must be called after the base topic is loaded/changed
- */
-void initMqttTopics()
-{
-    mqttTopicMessage      = mqttBaseTopic + "/message";
-    mqttTopicTimes        = mqttBaseTopic + "/times";
-    mqttTopicOther        = mqttBaseTopic + "/other";
-    mqttTopicStatus       = mqttBaseTopic + "/Status";
-    mqttTopicMac          = mqttBaseTopic + "/MAC_Address";
-    mqttTopicConnCount    = mqttBaseTopic + "/MQTT_Connect_Count";
-    mqttTopicCommand      = mqttBaseTopic + "/command";
-    mqttTopicCommandBatch = mqttBaseTopic + "/command_batch";
-    mqttTopicRebootTime   = mqttBaseTopic + "/reboot_time";
-    mqttTopicRebootReason = mqttBaseTopic + "/reboot_reason";
-    mqttTopicButton       = mqttBaseTopic + "/button";
-    mqttTopicSchedule     = mqttBaseTopic + "/smartschedule";
-    mqttTopicScheduleSet  = mqttBaseTopic + "/smartschedule/set";
-}
+const char *getMqttTopicButton() { return mqttTopic(F("/button")); }
 
 /**
  * Send STATES and TIMES to MQTT
@@ -291,15 +266,15 @@ void sendMQTT()
     json.reserve(320);
 
     bwc->getJSONStates(json);
-    mqttClient->publish(mqttTopicMessage.c_str(), json.c_str(), true);
+    mqttClient->publish(mqttTopic(F("/message")), json.c_str(), true);
 
     json.clear();
     bwc->getJSONTimes(json);
-    mqttClient->publish(mqttTopicTimes.c_str(), json.c_str(), true);
+    mqttClient->publish(mqttTopic(F("/times")), json.c_str(), true);
 
     json.clear();
     getOtherInfo(json);
-    mqttClient->publish(mqttTopicOther.c_str(), json.c_str(), true);
+    mqttClient->publish(mqttTopic(F("/other")), json.c_str(), true);
 
     publishSmartSchedule();
 }
@@ -686,7 +661,6 @@ void startMqtt()
 
     // load mqtt credential file if it exists, and update default strings
     loadMqtt();
-    initMqttTopics();
 
     // disconnect in case we are already connected
     mqttClient->disconnect();
@@ -727,7 +701,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     // terminator is needed.
     String topicStr(topic);
 
-    if (topicStr.equals(mqttTopicCommand))
+    if (topicStr.equals(mqttTopic(F("/command"))))
     {
         StaticJsonDocument<256> doc;
         DeserializationError error = deserializeJson(doc, payload, length);
@@ -742,14 +716,14 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
             bwc->add_live_command(item);
     }
 
-    if (topicStr.equals(mqttTopicScheduleSet))
+    if (topicStr.equals(mqttTopic(F("/smartschedule/set"))))
     {
         StaticJsonDocument<192> doc;
         if (!deserializeJson(doc, payload, length) && doc.is<JsonObject>())
             handleScheduleSet(doc.as<JsonObjectConst>());
         return;
     }
-    if (topicStr.equals(mqttTopicCommandBatch))
+    if (topicStr.equals(mqttTopic(F("/command_batch"))))
     {
         DynamicJsonDocument doc(1024);
         DeserializationError error = deserializeJson(doc, payload, length);
@@ -779,7 +753,7 @@ void publishRebootTime()
 {
     if (!bwc->reboot_time_t || !mqttClient || !mqttClient->connected())
         return;
-    mqttClient->publish(mqttTopicRebootTime.c_str(), (bwc->reboot_time_str + 'Z').c_str(), true);
+    mqttClient->publish(mqttTopic(F("/reboot_time")), (bwc->reboot_time_str + 'Z').c_str(), true);
 }
 
 void mqttConnect()
@@ -797,7 +771,7 @@ void mqttConnect()
             mqttClientId.c_str(),
             mqttUsername.c_str(),
             mqttPassword.c_str(),
-            mqttTopicStatus.c_str(),
+            mqttTopic(F("/Status")),
             0,
             1,
             "Dead"))
@@ -807,26 +781,26 @@ void mqttConnect()
         updateMqttTimer.attach(mqttTelemetryInterval, []
                                { sendMQTTFlag = true; });
 
-        mqttClient->publish(mqttTopicStatus.c_str(), "Alive", true);
-        mqttClient->publish(mqttTopicMac.c_str(), WiFi.macAddress().c_str(), true);
-        mqttClient->publish(mqttTopicConnCount.c_str(), String(mqtt_connect_count).c_str(), true);
+        mqttClient->publish(mqttTopic(F("/Status")), "Alive", true);
+        mqttClient->publish(mqttTopic(F("/MAC_Address")), WiFi.macAddress().c_str(), true);
+        mqttClient->publish(mqttTopic(F("/MQTT_Connect_Count")), String(mqtt_connect_count).c_str(), true);
         mqttClient->loop();
 
-        mqttClient->subscribe(mqttTopicCommand.c_str());
-        mqttClient->subscribe(mqttTopicCommandBatch.c_str());
-        mqttClient->subscribe(mqttTopicScheduleSet.c_str());
+        mqttClient->subscribe(mqttTopic(F("/command")));
+        mqttClient->subscribe(mqttTopic(F("/command_batch")));
+        mqttClient->subscribe(mqttTopic(F("/smartschedule/set")));
         mqttClient->loop();
 
         publishRebootTime();
 #ifdef ESP8266
-        mqttClient->publish(mqttTopicRebootReason.c_str(), ESP.getResetReason().c_str(), true);
+        mqttClient->publish(mqttTopic(F("/reboot_reason")), ESP.getResetReason().c_str(), true);
 #else
-        mqttClient->publish(mqttTopicRebootReason.c_str(), String((int)esp_reset_reason()).c_str(), true);
+        mqttClient->publish(mqttTopic(F("/reboot_reason")), String((int)esp_reset_reason()).c_str(), true);
 #endif
         String buttonname;
         buttonname.reserve(32);
         bwc->getButtonName(buttonname);
-        mqttClient->publish(mqttTopicButton.c_str(), buttonname.c_str(), true);
+        mqttClient->publish(mqttTopic(F("/button")), buttonname.c_str(), true);
         mqttClient->loop();
         sendMQTT();
 

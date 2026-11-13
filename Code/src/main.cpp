@@ -269,7 +269,7 @@ void loop()
                 if (!msg.equals(prevButtonName))
                 {
                     Serial.println(F(">>> MQTT: Publishing button name change"));
-                    mqttClient->publish(getMqttTopicButton().c_str(), msg.c_str(), true);
+                    mqttClient->publish(getMqttTopicButton(), msg.c_str(), true);
                     prevButtonName = msg;
                 }
 
