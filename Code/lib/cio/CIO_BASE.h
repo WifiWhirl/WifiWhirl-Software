@@ -17,7 +17,6 @@ public:
     virtual void pause_all(bool action) = 0;
     virtual void updateStates() = 0;
     virtual void handleToggles() = 0;
-    void setRawPayload(const std::vector<uint8_t> &pl);
     const std::vector<uint8_t> &getRawPayload(); // by reference: called twice per loop()
     virtual String getModel() = 0;
     virtual Power getPower() = 0;
@@ -46,7 +45,6 @@ public:
     // debug - stores cio special bytes
     uint8_t CIO_CMD_LOG[64] = {0};
     uint8_t CIO_CMD_LOG_index = 0;
-    std::vector<uint8_t> _raw_payload_to_cio = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 protected:
     std::vector<uint8_t> _raw_payload_from_cio = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};

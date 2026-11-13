@@ -259,7 +259,6 @@ void BWC::loop()
         }
     }
     
-    dsp->setRawPayload(cio->getRawPayload());
     dsp->standby_original = _standby_original;
     /*Increase screen brightness when pressing buttons*/
     adjust_brightness();
@@ -321,7 +320,6 @@ void BWC::loop()
     /*Host mode: turn heater off some time after target temperature was reached*/
     _checkHostHeaterTimeout();
     /*If new target was not set above, use whatever the cio says*/
-    cio->setRawPayload(dsp->getRawPayload());
     cio->handleToggles();
 
     if (_save_settings_needed)

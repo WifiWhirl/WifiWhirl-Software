@@ -132,6 +132,5 @@ void CIO_MSPA::_sendFrame(uint8_t cmd, uint8_t value)
 #if defined(ESP32)
     Serial1.write(f, 4);
 #endif
-    _raw_payload_to_cio = {f[0], f[1], f[2], f[3]};
     write_msg_count++;
 }

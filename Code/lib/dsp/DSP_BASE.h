@@ -12,7 +12,6 @@ public:
     virtual void pause_all(bool action) = 0;
     virtual void updateToggles() = 0;
     virtual void handleStates() = 0;
-    void setRawPayload(const std::vector<uint8_t> &pl);
     const std::vector<uint8_t> &getRawPayload(); // by reference: called twice per loop()
     virtual bool getSerialReceived() { return false; } //"overridden" in DSP 4W
     virtual void setSerialReceived(bool txok) {}       //"overridden" in DSP 4W
@@ -23,7 +22,6 @@ public:
     sStates dsp_states;
     String text = "";
     bool standby_original = true; // standby shows temperature + unit dimmed, like the original panel
-    std::vector<uint8_t> _raw_payload_to_dsp = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     int audiofrequency = 0;
     uint32_t good_packets_count = 0;
     uint32_t bad_packets_count = 0;
