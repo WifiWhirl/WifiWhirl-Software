@@ -8,7 +8,9 @@ static const char *mqttTopic(const __FlashStringHelper *suffix)
 {
     static char buf[160]; // base topic <= 128 (isValidMqttBaseTopic) + longest suffix
     strlcpy(buf, mqttBaseTopic.c_str(), sizeof(buf));
-    strncat_P(buf, (PGM_P)suffix, sizeof(buf) - strlen(buf) - 1);
+    size_t len = strlen(buf); // strncpy_P: strncat_P is not available on every build target
+    strncpy_P(buf + len, (PGM_P)suffix, sizeof(buf) - len - 1);
+    buf[sizeof(buf) - 1] = '\0';
     return buf;
 }
 
