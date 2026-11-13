@@ -1222,9 +1222,16 @@ void BWC::_handleStateChanges()
         _jets_change_timestamp_ms = millis();
     }
 
-    if ((cio->cio_states.locked != _prev_cio_states.locked) && dsp->EnabledButtons[LOCK] && _audio_enabled && (dsp->dsp_toggles.pressed_button == LOCK))
+    // Beep when the lock flips after a press on the panel. A short tap is already
+    // released by then (the module holds LOCK until the lock flips), so
+    // remember the press for a few seconds instead of asking for it to be held.
+    if (dsp->dsp_toggles.pressed_button == LOCK)
+        _lock_press_ms = millis() | 1;
+    if (cio->cio_states.locked != _prev_cio_states.locked)
     {
-        _beep();
+        if (_lock_press_ms && millis() - _lock_press_ms < 8000 && dsp->EnabledButtons[LOCK] && _audio_enabled)
+            _beep();
+        _lock_press_ms = 0;
     }
 
     if (

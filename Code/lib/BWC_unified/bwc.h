@@ -370,6 +370,7 @@ private:
     char _static_char2 = ' ';
     char _static_char3 = ' ';
     sStates _prev_cio_states, _prev_dsp_states;
+    uint32_t _lock_press_ms = 0; // last panel LOCK press, for the lock beep
     Buttons _prevbutton = NOBTN;
     unsigned long _temp_change_timestamp_ms, _heatred_change_timestamp_ms;
     unsigned long _pump_change_timestamp_ms, _bubbles_change_timestamp_ms, _jets_change_timestamp_ms;
