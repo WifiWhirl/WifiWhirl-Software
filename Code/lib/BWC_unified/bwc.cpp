@@ -3487,7 +3487,7 @@ void BWC::saveDebugInfo(const String &s)
 // }
 
 #ifndef SND_PITCH_HZ
-#define SND_PITCH_HZ 4000
+#define SND_PITCH_HZ 1000
 #endif
 bool BWC::_load_melody_json(const String &filename)
 {
