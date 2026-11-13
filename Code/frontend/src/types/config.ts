@@ -52,4 +52,5 @@ export interface CloudCfg {
   webUrl?: string;  // cloud web app base; the Connect button redirects here to pair
   state?: string;   // link state name (read-only): disconnected/connecting/handshaking/connected/disabled
   hasPsk?: boolean; // whether a PSK is provisioned (read-only)
+  exclusive?: boolean; // cloud and MQTT can't run together (ESP8266 RAM); false on ESP32
 }

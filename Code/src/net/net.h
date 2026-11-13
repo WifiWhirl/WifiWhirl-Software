@@ -42,6 +42,13 @@ const String &getMqttTopicButton();
 
 // --- PoolLink Cloud (cloud.cpp) ---
 extern bool cloudEnabled;
+// ESP8266: RAM only fits one link, so the cloud link replaces MQTT. ESP32 runs both.
+#ifdef ESP8266
+constexpr bool linkExclusive = true;
+#else
+constexpr bool linkExclusive = false;
+#endif
+inline bool mqttAllowed() { return !(linkExclusive && cloudEnabled); }
 extern String cloudHost;
 extern int cloudPort;
 extern String cloudWebUrl;

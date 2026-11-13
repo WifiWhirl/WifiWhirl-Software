@@ -525,7 +525,7 @@ void handleSetMqtt()
     }
 
     useMqtt = nextUseMqtt;
-    enableMqtt = useMqtt && !cloudEnabled;
+    enableMqtt = useMqtt && mqttAllowed();
     mqttServer = nextMqttServer;
     mqttPort = nextMqttPort;
     mqttUsername = nextMqttUsername;
@@ -595,9 +595,9 @@ void handleSetMqtt()
     // Save settings before responding
     saveMqtt();
 
-    // Cloud mode replaces MQTT (see main.cpp): keep the settings for when the
-    // cloud is switched off, but don't start, stop or restart anything.
-    if (cloudEnabled)
+    // ESP8266 cloud mode replaces MQTT (see main.cpp): keep the settings for when
+    // the cloud is switched off, but don't start, stop or restart anything.
+    if (!mqttAllowed())
     {
         Serial.println(F("MQTT: Settings saved (inactive in cloud mode)"));
         server->send(200, F("text/plain"), "");

@@ -99,9 +99,9 @@ void setup()
 #endif
     periodicTimer.attach(periodicTimerInterval, []
                          { periodicTimerFlag = true; });
-    // delayed mqtt start (suppressed in cloud mode - the cloud link replaces MQTT)
+    // delayed mqtt start (ESP8266: suppressed in cloud mode, the cloud link replaces MQTT)
     startComplete.attach(20, []
-                         { if(useMqtt && !cloudEnabled) enableMqtt = true; startComplete.detach(); });
+                         { if(useMqtt && mqttAllowed()) enableMqtt = true; startComplete.detach(); });
     // when NTP time is valid we save bootlog.txt and this timer stops
     bootlogTimer.attach(5, []
                         { if(time(nullptr)>57600) { if(!bwc->reboot_time_t) setBootTimeFromClock(); bwc->saveRebootInfo(); bootlogTimer.detach();} });
@@ -118,7 +118,7 @@ void setup()
     startNTP();
     startOTA();
     startHttpServer();
-    if (!cloudEnabled)
+    if (mqttAllowed())
         startMqtt();
     else
         loadMqtt(); // MQTT stays off, but /getmqtt/ and /setmqtt/ must see the stored settings
@@ -442,7 +442,7 @@ void pause_all(bool action)
         periodicTimer.attach(periodicTimerInterval, []
                              { periodicTimerFlag = true; });
         startComplete.attach(60, []
-                             { if(useMqtt && !cloudEnabled) enableMqtt = true; startComplete.detach(); });
+                             { if(useMqtt && mqttAllowed()) enableMqtt = true; startComplete.detach(); });
         // bootlogTimer.attach(5, []{ if(DateTime.isTimeValid()) {bwc->saveRebootInfo(); bootlogTimer.detach();} });
     }
     bwc->pause_all(action);

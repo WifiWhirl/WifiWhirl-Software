@@ -80,6 +80,7 @@ void handleGetCloud()
     // Tell the UI whether a PSK is provisioned without ever exposing it.
     uint8_t psk[32];
     doc[F("hasPsk")] = CloudPSKStorage::readPSK(psk);
+    doc[F("exclusive")] = linkExclusive; // ESP8266: cloud and MQTT never run together
 
     String json;
     if (serializeJson(doc, json) == 0)
