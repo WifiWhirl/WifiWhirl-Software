@@ -189,7 +189,20 @@ void CloudTask::_doConnect()
     _connect_start_ms = now;
     _state = CLOUD_CONNECTING;
 
-    if (!_client.connect(_host, _port)) {
+    // connect(host, port) blocked loop() for DNS (up to 10 s) plus the TCP
+    // handshake (5 s) on every attempt while the server was unreachable. Resolve
+    // once and keep the address (again after a failure), 2 s for the handshake.
+    static IPAddress ip;
+    static bool resolved = false;
+#ifdef ESP8266
+    if (!resolved && WiFi.hostByName(_host, ip, 3000) == 1)
+#else
+    if (!resolved && WiFi.hostByName(_host, ip) == 1)
+#endif
+        resolved = true;
+    _client.setTimeout(2000);
+    if (!resolved || !_client.connect(ip, _port)) {
+        resolved = false;
         Serial.println(F("[Cloud] TCP connect failed"));
         _disconnect(F("connect failed"));
     }
