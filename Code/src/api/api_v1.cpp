@@ -3,6 +3,7 @@
 #include "net/net.h"
 #include "cloud_task.h"
 #include "build_ver.h"
+#include "uri/UriGlob.h"
 
 /*
  * Public, documented API for integrations (ioBroker, Home Assistant, scripts),
@@ -163,27 +164,42 @@ static int apiKeyFromRequest()
  * One path, several methods: answers 405 for the others instead of falling
  * through to the SPA's 404. Every route runs behind the API guard.
  */
-static void route(const __FlashStringHelper *path, WebServerT::THandlerFunction get,
-                  WebServerT::THandlerFunction post = nullptr, WebServerT::THandlerFunction del = nullptr)
+// One handler for every /api/v1/* path instead of one server->on() per route:
+// each registration kept a handler object, a String copy of the path and a
+// heap-allocated lambda holding three std::function on the ESP8266 heap
+// (~2 KB for the 11 routes). The route table lives in flash.
+struct ApiRoute;
+static bool findApiRoute(const String &uri, ApiRoute &out);
+
+struct ApiRoute
 {
-    server->on(path, HTTP_ANY, [get, post, del]()
-               {
-        if (!apiEnabled)
-            return apiError(403, F("API is disabled. Turn it on in the expert mode page, card API."));
-        if (crossSiteRequest())
-            return apiError(403, F("Cross-site request rejected."));
-        int k = apiKeyFromRequest();
-        if (k < 0)
-            return;
-        HTTPMethod m = server->method();
-        WebServerT::THandlerFunction h = m == HTTP_GET ? get : m == HTTP_POST ? post : m == HTTP_DELETE ? del : nullptr;
-        if (!h)
-            return apiError(405, F("Method not allowed"));
-        if (m != HTTP_GET && !apiKeys[k].control)
-            return apiError(403, F("This API key may only read"));
-        apiRequest = true;
-        h();
-        apiRequest = false; });
+    const char *path; // PROGMEM
+    void (*get)();
+    void (*post)();
+    void (*del)();
+};
+
+static void handleApiV1()
+{
+    if (!apiEnabled)
+        return apiError(403, F("API is disabled. Turn it on in the expert mode page, card API."));
+    if (crossSiteRequest())
+        return apiError(403, F("Cross-site request rejected."));
+    int k = apiKeyFromRequest();
+    if (k < 0)
+        return;
+    ApiRoute r;
+    if (!findApiRoute(server->uri(), r))
+        return apiError(404, F("Unknown API endpoint"));
+    HTTPMethod m = server->method();
+    void (*h)() = m == HTTP_GET ? r.get : m == HTTP_POST ? r.post : m == HTTP_DELETE ? r.del : nullptr;
+    if (!h)
+        return apiError(405, F("Method not allowed"));
+    if (m != HTTP_GET && !apiKeys[k].control)
+        return apiError(403, F("This API key may only read"));
+    apiRequest = true;
+    h();
+    apiRequest = false;
 }
 
 struct ApiCmd
@@ -751,6 +767,45 @@ void apiSupportInfo(String &json)
     serializeJson(doc, json);
 }
 
+static const char AP_STATUS[] PROGMEM = "/api/v1/status";
+static const char AP_CONTROLS[] PROGMEM = "/api/v1/controls";
+static const char AP_MAINT[] PROGMEM = "/api/v1/maintenance";
+static const char AP_WATER[] PROGMEM = "/api/v1/waterquality";
+static const char AP_SCHEDULE[] PROGMEM = "/api/v1/schedule";
+static const char AP_SPA[] PROGMEM = "/api/v1/config/spa";
+static const char AP_MQTT[] PROGMEM = "/api/v1/config/mqtt";
+static const char AP_WIFI[] PROGMEM = "/api/v1/config/wifi";
+static const char AP_HW[] PROGMEM = "/api/v1/config/hardware";
+static const char AP_SCAN[] PROGMEM = "/api/v1/system/wifiscan";
+static const char AP_RESTART[] PROGMEM = "/api/v1/system/restart";
+
+// path, GET, POST, DELETE
+static const ApiRoute API_ROUTES[] PROGMEM = {
+    {AP_STATUS, handleApiStatus, nullptr, nullptr},
+    {AP_CONTROLS, nullptr, handleApiControls, nullptr},
+    {AP_MAINT, nullptr, handleApiMaintenance, nullptr},
+    {AP_WATER, nullptr, handleApiWaterQuality, nullptr},
+    {AP_SCHEDULE, handleApiScheduleGet, handleApiSchedulePost, handleApiScheduleDelete},
+    {AP_SPA, handleApiSpaGet, handleApiSpaPost, nullptr},
+    // these keep the field names of the web interface, documented in the spec
+    {AP_MQTT, handleGetMqtt, handleSetMqtt, nullptr},
+    {AP_WIFI, handleGetWifi, handleSetWifi, nullptr},
+    {AP_HW, handleGetHardware, handleSetHardware, nullptr},
+    {AP_SCAN, handleScanWifi, nullptr, nullptr},
+    {AP_RESTART, nullptr, handleApiRestart, nullptr},
+};
+
+static bool findApiRoute(const String &uri, ApiRoute &out)
+{
+    for (const ApiRoute &r : API_ROUTES)
+    {
+        memcpy_P(&out, &r, sizeof(out));
+        if (strcmp_P(uri.c_str(), out.path) == 0)
+            return true;
+    }
+    return false;
+}
+
 void registerApiV1Routes()
 {
     loadApiKeys();
@@ -758,16 +813,5 @@ void registerApiV1Routes()
     server->on(F("/getapikeys/"), guard(handleGetApiKeys));
     server->on(F("/addapikey/"), guard(handleAddApiKey));
     server->on(F("/delapikey/"), guard(handleDelApiKey));
-    route(F("/api/v1/status"), handleApiStatus);
-    route(F("/api/v1/controls"), nullptr, handleApiControls);
-    route(F("/api/v1/maintenance"), nullptr, handleApiMaintenance);
-    route(F("/api/v1/waterquality"), nullptr, handleApiWaterQuality);
-    route(F("/api/v1/schedule"), handleApiScheduleGet, handleApiSchedulePost, handleApiScheduleDelete);
-    route(F("/api/v1/config/spa"), handleApiSpaGet, handleApiSpaPost);
-    // these keep the field names of the web interface, documented in the spec
-    route(F("/api/v1/config/mqtt"), handleGetMqtt, handleSetMqtt);
-    route(F("/api/v1/config/wifi"), handleGetWifi, handleSetWifi);
-    route(F("/api/v1/config/hardware"), handleGetHardware, handleSetHardware);
-    route(F("/api/v1/system/wifiscan"), handleScanWifi);
-    route(F("/api/v1/system/restart"), nullptr, handleApiRestart);
+    server->on(UriGlob("/api/v1/*"), HTTP_ANY, handleApiV1); // after /api/v1/info: first match wins
 }
