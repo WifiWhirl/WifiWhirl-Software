@@ -43,8 +43,8 @@ public:
 protected:
     sButton_queue_item _button_que[MAXBUTTONS];
     /*Hex code, like 0x1B1B*/
-    const uint8_t DSP_DIM_BASE = 0x80;
-    const uint8_t DSP_DIM_ON = 0x8;
+    static constexpr uint8_t DSP_DIM_BASE = 0x80;
+    static constexpr uint8_t DSP_DIM_ON = 0x8;
     volatile bool _new_packet_available;
     volatile bool _packet_transm_active = false; // read before the first CS edge
     volatile uint16_t _button_code;
