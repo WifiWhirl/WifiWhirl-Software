@@ -10,7 +10,10 @@
 #endif
 
 CIO_6_TYPE1 *pointerToClassCIO61;
-
+// CLK level of the last edge acted on. A ringing bus fires the CLK interrupt
+// twice for one edge (seen ~1 us apart on an ESP32-S3 board); acting on both
+// shifted in one bit twice and broke the packet.
+static volatile bool s_clk_level = true;
 
 static void IRAM_ATTR isr_cs_type1(void)
 {
@@ -41,10 +44,6 @@ static void detachBus(int cs, int clk)
 // the core that runs setup(), i.e. core 1 (APP CPU), away from Wi-Fi on core 0.
 // Pins must be GPIO0..31 (GPIO_STATUS_REG covers bank 0 only).
 static intr_handle_t s_bus_intr;
-// CLK level of the last edge we acted on. The bus edges ring on this hardware
-// (two interrupts ~1 us apart for one edge, clock half period ~25 us); acting
-// on both read one bit twice and broke ~20 % of the packets.
-static bool s_clk_level = true;
 static uint32_t s_cs_mask, s_clk_mask;
 
 static void IRAM_ATTR bus_isr(void *)
@@ -425,9 +424,7 @@ void IRAM_ATTR CIO_6_TYPE1::isr_packetHandler()
     {
         // packet start (CS active low)
         _packet_transm_active = true;
-#ifndef ESP8266
         s_clk_level = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
-#endif
     }
 }
 
@@ -443,11 +440,9 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         // CS line is active, so send/receive bits on DATA line
 
     bool clockstate = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
-#ifndef ESP8266
     if (clockstate == s_clk_level)
-        return; // same level as the last handled edge: a glitch, not a new edge
+        return; // same level as the last handled edge: ringing, not a new edge
     s_clk_level = clockstate;
-#endif
 #ifdef ESP8266
     // shift out bits on low clock (falling edge). ESP32: _sendButtonPolled()
     if (!clockstate & _data_is_output)
