@@ -25,7 +25,6 @@ WebServerT *server;
 WiFiClient *aWifiClient;
 PubSubClient *mqttClient;
 int mqtt_connect_count;
-String prevButtonName = "";
 Ticker updateMqttTimer;
 bool sendMQTTFlag = false;
 bool enableMqtt = false;
@@ -262,15 +261,18 @@ void loop()
             // Block MQTT publishing during HA discovery to prevent memory corruption
             if (!haDiscoveryInProgress)
             {
-                String msg;
-                msg.reserve(32);
-                bwc->getButtonName(msg);
-                // publish pretty button name if display button is pressed (or NOBTN if released)
-                if (!msg.equals(prevButtonName))
+                // publish pretty button name if display button is pressed (or NOBTN if released).
+                // Compared as enum: building the name String on every pass was a
+                // malloc/free per loop() while MQTT is connected.
+                static int prevButton = -1;
+                Buttons button = bwc->getButton();
+                if (button != prevButton)
                 {
+                    String msg;
+                    bwc->getButtonName(msg);
                     Serial.println(F(">>> MQTT: Publishing button name change"));
                     mqttClient->publish(getMqttTopicButton(), msg.c_str(), true);
-                    prevButtonName = msg;
+                    prevButton = button;
                 }
 
                 if (newData || sendMQTTFlag)

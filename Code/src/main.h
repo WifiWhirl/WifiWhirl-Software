@@ -61,7 +61,6 @@ extern WebServerT *server;
 extern WiFiClient *aWifiClient;
 extern PubSubClient *mqttClient;
 extern int mqtt_connect_count;
-extern String prevButtonName;
 extern Ticker updateMqttTimer;
 extern bool sendMQTTFlag;
 extern bool enableMqtt;
