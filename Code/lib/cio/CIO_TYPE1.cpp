@@ -3,6 +3,10 @@
 #include "util.h"
 #ifndef ESP8266
 #include "esp_cpu.h"
+#include "driver/gpio.h"
+#include "esp_intr_alloc.h"
+#include "soc/interrupts.h"
+#include "soc/gpio_reg.h"
 #endif
 
 CIO_6_TYPE1 *pointerToClassCIO61;
@@ -25,6 +29,66 @@ static void IRAM_ATTR isr_clk_type1(void)
 {
     pointerToClassCIO61->isr_clkHandler();
 }
+
+#ifdef ESP8266
+static void attachBus(int cs, int clk)
+{
+    attachInterrupt(digitalPinToInterrupt(cs), isr_cs_type1, CHANGE);
+    // Write on falling edge and read on rising edge
+    attachInterrupt(digitalPinToInterrupt(clk), isr_clk_type1, CHANGE);
+}
+static void detachBus(int cs, int clk)
+{
+    detachInterrupt(digitalPinToInterrupt(cs));
+    detachInterrupt(digitalPinToInterrupt(clk));
+}
+#else
+// ESP32: one own GPIO interrupt instead of attachInterrupt(). Arduino's ISR
+// service sits on level 1 behind a dispatcher and, without CONFIG_ARDUINO_ISR_IRAM,
+// is masked during every flash access, so bus edges got lost. This one is
+// level 3 (highest allowed for C handlers) and IRAM-safe. It is allocated on
+// the core that runs setup(), i.e. core 1 (APP CPU), away from Wi-Fi on core 0.
+// Pins must be GPIO0..31 (GPIO_STATUS_REG covers bank 0 only).
+static intr_handle_t s_bus_intr;
+// CLK level of the last edge we acted on. The bus edges ring on this hardware
+// (two interrupts ~1 us apart for one edge, clock half period ~25 us); acting
+// on both read one bit twice and broke ~20 % of the packets.
+static bool s_clk_level = true;
+static uint32_t s_cs_mask, s_clk_mask;
+
+static void IRAM_ATTR bus_isr(void *)
+{
+    uint32_t st = READ_PERI_REG(GPIO_STATUS_REG) & (s_cs_mask | s_clk_mask);
+    WRITE_PERI_REG(GPIO_STATUS_W1TC_REG, st);
+    // CS low = packet start: handle before the clock edge; CS high = end: after it
+    bool cs_first = !(READ_PERI_REG(GPIO_IN_REG) & s_cs_mask);
+    if ((st & s_cs_mask) && cs_first)
+        isr_cs_type1();
+    if (st & s_clk_mask)
+        isr_clk_type1();
+    if ((st & s_cs_mask) && !cs_first)
+        isr_cs_type1();
+}
+
+static void attachBus(int cs, int clk)
+{
+    s_cs_mask = 1u << cs;
+    s_clk_mask = 1u << clk;
+    gpio_set_intr_type((gpio_num_t)cs, GPIO_INTR_ANYEDGE);
+    gpio_set_intr_type((gpio_num_t)clk, GPIO_INTR_ANYEDGE);
+    if (!s_bus_intr &&
+        esp_intr_alloc(ETS_GPIO_INTR_SOURCE, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3, bus_isr, nullptr, &s_bus_intr) != ESP_OK)
+        Serial.println(F("CIO: GPIO interrupt alloc failed"));
+    gpio_intr_enable((gpio_num_t)cs); // enables it for the calling core
+    gpio_intr_enable((gpio_num_t)clk);
+    Serial.printf("CIO: bus interrupt on core %d\n", xPortGetCoreID());
+}
+static void detachBus(int cs, int clk)
+{
+    gpio_intr_disable((gpio_num_t)cs);
+    gpio_intr_disable((gpio_num_t)clk);
+}
+#endif
 
 CIO_6_TYPE1::CIO_6_TYPE1()
 {
@@ -49,15 +113,12 @@ void CIO_6_TYPE1::setup(int cio_data_pin, int cio_clk_pin, int cio_cs_pin)
     pinMode(_CS_PIN, INPUT);
     pinMode(_DATA_PIN, INPUT);
     pinMode(_CLK_PIN, INPUT);
-    attachInterrupt(digitalPinToInterrupt(_CS_PIN), isr_cs_type1, CHANGE);
-    // Write on falling edge and read on rising edge
-    attachInterrupt(digitalPinToInterrupt(_CLK_PIN), isr_clk_type1, CHANGE);
+    attachBus(_CS_PIN, _CLK_PIN);
 }
 
 void CIO_6_TYPE1::stop()
 {
-    detachInterrupt(digitalPinToInterrupt(_CS_PIN));
-    detachInterrupt(digitalPinToInterrupt(_CLK_PIN));
+    detachBus(_CS_PIN, _CLK_PIN);
 }
 
 void CIO_6_TYPE1::pause_all(bool action)
@@ -65,14 +126,12 @@ void CIO_6_TYPE1::pause_all(bool action)
     if (action)
     {
         /*pause*/
-        detachInterrupt(digitalPinToInterrupt(_CS_PIN));
-        detachInterrupt(digitalPinToInterrupt(_CLK_PIN));
+        detachBus(_CS_PIN, _CLK_PIN);
     }
     else
     {
         /*resume*/
-        attachInterrupt(digitalPinToInterrupt(_CS_PIN), isr_cs_type1, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(_CLK_PIN), isr_clk_type1, CHANGE);
+        attachBus(_CS_PIN, _CLK_PIN);
     }
 }
 
@@ -376,6 +435,9 @@ void IRAM_ATTR CIO_6_TYPE1::isr_packetHandler()
     {
         // packet start (CS active low)
         _packet_transm_active = true;
+#ifndef ESP8266
+        s_clk_level = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
+#endif
     }
 }
 
@@ -405,6 +467,11 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         // CS line is active, so send/receive bits on DATA line
 
     bool clockstate = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
+#ifndef ESP8266
+    if (clockstate == s_clk_level)
+        return; // same level as the last handled edge: a glitch, not a new edge
+    s_clk_level = clockstate;
+#endif
 #ifdef ESP8266
     // shift out bits on low clock (falling edge). ESP32: _sendButtonPolled()
     if (!clockstate & _data_is_output)
@@ -479,6 +546,25 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
 // phantom buttons. Answer the 16 button bits in one go instead, polling CLK
 // in the register. Called from the CLK ISR right after DSP_CMD2_DATAREAD;
 // stops early on CS high or after ~2 ms (at 240 MHz) if the clock stalls.
+// Wait until CLK sits at `high` for ~2 us (480 cycles at 240 MHz), so the
+// ringing right after an edge is not taken for the next edge. false on CS high
+// (end of packet) or when the whole answer took longer than ~2 ms.
+static inline bool IRAM_ATTR waitClk(uint32_t clk, uint32_t cs, bool high, uint32_t start)
+{
+    for (;;)
+    {
+        uint32_t in = READ_PERI_REG(PIN_IN);
+        if ((in & cs) || esp_cpu_get_cycle_count() - start > 480000)
+            return false;
+        if (((in & clk) != 0) != high)
+            continue;
+        uint32_t t = esp_cpu_get_cycle_count();
+        while (((READ_PERI_REG(PIN_IN) & clk) != 0) == high)
+            if (esp_cpu_get_cycle_count() - t > 480)
+                return true;
+    }
+}
+
 void IRAM_ATTR CIO_6_TYPE1::_sendButtonPolled()
 {
     const uint32_t clk = 1u << _CLK_PIN, cs = 1u << _CS_PIN, data = 1u << _DATA_PIN;
@@ -488,18 +574,19 @@ void IRAM_ATTR CIO_6_TYPE1::_sendButtonPolled()
     int n = 0;
     for (; n < 16; n++)
     {
-        uint32_t in;
-        while ((in = READ_PERI_REG(PIN_IN)) & clk) // wait for falling edge
-            if ((in & cs) || esp_cpu_get_cycle_count() - start > 480000)
-                goto done;
+        if (!waitClk(clk, cs, false, start)) // falling edge: put the bit out
+            goto done;
         WRITE_PERI_REG((code & (1u << bit)) ? PIN_OUT_SET : PIN_OUT_CLEAR, data);
         bit = (bit + 1) & 15;
-        while (!((in = READ_PERI_REG(PIN_IN)) & clk)) // pump samples on rising edge
-            if ((in & cs) || esp_cpu_get_cycle_count() - start > 480000)
-                goto done;
+        if (!waitClk(clk, cs, true, start)) // pump samples on the rising edge
+            goto done;
     }
 done:
+    // the edges polled above are handled: drop their pending interrupt
+    WRITE_PERI_REG(GPIO_STATUS_W1TC_REG, clk);
+    s_clk_level = READ_PERI_REG(PIN_IN) & clk;
 #ifdef CIO_DIAG
+    s_diag_last_clk = READ_PERI_REG(PIN_IN) & clk;
     uint32_t took = esp_cpu_get_cycle_count() - start;
     if (n == 16)
         g_cio_diag[4]++;

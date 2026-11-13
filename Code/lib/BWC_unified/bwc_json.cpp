@@ -174,6 +174,10 @@ void BWC::getJSONStates(String &rtn)
     }
 }
 
+#ifdef CIO_DIAG
+uint32_t g_dsp_diag[5];
+#endif
+
 void BWC::_buildJSONTimes(JsonObject doc)
 {
     doc[F("CONTENT")] = F("TIMES");
@@ -224,8 +228,11 @@ void BWC::_buildJSONTimes(JsonObject doc)
 #ifdef CIO_DIAG
     extern volatile uint32_t g_cio_diag[6];
     s += " | minEdge_ns:" + String((uint32_t)(g_cio_diag[0] * 1000ULL / ESP.getCpuFreqMHz()));
-    s += " missed:" + String(g_cio_diag[1]) + " edges:" + String(g_cio_diag[2]) + " btnReq:" + String(g_cio_diag[3]) + " btn16:" + String(g_cio_diag[4]) + " btnMax_us:" + String(g_cio_diag[5] / ESP.getCpuFreqMHz());
+    s += " bad:" + String(cio->bad_packets_count) + " missed:" + String(g_cio_diag[1]) + " edges:" + String(g_cio_diag[2]) + " btnReq:" + String(g_cio_diag[3]) + " btn16:" + String(g_cio_diag[4]) + " btnMax_us:" + String(g_cio_diag[5] / ESP.getCpuFreqMHz());
     s += " | dsp" + dsp->debug();
+    extern uint32_t g_dsp_diag[5];
+    s += " dspReads:" + String(g_dsp_diag[0]) + " nonIdle:" + String(g_dsp_diag[1]) + " btn:" + String(g_dsp_diag[2]) +
+         " lastRaw:0x" + String(g_dsp_diag[3], HEX) + " maxGap_ms:" + String(g_dsp_diag[4]);
 #endif
     doc[F("DBG")] = s;
     // cio->clk_per = 1000;  //reset minimum clock period

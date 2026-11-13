@@ -110,6 +110,7 @@ static void setDefaultHardwarePins(int pins[])
 #else
     for (int i = 0; i < 8; i++)
         pins[i] = i + 1; // GPIO1..GPIO8
+    pins[2] = 8;         // CIO CS: not GPIO3, a strapping pin on the ESP32-S3
 #endif
 }
 
