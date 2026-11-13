@@ -708,8 +708,8 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         { RESETFCTIMER, ActionMap::NONE },  // reset_timer_filter_clean
         { RESETWCTIMER, ActionMap::NONE },  // reset_timer_water_change
         { RESETTIMES, ActionMap::NONE },  // reset_totals
-        { RESETDAILY, ActionMap::NONE },// reset_daily_energy
-        { SETFULLPOWER, ActionMap::NUM },// set_full_power
+        { RESETDAILY, ActionMap::NONE }, // reset_daily_energy
+        { SETFULLPOWER, ActionMap::NUM }, // set_full_power
     };
 
     bool success = false;

@@ -253,8 +253,8 @@ void CIO_6_TYPE1::updateStates()
         }
         
         // Standby shows a blank display, so no reading passes for hours while the
-        // water cools; the jump check below then rejected the real value forever
-        //. After 30 s without a valid reading, start over.
+        // water cools; the jump check below then rejected the real value forever.
+        // After 30 s without a valid reading, start over.
         if (millis() - last_valid_temperature_ms > 30000)
             first_temperature_reading = true;
 

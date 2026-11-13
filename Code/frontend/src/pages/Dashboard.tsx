@@ -49,8 +49,7 @@ export function Dashboard() {
   }, [s?.HLCAL]);
 
   // A calibration that stopped or never started (planned, water too cold) while
-  // nobody watched: say so the next time the overview opens, until dismissed
-  //.
+  // nobody watched: say so the next time the overview opens, until dismissed.
   const [calNote, setCalNote] = useState<{ ERROR?: string; ENDTS?: number; REQWATER?: number; STARTAMB?: number; MINDIFF?: number } | null>(null);
   useEffect(() => {
     if (!SHOW_HEAT_LOSS_CALIBRATION) return;
