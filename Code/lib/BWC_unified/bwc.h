@@ -231,6 +231,7 @@ private:
     void _restoreCountersFromRtc();
     void _saveCommandQueue();
     void _updateTimes();
+    void _playNotes(uint32_t elapsedtime_ms);
     void _restoreStates();
     void _saveStates();
     float _estHeatingTime();

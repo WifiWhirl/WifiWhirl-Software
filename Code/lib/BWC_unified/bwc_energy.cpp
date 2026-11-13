@@ -172,17 +172,30 @@ void BWC::_updateTimes()
     if (_override_dsp_brt_timer > 0)
         _override_dsp_brt_timer -= (int32_t)elapsedtime_ms;
 
-    _energy_power_W = cio->cio_states.heatred * cio->getPower().HEATERPOWER;
-    _energy_power_W += cio->cio_states.pump * cio->getPower().PUMPPOWER;
-    _energy_power_W += cio->cio_states.bubbles * cio->getPower().AIRPOWER;
-    _energy_power_W += cio->getPower().IDLEPOWER;
-    _energy_power_W += cio->cio_states.jets * cio->getPower().JETPOWER;
+    int power_W = cio->cio_states.heatred * cio->getPower().HEATERPOWER;
+    power_W += cio->cio_states.pump * cio->getPower().PUMPPOWER;
+    power_W += cio->cio_states.bubbles * cio->getPower().AIRPOWER;
+    power_W += cio->getPower().IDLEPOWER;
+    power_W += cio->cio_states.jets * cio->getPower().JETPOWER;
 
-    double energy_increment_Ws = (static_cast<double>(elapsedtime_ms) * _energy_power_W) / 1000.0;
-    _addEnergyIncrement(energy_increment_Ws);
+    // The energy/tariff math (localtime, doubles) and the RTC mirror ran on every
+    // loop() pass. Collect the time and book it every 250 ms, or right away when
+    // the power changes, so each millisecond is still booked at the power that
+    // was on during it.
+    static uint32_t energy_acc_ms = 0;
+    static int energy_acc_W = -1;
+    if (energy_acc_W < 0)
+        energy_acc_W = power_W;
+    energy_acc_ms += elapsedtime_ms;
+    _energy_power_W = power_W;
+    if (power_W == energy_acc_W && energy_acc_ms < 250)
+        return _playNotes(elapsedtime_ms);
+    _addEnergyIncrement((static_cast<double>(energy_acc_ms) * energy_acc_W) / 1000.0);
+    energy_acc_ms = 0;
+    energy_acc_W = power_W;
 
     // Mirror the live counters to RTC so a crash-reboot doesn't lose them.
-    // written every loop - RTC RAM, no flash wear; fold ms into
+    // written with the energy booking above - RTC RAM, no flash wear; fold ms into
     // seconds so the snapshot is current (the second-counters only roll over
     // every ~11 days otherwise).
     CountersRtc snap{};
@@ -202,22 +215,7 @@ void BWC::_updateTimes()
     snap.crc = countersRtcCrc(snap);
     countersRtcStore(snap);
 
-    if (_notes.size())
-    {
-        // capped: a stalled loop() (end of setup, HA discovery) holds the note a bit
-        // longer instead of skipping the whole melody in one step
-        _note_duration += (int)(elapsedtime_ms < 50 ? elapsedtime_ms : 50);
-        while (_notes.size() && _note_duration >= _notes.back().duration_ms)
-        {
-            _note_duration -= _notes.back().duration_ms;
-            _notes.pop_back();
-        }
-        dsp->audiofrequency = _notes.size() ? _notes.back().frequency_hz : 0;
-    }
-    else
-    {
-        dsp->audiofrequency = 0;
-    }
+    _playNotes(elapsedtime_ms);
 }
 
 
@@ -244,4 +242,24 @@ void BWC::_restoreCountersFromRtc()
     _airtime = std::max(_airtime, e.airtime_s);
     _jettime = std::max(_jettime, e.jettime_s);
     Serial.println(F("Restored counters from RTC"));
+}
+
+void BWC::_playNotes(uint32_t elapsedtime_ms)
+{
+    if (_notes.size())
+    {
+        // capped: a stalled loop() (end of setup, HA discovery) holds the note a bit
+        // longer instead of skipping the whole melody in one step
+        _note_duration += (int)(elapsedtime_ms < 50 ? elapsedtime_ms : 50);
+        while (_notes.size() && _note_duration >= _notes.back().duration_ms)
+        {
+            _note_duration -= _notes.back().duration_ms;
+            _notes.pop_back();
+        }
+        dsp->audiofrequency = _notes.size() ? _notes.back().frequency_hz : 0;
+    }
+    else
+    {
+        dsp->audiofrequency = 0;
+    }
 }
