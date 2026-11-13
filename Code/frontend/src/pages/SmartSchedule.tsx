@@ -257,11 +257,10 @@ function ScheduleTimeline({ data }: { data: Sched }) {
   const now = Math.floor(Date.now() / 1000);
   const target = data.TARGETTIME ?? 0;
   const start = data.STARTTIME ?? 0;
-  const progress = target > 0 ? Math.max(0, Math.min(100, ((now - Math.max(0, target - 86400)) / (target - Math.max(0, target - 86400))) * 100)) : 0;
   const heating = data.HEATER || (start > 0 && now >= start);
 
   return (
-    <div class="ss-timeline" style={`--ss-progress:${progress}%`}>
+    <div class="ss-timeline" style={`--ss-step:${timelineStep(data, now, heating)}`}>
       <div class="ss-timeline-bar"><span /></div>
       <div class="ss-timeline-steps">
         <TimelineStep label={t('ss.currentTemp')} value={`${dec(data.CURRENTTEMP)} ${isC() ? '°C' : '°F'}`} active />
@@ -271,6 +270,18 @@ function ScheduleTimeline({ data }: { data: Sched }) {
       </div>
     </div>
   );
+}
+
+// Where the bar ends, in steps: 0 = current temperature dot, 1 = check, 2 = start, 3 = target.
+// Between two reached dots it grows with the time between them, so it always meets the dot it is at.
+export function timelineStep(data: Sched, now: number, heating: boolean): number {
+  const target = data.TARGETTIME ?? 0;
+  const start = data.STARTTIME ?? 0;
+  const part = (from: number, to: number) => (from > 0 && to > from ? Math.max(0, Math.min(1, (now - from) / (to - from))) : 0);
+  if (target > 0 && now >= target) return 3;
+  if (heating) return 2 + part(start, target);
+  if (data.CHECKCOMPLETED) return 1 + part(data.NEXTCHECK ?? 0, start);
+  return 0;
 }
 
 function startInText(data: Sched): string {

@@ -57,11 +57,14 @@ public:
     static void randomBytes(uint8_t* buf, size_t len);
 
     // Account pairing proof: HMAC-SHA256(PSK, canonical_message) - same bytes as cloud `pairing_crypto.py`.
+    // ts == 0: v1 message. ts > 0: v2, the issue time is signed so the
+    // cloud can refuse old links: "poollink-account-bind-v2\0" host \0 nonce ts(8 B BE).
     static void accountPairingHmac(
         const uint8_t psk[32],
         const char* hostname_ascii,
         const uint8_t nonce[POOLLINK_NONCE_SIZE],
-        uint8_t proof_out[32]);
+        uint8_t proof_out[32],
+        uint64_t ts = 0);
 
     /** Base64url without padding (RFC 4648 alphabet `-`/`_`). `out` must hold ≥ 4*((len+2)/3)+1 bytes. */
     static size_t base64UrlEncodeNoPad(const uint8_t* data, size_t len, char* out);

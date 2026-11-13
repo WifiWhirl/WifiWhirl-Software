@@ -232,21 +232,27 @@ void CloudCrypto::accountPairingHmac(
     const uint8_t psk[32],
     const char* hostname_ascii,
     const uint8_t nonce[POOLLINK_NONCE_SIZE],
-    uint8_t proof_out[32])
+    uint8_t proof_out[32],
+    uint64_t ts)
 {
-    static const char PREFIX[] = "poollink-account-bind-v1";  // + implicit '\0' → DOMAIN_PREFIX
+    // v1 and v2 prefixes have the same length; + implicit '\0' → DOMAIN_PREFIX
+    const char* prefix = ts ? "poollink-account-bind-v2" : "poollink-account-bind-v1";
+    const size_t plen = sizeof("poollink-account-bind-v1");
     size_t hl = hostname_ascii ? strlen(hostname_ascii) : 0;
     if (hl > POOLLINK_MAX_HOSTNAME)   // never overflow msg[]; matches _sendHello's cap
         hl = POOLLINK_MAX_HOSTNAME;
-    uint8_t msg[sizeof(PREFIX) + POOLLINK_MAX_HOSTNAME + 1 + POOLLINK_NONCE_SIZE];
+    uint8_t msg[plen + POOLLINK_MAX_HOSTNAME + 1 + POOLLINK_NONCE_SIZE + 8];
     size_t pos = 0;
-    memcpy(msg + pos, PREFIX, sizeof(PREFIX));  // includes terminating NUL (matches Python DOMAIN_PREFIX)
-    pos += sizeof(PREFIX);
+    memcpy(msg + pos, prefix, plen);  // includes terminating NUL (matches Python DOMAIN_PREFIX)
+    pos += plen;
     memcpy(msg + pos, hostname_ascii, hl);
     pos += hl;
     msg[pos++] = 0;
     memcpy(msg + pos, nonce, POOLLINK_NONCE_SIZE);
     pos += POOLLINK_NONCE_SIZE;
+    if (ts)
+        for (int i = 7; i >= 0; i--)
+            msg[pos++] = (uint8_t)(ts >> (8 * i));
 
     hmac_sha256(psk, 32, msg, pos, proof_out);
 }
