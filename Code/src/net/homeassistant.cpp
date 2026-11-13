@@ -577,6 +577,31 @@ constexpr size_t MQTT_TOPIC_LEN = 256; // MQTT topic must be <=255 per spec + nu
  * @return true if the payload has been sent successfully.
  */
 //--------------------------------------------------------------------------------------------------
+// ArduinoJson writes one character per call; through PubSubClient and the
+// WiFiClient each one became its own tcp_write (~600 per entity). Collect 64.
+class ChunkPrint : public Print
+{
+    Print &_out;
+    uint8_t _buf[64];
+    size_t _n = 0;
+
+public:
+    explicit ChunkPrint(Print &out) : _out(out) {}
+    size_t write(uint8_t c) override
+    {
+        _buf[_n++] = c;
+        if (_n == sizeof(_buf))
+            push();
+        return 1;
+    }
+    void push()
+    {
+        if (_n)
+            _out.write(_buf, _n);
+        _n = 0;
+    }
+};
+
 bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDocument &doc)
 {
     char topic[MQTT_TOPIC_LEN];
@@ -601,7 +626,11 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
         return false;
     }
 
-    serializeJson(doc, *mqttClient);
+    {
+        ChunkPrint out(*mqttClient);
+        serializeJson(doc, out);
+        out.push();
+    }
 
     bool published = mqttClient->endPublish();
     if (!published)
