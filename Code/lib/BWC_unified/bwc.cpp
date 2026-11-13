@@ -661,14 +661,15 @@ void BWC::adjust_brightness()
 
 void BWC::play_sound()
 {
-    // Click only on the press itself; UP/DOWN once per press and per target
-    // step while held (CIO_6W taps a held UP/DOWN).
+    // Click only on the press itself; UP/DOWN once per press and once per tap
+    // the module sends while the key is held, so it beeps evenly even when the
+    // pump skips a step.
     Buttons btn = dsp->dsp_toggles.pressed_button;
     bool pressed = btn != _prev_sound_button;
     _prev_sound_button = btn;
-    static uint8_t prev_target = 0;
-    bool step = pressed || cio->cio_states.target != prev_target;
-    prev_target = cio->cio_states.target;
+    static uint32_t prev_taps = 0;
+    bool step = pressed || cio->held_taps != prev_taps;
+    prev_taps = cio->held_taps;
     if (!dsp->dsp_states.locked && dsp->dsp_states.power)
     {
         switch (btn)

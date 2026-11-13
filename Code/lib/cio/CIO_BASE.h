@@ -39,6 +39,8 @@ public:
     int write_msg_count = 0;
     uint32_t good_packets_count = 0;
     uint32_t bad_packets_count = 0;
+    // held UP/DOWN taps sent to the pump so far (6W only), one beep per tap
+    uint32_t held_taps = 0;
     // debugging comm problems. Bit 0: bit error, Bit 1: too many bytes error, Bit 2: too few bytes error
     uint8_t packet_error = 0;
     // debug - stores cio special bytes
