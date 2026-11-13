@@ -88,5 +88,7 @@ void handlePrometheusMetrics()
              bwc->cio->cio_states.power,
              bwc->cio->cio_states.locked,
              bwc->cio->cio_states.unit);
-  server->send(200, F("text/plain; charset=utf-8"), response);
+  // const char* overload: with F() the call took the String one and copied the
+  // whole ~1.6 KB response to the heap
+  server->send(200, "text/plain; charset=utf-8", (const char *)response);
 }
