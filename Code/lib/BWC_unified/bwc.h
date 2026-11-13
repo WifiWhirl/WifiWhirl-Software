@@ -158,6 +158,7 @@ public:
     void buildJSONSettings(JsonObject doc); // same content, filled in directly
     bool setJSONSettings(const String &message, String &error);
     void getJSONCommandQueue(String &rtn);
+    void writeJSONCommandQueue(Print &out);
     uint8_t getState(int state);
     // Full state snapshot for the cloud link: same compact keys as the local
     // UI JSON (states + times + smart schedule), one flat object.

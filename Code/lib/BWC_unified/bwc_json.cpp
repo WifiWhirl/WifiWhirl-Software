@@ -330,37 +330,91 @@ void BWC::getJSONSettings(String &rtn)
     }
 }
 
-void BWC::getJSONCommandQueue(String &rtn)
+// The command queue as columnar JSON, written straight to `out`. Same bytes as
+// the ArduinoJson document it replaces (key order, escaping), without its 4 KB
+// pool: {"LEN":n,"QEN":0|1,"CMD":[..],"VALUE":[..],"XTIME":[..],"INTERVAL":[..],
+// "TXT":[..],"EN":[..]} - the arrays only when the queue is not empty.
+static void printJsonString(Print &out, const String &s)
+{
+    out.write('"');
+    for (size_t i = 0; i < s.length(); i++)
+    {
+        char c = s[i];
+        switch (c) // the characters ArduinoJson 6 escapes
+        {
+        case '"': out.print(F("\\\"")); break;
+        case '\\': out.print(F("\\\\")); break;
+        case '\b': out.print(F("\\b")); break;
+        case '\f': out.print(F("\\f")); break;
+        case '\n': out.print(F("\\n")); break;
+        case '\r': out.print(F("\\r")); break;
+        case '\t': out.print(F("\\t")); break;
+        case 0: out.print(F("\\u0000")); break;
+        default: out.write(c);
+        }
+    }
+    out.write('"');
+}
+
+void BWC::writeJSONCommandQueue(Print &out)
 {
 #ifdef ESP8266
     ESP.wdtFeed();
 #endif
-    DynamicJsonDocument doc(COMMAND_QUEUE_JSON_CAPACITY);
-    // A failed pool allocation leaves capacity 0, every insert below is silently
-    // dropped and the result serializes as "{}" - which looks like an empty queue
-    // instead of an error. Say so instead.
-    if (doc.capacity() == 0)
+    const size_t n = _command_que.size();
+    out.print(F("{\"LEN\":"));
+    out.print((unsigned)n);
+    out.print(F(",\"QEN\":"));
+    out.print(_command_queue_enabled ? 1 : 0);
+    if (n)
     {
-        rtn = F("{\"error\": \"Out of memory building cmdq\"}");
-        return;
+        auto column = [&](const __FlashStringHelper *key, auto value)
+        {
+            out.print(F(",\""));
+            out.print(key);
+            out.print(F("\":["));
+            for (size_t i = 0; i < n; i++)
+            {
+                if (i)
+                    out.write(',');
+                value(_command_que[i]);
+            }
+            out.write(']');
+        };
+        column(F("CMD"), [&](const command_que_item &c) { out.print((int)c.cmd); });
+        column(F("VALUE"), [&](const command_que_item &c) { out.print((long long)c.val); });
+        column(F("XTIME"), [&](const command_que_item &c) { out.print((unsigned long long)c.xtime); });
+        column(F("INTERVAL"), [&](const command_que_item &c) { out.print((unsigned long)c.interval); });
+        column(F("TXT"), [&](const command_que_item &c) { printJsonString(out, c.text); });
+        column(F("EN"), [&](const command_que_item &c) { out.print(c.enabled ? 1 : 0); });
     }
-    doc[F("LEN")] = _command_que.size();
-    doc[F("QEN")] = _command_queue_enabled ? 1 : 0;
-    for (unsigned int i = 0; i < _command_que.size(); i++)
-    {
-        doc[F("CMD")][i] = _command_que[i].cmd;
-        doc[F("VALUE")][i] = _command_que[i].val;
-        doc[F("XTIME")][i] = _command_que[i].xtime;
-        doc[F("INTERVAL")][i] = _command_que[i].interval;
-        doc[F("TXT")][i] = _command_que[i].text;
-        doc[F("EN")][i] = _command_que[i].enabled ? 1 : 0;
-    }
+    out.write('}');
+}
 
+namespace
+{
+struct CountPrint : public Print
+{
+    size_t n = 0;
+    size_t write(uint8_t) override { return ++n, 1; }
+    size_t write(const uint8_t *, size_t len) override { return n += len, len; }
+};
+struct StringPrint : public Print
+{
+    String &s;
+    explicit StringPrint(String &str) : s(str) {}
+    size_t write(uint8_t c) override { return s.concat((char)c) ? 1 : 0; }
+};
+}
+
+void BWC::getJSONCommandQueue(String &rtn)
+{
+    CountPrint count;
+    writeJSONCommandQueue(count);
     rtn.clear();
-    if (serializeJson(doc, rtn) == 0)
-    {
-        rtn = F("{\"error\": \"Failed to serialize cmdq\"}");
-    }
+    rtn.reserve(count.n); // one exact block instead of a growing String
+    StringPrint out(rtn);
+    writeJSONCommandQueue(out);
 }
 
 // Epoch below which the clock has clearly not reached NTP yet. Same threshold

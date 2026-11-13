@@ -459,40 +459,14 @@ void BWC::_saveCommandQueue()
         if (_command_que[0].cmd == REBOOTESP && _command_que[0].interval == 0)
             return;
 
-    // Build before truncating the file: without the pool the document stays empty
-    // and would overwrite a good cmdq.json with "{}", losing the whole queue.
-    DynamicJsonDocument doc(COMMAND_QUEUE_JSON_CAPACITY);
-    if (doc.capacity() == 0)
-    {
-        Serial.printf("CMDQ: out of memory, keeping the stored queue (heap=%u)\n",
-                      (unsigned)ESP.getFreeHeap());
-        _save_cmdq_needed = true; // retry later: loop() checks every pass
-        _save_cmdq_retry_at = millis() + 5000;
-        return;
-    }
-
     File file = LittleFS.open("/cmdq.json", "w");
     if (!file)
     {
         Serial.println(F("FS: Failed to open /cmdq.json for write"));
         return;
     }
-
-    // Set the values in the document
-    doc[F("LEN")] = _command_que.size();
-    doc[F("QEN")] = _command_queue_enabled ? 1 : 0;
-    for (unsigned int i = 0; i < _command_que.size(); i++)
-    {
-        doc[F("CMD")][i] = _command_que[i].cmd;
-        doc[F("VALUE")][i] = _command_que[i].val;
-        doc[F("XTIME")][i] = _command_que[i].xtime;
-        doc[F("INTERVAL")][i] = _command_que[i].interval;
-        doc[F("TXT")][i] = _command_que[i].text;
-        doc[F("EN")][i] = _command_que[i].enabled ? 1 : 0;
-    }
-
-    // Serialize JSON to file
-    serializeJson(doc, file);
+    // written straight to the file, no 4 KB document (same JSON as /getcommands/)
+    writeJSONCommandQueue(file);
     file.close();
     // revive the dog
     //  ESP.wdtEnable(0);
