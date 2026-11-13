@@ -32,59 +32,17 @@ void startHttpServer()
     server->collectHeaders(collectKeys, 3);
 #endif
 
-    // Login/logout are never guarded.
+    // Login/logout are never guarded. The plain routes: PLAIN_ROUTES further down.
     server->on(F("/auth/status"), HTTP_GET, handleAuthStatus);
     server->on(F("/login"), HTTP_POST, handleLogin);
-    server->on(F("/logout"), handleLogout);
 
-    server->on(F("/getconfig/"), guard(handleGetConfig));
-    server->on(F("/setconfig/"), guard(handleSetConfig));
-    server->on(F("/getcommands/"), guard(handleGetCommandQueue));
-    server->on(F("/addcommand/"), guard(handleAddCommand));
-    server->on(F("/editcommand/"), guard(handleEditCommand));
-    server->on(F("/delcommand/"), guard(handleDelCommand));
-    server->on(F("/setcommands/"), guard(handleSetCommandQueue));
-    server->on(F("/getwebconfig/"), guard(handleGetWebConfig));
-    server->on(F("/setwebconfig/"), guard(handleSetWebConfig));
-    server->on(F("/getdevice/"), guard(handleGetDevice));
-    server->on(F("/setdevice/"), guard(handleSetDevice));
-    server->on(F("/provision/"), guard(handleProvisionDevice)); // backend-only factory provisioning
-    server->on(F("/getwifi/"), guard(handleGetWifi));
-    server->on(F("/setwifi/"), guard(handleSetWifi));
-    server->on(F("/scanwifi/"), guard(handleScanWifi));
-    server->on(F("/resetwifi/"), guard(handleResetWifi));
-    server->on(F("/getmqtt/"), guard(handleGetMqtt));
-    server->on(F("/setmqtt/"), guard(handleSetMqtt));
-    server->on(F("/getcloud/"), guard(handleGetCloud));
-    server->on(F("/setcloud/"), guard(handleSetCloud));
-    server->on(F("/getpairing/"), guard(handleGetPairing));
-    server->on(F("/getweather/"), guard(handleGetWeather));
-    server->on(F("/getstates/"), guard(handleGetStates));
-    server->on(F("/gettemps/"), guard(handleGetTemps));
-    server->on(F("/restart/"), guard(handleRestart));
-    server->on(F("/metrics"), handlePrometheusMetrics); // machine endpoint: left open (no cookie possible)
-    server->on(F("/support/"), handleSupportPackage);   // self-guards via legacyAuthOk()
     server->on(F("/backup/"), HTTP_GET, handleBackup);  // self-guards via legacyAuthOk()
     server->on(F("/restore/"), HTTP_POST, handleRestore, handleRestoreUpload);
-    server->on(F("/sethardware/"), guard(handleSetHardware));
-    server->on(F("/gethardware/"), guard(handleGetHardware));
     server->on(F("/debug-on/"), []()
                {if(!legacyAuthOk("debug")) { return; } bwc->BWC_DEBUG = true; server->send(200, F("text/plain"), "ok"); });
     server->on(F("/debug-off/"), []()
                {if(!legacyAuthOk("debug")) { return; } bwc->BWC_DEBUG = false; server->send(200, F("text/plain"), "ok"); });
-    server->on(F("/cmdq_file/"), guard(handle_cmdq_file));
     registerApiV1Routes(); // public API, own Basic Auth
-    server->on(F("/hook/"), handleWebhook); // machine endpoint: left open (no cookie possible)
-    server->on(F("/getsmartschedule/"), guard(handleGetSmartSchedule));
-    server->on(F("/setsmartschedule/"), guard(handleSetSmartSchedule));
-    server->on(F("/updatesmartschedule/"), guard(handleUpdateSmartSchedule));
-    server->on(F("/cancelsmartschedule/"), guard(handleCancelSmartSchedule));
-    server->on(F("/gethlcal/"), guard(handleGetHlCal));
-    server->on(F("/starthlcal/"), guard(handleStartHlCal));
-    server->on(F("/cancelhlcal/"), guard(handleCancelHlCal));
-    server->on(F("/setheatloss/"), guard(handleSetHeatLoss));
-    server->on(F("/getpolldata/"), guard(handleGetPollData)); // Polling fallback for WebSocket data
-    server->on(F("/sendcommand/"), guard(handleSendCommand)); // Polling fallback for WebSocket commands
     // server->on(F("/getfiles/"), updateFiles);
 
     // GET /update serves the legacy upload form. With ?basic=1 it does nothing but
@@ -105,10 +63,6 @@ void startHttpServer()
           return;
       }
       if(!legacyAuthOk("update")) { return; } handleUpdate(); });
-
-    // Device-initiated web firmware self-update (opt-in; verifies signature).
-    server->on(F("/getupdate/"), guard(handleGetUpdate));
-    server->on(F("/doupdate/"), guard(handleDoUpdate));
 
     // handle Update from web. The firmware POST keeps its own OTAPassword Basic
     // Auth prompt even under global auth (the updater library can't read cookies).
@@ -245,9 +199,136 @@ static bool isPublicFallbackAsset(const String &path)
  * exposed through explicit guarded routes, never through the global not-found
  * file fallback.
  */
+// The plain routes (any method, no upload) are not registered one by one: each
+// server->on() kept a handler object, a String copy of the path and, through
+// guard(), a heap-allocated std::function on the ESP8266 heap for good. They sit
+// in a flash table and handleNotFound() dispatches them before anything else.
+struct PlainRoute
+{
+    const char *path; // PROGMEM
+    void (*fn)();
+    bool guarded; // session/cross-site check like guard()
+};
+
+static const char R_LOGOUT[] PROGMEM = "/logout";
+static const char R_GETCONFIG[] PROGMEM = "/getconfig/";
+static const char R_SETCONFIG[] PROGMEM = "/setconfig/";
+static const char R_GETCOMMANDS[] PROGMEM = "/getcommands/";
+static const char R_ADDCOMMAND[] PROGMEM = "/addcommand/";
+static const char R_EDITCOMMAND[] PROGMEM = "/editcommand/";
+static const char R_DELCOMMAND[] PROGMEM = "/delcommand/";
+static const char R_SETCOMMANDS[] PROGMEM = "/setcommands/";
+static const char R_GETWEBCONFIG[] PROGMEM = "/getwebconfig/";
+static const char R_SETWEBCONFIG[] PROGMEM = "/setwebconfig/";
+static const char R_GETDEVICE[] PROGMEM = "/getdevice/";
+static const char R_SETDEVICE[] PROGMEM = "/setdevice/";
+static const char R_PROVISION[] PROGMEM = "/provision/";
+static const char R_GETWIFI[] PROGMEM = "/getwifi/";
+static const char R_SETWIFI[] PROGMEM = "/setwifi/";
+static const char R_SCANWIFI[] PROGMEM = "/scanwifi/";
+static const char R_RESETWIFI[] PROGMEM = "/resetwifi/";
+static const char R_GETMQTT[] PROGMEM = "/getmqtt/";
+static const char R_SETMQTT[] PROGMEM = "/setmqtt/";
+static const char R_GETCLOUD[] PROGMEM = "/getcloud/";
+static const char R_SETCLOUD[] PROGMEM = "/setcloud/";
+static const char R_GETPAIRING[] PROGMEM = "/getpairing/";
+static const char R_GETWEATHER[] PROGMEM = "/getweather/";
+static const char R_GETSTATES[] PROGMEM = "/getstates/";
+static const char R_GETTEMPS[] PROGMEM = "/gettemps/";
+static const char R_RESTART[] PROGMEM = "/restart/";
+static const char R_METRICS[] PROGMEM = "/metrics";
+static const char R_SUPPORT[] PROGMEM = "/support/";
+static const char R_SETHARDWARE[] PROGMEM = "/sethardware/";
+static const char R_GETHARDWARE[] PROGMEM = "/gethardware/";
+static const char R_CMDQ_FILE[] PROGMEM = "/cmdq_file/";
+static const char R_HOOK[] PROGMEM = "/hook/";
+static const char R_GETSMARTSCHEDULE[] PROGMEM = "/getsmartschedule/";
+static const char R_SETSMARTSCHEDULE[] PROGMEM = "/setsmartschedule/";
+static const char R_UPDATESMARTSCHEDULE[] PROGMEM = "/updatesmartschedule/";
+static const char R_CANCELSMARTSCHEDULE[] PROGMEM = "/cancelsmartschedule/";
+static const char R_GETHLCAL[] PROGMEM = "/gethlcal/";
+static const char R_STARTHLCAL[] PROGMEM = "/starthlcal/";
+static const char R_CANCELHLCAL[] PROGMEM = "/cancelhlcal/";
+static const char R_SETHEATLOSS[] PROGMEM = "/setheatloss/";
+static const char R_GETPOLLDATA[] PROGMEM = "/getpolldata/";
+static const char R_SENDCOMMAND[] PROGMEM = "/sendcommand/";
+static const char R_GETUPDATE[] PROGMEM = "/getupdate/";
+static const char R_DOUPDATE[] PROGMEM = "/doupdate/";
+
+static const char R_GETAPIKEYS[] PROGMEM = "/getapikeys/";
+static const char R_ADDAPIKEY[] PROGMEM = "/addapikey/";
+static const char R_DELAPIKEY[] PROGMEM = "/delapikey/";
+
+static const PlainRoute PLAIN_ROUTES[] PROGMEM = {
+    {R_GETAPIKEYS, handleGetApiKeys, true},
+    {R_ADDAPIKEY, handleAddApiKey, true},
+    {R_DELAPIKEY, handleDelApiKey, true},
+    {R_LOGOUT, handleLogout, false},
+    {R_GETCONFIG, handleGetConfig, true},
+    {R_SETCONFIG, handleSetConfig, true},
+    {R_GETCOMMANDS, handleGetCommandQueue, true},
+    {R_ADDCOMMAND, handleAddCommand, true},
+    {R_EDITCOMMAND, handleEditCommand, true},
+    {R_DELCOMMAND, handleDelCommand, true},
+    {R_SETCOMMANDS, handleSetCommandQueue, true},
+    {R_GETWEBCONFIG, handleGetWebConfig, true},
+    {R_SETWEBCONFIG, handleSetWebConfig, true},
+    {R_GETDEVICE, handleGetDevice, true},
+    {R_SETDEVICE, handleSetDevice, true},
+    {R_PROVISION, handleProvisionDevice, true}, // backend-only factory provisioning
+    {R_GETWIFI, handleGetWifi, true},
+    {R_SETWIFI, handleSetWifi, true},
+    {R_SCANWIFI, handleScanWifi, true},
+    {R_RESETWIFI, handleResetWifi, true},
+    {R_GETMQTT, handleGetMqtt, true},
+    {R_SETMQTT, handleSetMqtt, true},
+    {R_GETCLOUD, handleGetCloud, true},
+    {R_SETCLOUD, handleSetCloud, true},
+    {R_GETPAIRING, handleGetPairing, true},
+    {R_GETWEATHER, handleGetWeather, true},
+    {R_GETSTATES, handleGetStates, true},
+    {R_GETTEMPS, handleGetTemps, true},
+    {R_RESTART, handleRestart, true},
+    {R_METRICS, handlePrometheusMetrics, false}, // machine endpoint: left open (no cookie possible)
+    {R_SUPPORT, handleSupportPackage, false}, // self-guards via legacyAuthOk()
+    {R_SETHARDWARE, handleSetHardware, true},
+    {R_GETHARDWARE, handleGetHardware, true},
+    {R_CMDQ_FILE, handle_cmdq_file, true},
+    {R_HOOK, handleWebhook, false}, // machine endpoint: left open (no cookie possible)
+    {R_GETSMARTSCHEDULE, handleGetSmartSchedule, true},
+    {R_SETSMARTSCHEDULE, handleSetSmartSchedule, true},
+    {R_UPDATESMARTSCHEDULE, handleUpdateSmartSchedule, true},
+    {R_CANCELSMARTSCHEDULE, handleCancelSmartSchedule, true},
+    {R_GETHLCAL, handleGetHlCal, true},
+    {R_STARTHLCAL, handleStartHlCal, true},
+    {R_CANCELHLCAL, handleCancelHlCal, true},
+    {R_SETHEATLOSS, handleSetHeatLoss, true},
+    {R_GETPOLLDATA, handleGetPollData, true}, // Polling fallback for WebSocket data
+    {R_SENDCOMMAND, handleSendCommand, true}, // Polling fallback for WebSocket commands
+    {R_GETUPDATE, handleGetUpdate, true}, // device-initiated web firmware self-update (opt-in; verifies signature)
+    {R_DOUPDATE, handleDoUpdate, true},
+};
+
+static bool dispatchPlainRoute(const String &path)
+{
+    PlainRoute r;
+    for (const PlainRoute &e : PLAIN_ROUTES)
+    {
+        memcpy_P(&r, &e, sizeof(r));
+        if (strcmp_P(path.c_str(), r.path) != 0)
+            continue;
+        if (!r.guarded || guardOk())
+            r.fn();
+        return true;
+    }
+    return false;
+}
+
 void handleNotFound()
 {
     String path = server->uri();
+    if (dispatchPlainRoute(path))
+        return;
 
     // Captive portal: while the SoftAP Setup Assistant is up, steer every
     // unknown request (incl. the OS connectivity-check probes like

@@ -543,23 +543,31 @@ bool crossSiteRequest()
     return !origin.substring(scheme + 3).equalsIgnoreCase(server->header(F("Host")));
 }
 
-// Wrap a handler so it 401s when global auth is on and the caller has no session,
-// and 403s cross-site browser requests.
+// 401 when global auth is on and the caller has no session, 403 for cross-site
+// browser requests. false = already answered.
+bool guardOk()
+{
+    if (crossSiteRequest())
+    {
+        server->send(403, F("text/plain"), F("Cross-site request rejected."));
+        return false;
+    }
+    if (!isAuthed())
+    {
+        server->send(401, F("text/plain"), F("Authentication required."));
+        return false;
+    }
+    return true;
+}
+
+// Wrap a handler in guardOk(). Each use costs a heap std::function for good:
+// plain routes go into PLAIN_ROUTES (http_routes.cpp) instead.
 WebServerT::THandlerFunction guard(WebServerT::THandlerFunction handler)
 {
     return [handler]()
     {
-        if (crossSiteRequest())
-        {
-            server->send(403, F("text/plain"), F("Cross-site request rejected."));
-            return;
-        }
-        if (!isAuthed())
-        {
-            server->send(401, F("text/plain"), F("Authentication required."));
-            return;
-        }
-        handler();
+        if (guardOk())
+            handler();
     };
 }
 

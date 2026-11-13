@@ -17,6 +17,9 @@ void handle_cmdq_file();
 extern bool apiEnabled; // persisted in /devuser.json
 extern bool apiRequest; // true while an /api/v1 handler runs
 void registerApiV1Routes();
+void handleGetApiKeys(); // SPA key management, routed via PLAIN_ROUTES
+void handleAddApiKey();
+void handleDelApiKey();
 void apiSupportInfo(String &json); // support package section
 
 // --- Config (api_config.cpp) ---

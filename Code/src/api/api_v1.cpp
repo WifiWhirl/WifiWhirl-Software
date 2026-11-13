@@ -685,7 +685,7 @@ static void handleApiRestart()
 // --- key management for the web interface (behind guard()) -------------------
 
 // POST /getapikeys/ -> {"max":4,"keys":[{"id","name","control","created"}]}
-static void handleGetApiKeys()
+void handleGetApiKeys()
 {
     if (!checkHttpPost(server->method()))
         return;
@@ -704,7 +704,7 @@ static void handleGetApiKeys()
 }
 
 // POST /addapikey/ {"name","control"} -> {"id","key"}: the only time the key is shown
-static void handleAddApiKey()
+void handleAddApiKey()
 {
     if (!checkHttpPost(server->method()))
         return;
@@ -732,7 +732,7 @@ static void handleAddApiKey()
 }
 
 // POST /delapikey/ {"id"}
-static void handleDelApiKey()
+void handleDelApiKey()
 {
     if (!checkHttpPost(server->method()))
         return;
@@ -810,8 +810,5 @@ void registerApiV1Routes()
 {
     loadApiKeys();
     server->on(F("/api/v1/info"), HTTP_GET, handleApiInfo);
-    server->on(F("/getapikeys/"), guard(handleGetApiKeys));
-    server->on(F("/addapikey/"), guard(handleAddApiKey));
-    server->on(F("/delapikey/"), guard(handleDelApiKey));
     server->on(UriGlob("/api/v1/*"), HTTP_ANY, handleApiV1); // after /api/v1/info: first match wins
 }

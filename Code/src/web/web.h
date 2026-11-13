@@ -34,6 +34,7 @@ bool secureEquals(const String &a, const String &b);
 String sha256Hex(const String &data);
 String randomToken(size_t len);
 bool legacyAuthOk(const char *basicUser);
+bool guardOk();
 WebServerT::THandlerFunction guard(WebServerT::THandlerFunction handler);
 void clearAuthSessions();
 void clearAuthCookie();
