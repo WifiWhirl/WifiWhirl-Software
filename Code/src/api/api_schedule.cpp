@@ -60,10 +60,20 @@ void handleGetSmartSchedule()
     if (!checkHttpPost(server->method()))
         return;
 
-    String json;
-    json.reserve(512);
-    bwc->getJSONSmartSchedule(json);
-    server->send(200, F("application/json"), json);
+    // streamed: the document plus a String copy of it before
+    DynamicJsonDocument doc(1024);
+    if (doc.capacity() == 0)
+    {
+        server->send(503, F("text/plain"), F("Out of memory"));
+        return;
+    }
+    bwc->buildJSONSmartSchedule(doc.to<JsonObject>());
+    server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server->send(200, F("application/json"), "");
+    ChunkedResponsePrint out;
+    serializeJson(doc, out);
+    out.flush();
+    server->sendContent("");
 }
 
 /**
