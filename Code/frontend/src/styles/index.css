@@ -608,7 +608,6 @@ select:focus-visible, .switch input:focus-visible + .slider { outline: none; box
 .note {
   margin: 0 0 14px; padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  border-left: 4px solid var(--accent);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--surface) 64%, var(--accent-soft)); color: var(--ink); font-size: 0.9rem; line-height: 1.5;
 }
@@ -619,7 +618,6 @@ select:focus-visible, .switch input:focus-visible + .slider { outline: none; box
 }
 .note.warn {
   border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
-  border-left-color: var(--warn);
   background: color-mix(in srgb, var(--surface) 72%, var(--warn) 16%);
 }
 
