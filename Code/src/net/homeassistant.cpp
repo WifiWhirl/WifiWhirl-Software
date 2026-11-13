@@ -212,113 +212,352 @@ static const char DS17[] PROGMEM = "{{ as_datetime(value_json.DTATIME | int) if 
 static const char DS18[] PROGMEM = "mdi:beaker-plus-outline";
 static const char DS19[] PROGMEM = "g";
 static const char DS20[] PROGMEM = "timestamp";
+// all entity strings in flash, shared between rows (see the SS block above)
+static const char HS0[] PROGMEM = "number";
+static const char HS1[] PROGMEM = "_brightness";
+static const char HS2[] PROGMEM = "Helligkeit";
+static const char HS3[] PROGMEM = "number.";
+static const char HS4[] PROGMEM = "/message";
+static const char HS5[] PROGMEM = "{{ value_json.BRTBASE }}";
+static const char HS6[] PROGMEM = "/command";
+static const char HS7[] PROGMEM = "{CMD:12,VALUE:{{ value | int }}}";
+static const char HS8[] PROGMEM = "0";
+static const char HS9[] PROGMEM = "8";
+static const char HS10[] PROGMEM = "slider";
+static const char HS11[] PROGMEM = "sensor";
+static const char HS12[] PROGMEM = "_reboot_time";
+static const char HS13[] PROGMEM = "Letzter Neustart";
+static const char HS14[] PROGMEM = "sensor.";
+static const char HS15[] PROGMEM = "/reboot_time";
+static const char HS16[] PROGMEM = "{{ as_datetime(value) if value and value != 'Z' else None }}";
+static const char HS17[] PROGMEM = "timestamp";
+static const char HS18[] PROGMEM = "_reboot_reason";
+static const char HS19[] PROGMEM = "Neustartgrund";
+static const char HS20[] PROGMEM = "/reboot_reason";
+static const char HS21[] PROGMEM = "_ssid";
+static const char HS22[] PROGMEM = "WLAN-SSID";
+static const char HS23[] PROGMEM = "/other";
+static const char HS24[] PROGMEM = "{{ value_json.SSID }}";
+static const char HS25[] PROGMEM = "700";
+static const char HS26[] PROGMEM = "_rssi";
+static const char HS27[] PROGMEM = "WLAN-RSSI";
+static const char HS28[] PROGMEM = "{{ value_json.RSSI }}";
+static const char HS29[] PROGMEM = "mdi:wifi";
+static const char HS30[] PROGMEM = "dBm";
+static const char HS31[] PROGMEM = "signal_strength";
+static const char HS32[] PROGMEM = "measurement";
+static const char HS33[] PROGMEM = "_ip";
+static const char HS34[] PROGMEM = "IP-Adresse";
+static const char HS35[] PROGMEM = "{{ value_json.IP }}";
+static const char HS36[] PROGMEM = "mdi:ip";
+static const char HS37[] PROGMEM = "_connect_count";
+static const char HS38[] PROGMEM = "MQTT-Verbindungszähler";
+static const char HS39[] PROGMEM = "/MQTT_Connect_Count";
+static const char HS40[] PROGMEM = "_error";
+static const char HS41[] PROGMEM = "Fehler";
+static const char HS42[] PROGMEM = "{{ value_json.ERR }}";
+static const char HS43[] PROGMEM = "mdi:alert-circle-outline";
+static const char HS44[] PROGMEM = "_time_to_ready";
+static const char HS45[] PROGMEM = "Bereit in";
+static const char HS46[] PROGMEM = "/times";
+static const char HS47[] PROGMEM = "{% if value_json.T2R == -2 %}0{% elif value_json.T2R == -1 %}999{% else %}{{ value_json.T2R }}{% endif %}";
+static const char HS48[] PROGMEM = "mdi:clock";
+static const char HS49[] PROGMEM = "h";
+static const char HS50[] PROGMEM = "duration";
+static const char HS51[] PROGMEM = "_energy";
+static const char HS52[] PROGMEM = "Gesamtenergieverbrauch";
+static const char HS53[] PROGMEM = "{{ value_json.KWH | round(2) }}";
+static const char HS54[] PROGMEM = "mdi:flash";
+static const char HS55[] PROGMEM = "kWh";
+static const char HS56[] PROGMEM = "energy";
+static const char HS57[] PROGMEM = "total_increasing";
+static const char HS58[] PROGMEM = "_today";
+static const char HS59[] PROGMEM = "Energieverbrauch heute";
+static const char HS60[] PROGMEM = "{{ value_json.KWHD | round(2) }}";
+static const char HS61[] PROGMEM = "_power";
+static const char HS62[] PROGMEM = "Aktuelle Leistungsaufnahme";
+static const char HS63[] PROGMEM = "{{ value_json.WATT | int }}";
+static const char HS64[] PROGMEM = "W";
+static const char HS65[] PROGMEM = "power";
+static const char HS66[] PROGMEM = "_chlorine_age";
+static const char HS67[] PROGMEM = "Letzte Chlorung";
+static const char HS68[] PROGMEM = "{{ as_datetime(value_json.CLTIME | int) }}";
+static const char HS69[] PROGMEM = "hass:hand-coin-outline";
+static const char HS70[] PROGMEM = "_filter_age";
+static const char HS71[] PROGMEM = "Letzter Filterwechsel";
+static const char HS72[] PROGMEM = "{{ as_datetime(value_json.FTIME | int) }}";
+static const char HS73[] PROGMEM = "hass:air-filter";
+static const char HS74[] PROGMEM = "_filter_clean_age";
+static const char HS75[] PROGMEM = "Letzte Filterreinigung";
+static const char HS76[] PROGMEM = "{{ as_datetime(value_json.FCTIME | int) }}";
+static const char HS77[] PROGMEM = "mdi:filter-check-outline";
+static const char HS78[] PROGMEM = "_water_change_age";
+static const char HS79[] PROGMEM = "Letzter Wasserwechsel";
+static const char HS80[] PROGMEM = "{{ as_datetime(value_json.WCTIME | int) }}";
+static const char HS81[] PROGMEM = "mdi:water-sync";
+static const char HS82[] PROGMEM = "_chlorine_interval";
+static const char HS83[] PROGMEM = "Chlorintervall";
+static const char HS84[] PROGMEM = "{{ value_json.CLINT }}";
+static const char HS85[] PROGMEM = "d";
+static const char HS86[] PROGMEM = "_filter_interval";
+static const char HS87[] PROGMEM = "Filterwechselintervall";
+static const char HS88[] PROGMEM = "{{ value_json.FINT }}";
+static const char HS89[] PROGMEM = "_filter_clean_interval";
+static const char HS90[] PROGMEM = "Filterreinigungsintervall";
+static const char HS91[] PROGMEM = "{{ value_json.FCINT }}";
+static const char HS92[] PROGMEM = "_water_change_interval";
+static const char HS93[] PROGMEM = "Wasserwechselintervall";
+static const char HS94[] PROGMEM = "{{ value_json.WCINT }}";
+static const char HS95[] PROGMEM = "_uptime";
+static const char HS96[] PROGMEM = "Betriebszeit";
+static const char HS97[] PROGMEM = "{{ ( (value_json.UPTIME|int)/3600) }}";
+static const char HS98[] PROGMEM = "mdi:clock-outline";
+static const char HS99[] PROGMEM = "_pumptime";
+static const char HS100[] PROGMEM = "Pumpenlaufzeit";
+static const char HS101[] PROGMEM = "{{ ( (value_json.PUMPTIME|int)/3600) }}";
+static const char HS102[] PROGMEM = "_heatertime";
+static const char HS103[] PROGMEM = "Heizungslaufzeit";
+static const char HS104[] PROGMEM = "{{ ( (value_json.HEATINGTIME|int)/3600) }}";
+static const char HS105[] PROGMEM = "_airtime";
+static const char HS106[] PROGMEM = "AirJet Laufzeit";
+static const char HS107[] PROGMEM = "{{ ( (value_json.AIRTIME|int)/3600) }}";
+static const char HS108[] PROGMEM = "_temp_c";
+static const char HS109[] PROGMEM = "Aktuelle Temperatur";
+static const char HS110[] PROGMEM = "{{ value_json.TMPC }}";
+static const char HS111[] PROGMEM = "°C";
+static const char HS112[] PROGMEM = "temperature";
+static const char HS113[] PROGMEM = "_target_temp_c";
+static const char HS114[] PROGMEM = "Zieltemperatur";
+static const char HS115[] PROGMEM = "{{ value_json.TGTC }}";
+static const char HS116[] PROGMEM = "_amb_temp_c";
+static const char HS117[] PROGMEM = "Umgebungstemperatur";
+static const char HS118[] PROGMEM = "{{ value_json.AMBC }}";
+static const char HS119[] PROGMEM = "_amb_temp_c_manual";
+static const char HS120[] PROGMEM = "{CMD:15,VALUE:{{ value | int }}}";
+static const char HS121[] PROGMEM = "mdi:thermometer";
+static const char HS122[] PROGMEM = "-20";
+static const char HS123[] PROGMEM = "50";
+static const char HS124[] PROGMEM = "binary_sensor";
+static const char HS125[] PROGMEM = "_ready";
+static const char HS126[] PROGMEM = "Bereit";
+static const char HS127[] PROGMEM = "binary_sensor.";
+static const char HS128[] PROGMEM = "{% if value_json.TMP > 30 %}{% if value_json.TMP >= value_json.TGT-1 %}ON{% else %}OFF{% endif %}{% else %}OFF{% endif %}";
+static const char HS129[] PROGMEM = "mdi:hot-tub";
+static const char HS130[] PROGMEM = "switch";
+static const char HS131[] PROGMEM = "_heat_regulation";
+static const char HS132[] PROGMEM = "Heizung";
+static const char HS133[] PROGMEM = "switch.";
+static const char HS134[] PROGMEM = "{% if value_json.RED == 1 %}1{% elif value_json.GRN == 1 %}1{% else %}0{% endif %}";
+static const char HS135[] PROGMEM = "mdi:radiator";
+static const char HS136[] PROGMEM = "{CMD:3,VALUE:true}";
+static const char HS137[] PROGMEM = "{CMD:3,VALUE:false}";
+static const char HS138[] PROGMEM = "1";
+static const char HS139[] PROGMEM = "_jets";
+static const char HS140[] PROGMEM = "HydroJet";
+static const char HS141[] PROGMEM = "{{ value_json.HJT }}";
+static const char HS142[] PROGMEM = "mdi:hydro-power";
+static const char HS143[] PROGMEM = "{CMD:11,VALUE:true}";
+static const char HS144[] PROGMEM = "{CMD:11,VALUE:false}";
+static const char HS145[] PROGMEM = "_airbubbles";
+static const char HS146[] PROGMEM = "AirJet";
+static const char HS147[] PROGMEM = "{{ value_json.AIR }}";
+static const char HS148[] PROGMEM = "mdi:chart-bubble";
+static const char HS149[] PROGMEM = "{CMD:2,VALUE:true}";
+static const char HS150[] PROGMEM = "{CMD:2,VALUE:false}";
+static const char HS151[] PROGMEM = "_pump";
+static const char HS152[] PROGMEM = "Filterpumpe";
+static const char HS153[] PROGMEM = "{{ value_json.FLT }}";
+static const char HS154[] PROGMEM = "mdi:pump";
+static const char HS155[] PROGMEM = "{CMD:4,VALUE:true}";
+static const char HS156[] PROGMEM = "{CMD:4,VALUE:false}";
+static const char HS157[] PROGMEM = "_unit";
+static const char HS158[] PROGMEM = "°F/°C";
+static const char HS159[] PROGMEM = "{{ value_json.UNT }}";
+static const char HS160[] PROGMEM = "mdi:circle-outline";
+static const char HS161[] PROGMEM = "{CMD:1,VALUE:true}";
+static const char HS162[] PROGMEM = "{CMD:1,VALUE:false}";
+static const char HS163[] PROGMEM = "Ein/Aus";
+static const char HS164[] PROGMEM = "{{ value_json.PWR }}";
+static const char HS165[] PROGMEM = "mdi:power";
+static const char HS166[] PROGMEM = "{CMD:22,VALUE:true}";
+static const char HS167[] PROGMEM = "{CMD:22,VALUE:false}";
+static const char HS168[] PROGMEM = "_lock";
+static const char HS169[] PROGMEM = "Tastensperre";
+static const char HS170[] PROGMEM = "{{ value_json.LCK }}";
+static const char HS171[] PROGMEM = "mdi:lock";
+static const char HS172[] PROGMEM = "{CMD:23,VALUE:true}";
+static const char HS173[] PROGMEM = "{CMD:23,VALUE:false}";
+static const char HS174[] PROGMEM = "button";
+static const char HS175[] PROGMEM = "_reset_chlorine";
+static const char HS176[] PROGMEM = "Timer Chlor zurücksetzen";
+static const char HS177[] PROGMEM = "button.";
+static const char HS178[] PROGMEM = "mdi:restart";
+static const char HS179[] PROGMEM = "{CMD:9,VALUE:true}";
+static const char HS180[] PROGMEM = "_reset_filter";
+static const char HS181[] PROGMEM = "Timer Filterwechsel zurücksetzen";
+static const char HS182[] PROGMEM = "{CMD:10,VALUE:true}";
+static const char HS183[] PROGMEM = "_reset_clean_filter";
+static const char HS184[] PROGMEM = "Timer Filterreinigung zurücksetzen";
+static const char HS185[] PROGMEM = "mdi:filter-variant";
+static const char HS186[] PROGMEM = "{CMD:24,VALUE:true}";
+static const char HS187[] PROGMEM = "_reset_water_change";
+static const char HS188[] PROGMEM = "Timer Wasserwechsel zurücksetzen";
+static const char HS189[] PROGMEM = "{CMD:25,VALUE:true}";
+static const char HS190[] PROGMEM = "_restart_esp";
+static const char HS191[] PROGMEM = "WifiWhirl Modul neustarten";
+static const char HS192[] PROGMEM = "restart";
+static const char HS193[] PROGMEM = "{CMD:6,VALUE:true}";
+static const char HS194[] PROGMEM = "_target_temp_c_set";
+static const char HS195[] PROGMEM = "Zieltemperatur einstellen";
+static const char HS196[] PROGMEM = "{CMD:0,VALUE:{{ value | int }}}";
+static const char HS197[] PROGMEM = "20";
+static const char HS198[] PROGMEM = "40";
+static const char HS199[] PROGMEM = "_ph_value";
+static const char HS200[] PROGMEM = "pH-Wert";
+static const char HS201[] PROGMEM = "{{ value_json.PHVAL / 10 }}";
+static const char HS202[] PROGMEM = "{CMD:27,VALUE:{{ (value * 10) | int }}}";
+static const char HS203[] PROGMEM = "mdi:beaker-outline";
+static const char HS204[] PROGMEM = "pH";
+static const char HS205[] PROGMEM = "14";
+static const char HS206[] PROGMEM = "box";
+static const char HS207[] PROGMEM = "_cl_value";
+static const char HS208[] PROGMEM = "Chlorgehalt";
+static const char HS209[] PROGMEM = "{{ value_json.CLVAL / 10 }}";
+static const char HS210[] PROGMEM = "{CMD:28,VALUE:{{ (value * 10) | int }}}";
+static const char HS211[] PROGMEM = "mdi:flask-outline";
+static const char HS212[] PROGMEM = "mg/L";
+static const char HS213[] PROGMEM = "10";
+static const char HS214[] PROGMEM = "_cya_value";
+static const char HS215[] PROGMEM = "Cyanursäure";
+static const char HS216[] PROGMEM = "{{ value_json.CYAVAL / 10 }}";
+static const char HS217[] PROGMEM = "{CMD:29,VALUE:{{ (value * 10) | int }}}";
+static const char HS218[] PROGMEM = "mdi:shield-sun-outline";
+static const char HS219[] PROGMEM = "100";
+static const char HS220[] PROGMEM = "_alk_value";
+static const char HS221[] PROGMEM = "Alkalität";
+static const char HS222[] PROGMEM = "{{ value_json.ALKVAL }}";
+static const char HS223[] PROGMEM = "{CMD:30,VALUE:{{ value | int }}}";
+static const char HS224[] PROGMEM = "mdi:water";
+static const char HS225[] PROGMEM = "300";
+static const char HS226[] PROGMEM = "_ph_time";
+static const char HS227[] PROGMEM = "pH zuletzt gemessen";
+static const char HS228[] PROGMEM = "{{ as_datetime(value_json.PHTIME | int) }}";
+static const char HS229[] PROGMEM = "_cl_time";
+static const char HS230[] PROGMEM = "Chlor zuletzt gemessen";
+static const char HS231[] PROGMEM = "{{ as_datetime(value_json.CLVTIME | int) }}";
+static const char HS232[] PROGMEM = "_cya_time";
+static const char HS233[] PROGMEM = "Cyanursäure zuletzt gemessen";
+static const char HS234[] PROGMEM = "{{ as_datetime(value_json.CYATIME | int) }}";
+static const char HS235[] PROGMEM = "_alk_time";
+static const char HS236[] PROGMEM = "Alkalität zuletzt gemessen";
+static const char HS237[] PROGMEM = "{{ as_datetime(value_json.ALKTIME | int) }}";
 static const HaEntityConfig entities[] PROGMEM = {
     // Control entities
-    {"number", "_brightness", "Helligkeit", "number.", "/message", "{{ value_json.BRTBASE }}", "/command", "{CMD:12,VALUE:{{ value | int }}}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "8", "slider", nullptr},
+    {HS0, HS1, HS2, HS3, HS4, HS5, HS6, HS7, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS8, HS9, HS10, nullptr}, // number _brightness: Helligkeit
 
     // System information sensors
-    {"sensor", "_reboot_time", "Letzter Neustart", "sensor.", "/reboot_time", "{{ as_datetime(value) if value and value != 'Z' else None }}", nullptr, nullptr, nullptr, nullptr, "timestamp", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_reboot_reason", "Neustartgrund", "sensor.", "/reboot_reason", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS11, HS12, HS13, HS14, HS15, HS16, nullptr, nullptr, nullptr, nullptr, HS17, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _reboot_time: Letzter Neustart
+    {HS11, HS18, HS19, HS14, HS20, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _reboot_reason: Neustartgrund
 
     // Network status sensors
-    {"sensor", "_ssid", "WLAN-SSID", "sensor.", "/other", "{{ value_json.SSID }}", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_rssi", "WLAN-RSSI", "sensor.", "/other", "{{ value_json.RSSI }}", nullptr, nullptr, "mdi:wifi", "dBm", "signal_strength", "measurement", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_ip", "IP-Adresse", "sensor.", "/other", "{{ value_json.IP }}", nullptr, nullptr, "mdi:ip", nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_connect_count", "MQTT-Verbindungszähler", "sensor.", "/MQTT_Connect_Count", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_error", "Fehler", "sensor.", "/message", "{{ value_json.ERR }}", nullptr, nullptr, "mdi:alert-circle-outline", nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_time_to_ready", "Bereit in", "sensor.", "/times", "{% if value_json.T2R == -2 %}0{% elif value_json.T2R == -1 %}999{% else %}{{ value_json.T2R }}{% endif %}", nullptr, nullptr, "mdi:clock", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS11, HS21, HS22, HS14, HS23, HS24, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _ssid: WLAN-SSID
+    {HS11, HS26, HS27, HS14, HS23, HS28, nullptr, nullptr, HS29, HS30, HS31, HS32, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _rssi: WLAN-RSSI
+    {HS11, HS33, HS34, HS14, HS23, HS35, nullptr, nullptr, HS36, nullptr, nullptr, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _ip: IP-Adresse
+    {HS11, HS37, HS38, HS14, HS39, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _connect_count: MQTT-Verbindungszähler
+    {HS11, HS40, HS41, HS14, HS4, HS42, nullptr, nullptr, HS43, nullptr, nullptr, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _error: Fehler
+    {HS11, HS44, HS45, HS14, HS46, HS47, nullptr, nullptr, HS48, HS49, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _time_to_ready: Bereit in
 
     // Energy monitoring sensors
-    {"sensor", "_energy", "Gesamtenergieverbrauch", "sensor.", "/times", "{{ value_json.KWH | round(2) }}", nullptr, nullptr, "mdi:flash", "kWh", "energy", "total_increasing", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_today", "Energieverbrauch heute", "sensor.", "/times", "{{ value_json.KWHD | round(2) }}", nullptr, nullptr, "mdi:flash", "kWh", "energy", "total_increasing", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {EC0, EC1, EC2, EC3, EC4, EC5, nullptr, nullptr, SS53, SS54, SS55, EC9, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {EC0, EC6, EC7, EC3, EC4, EC8, nullptr, nullptr, SS53, SS54, SS55, EC9, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_power", "Aktuelle Leistungsaufnahme", "sensor.", "/times", "{{ value_json.WATT | int }}", nullptr, nullptr, "mdi:flash", "W", "power", "measurement", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS11, HS51, HS52, HS14, HS46, HS53, nullptr, nullptr, HS54, HS55, HS56, HS57, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _energy: Gesamtenergieverbrauch
+    {HS11, HS58, HS59, HS14, HS46, HS60, nullptr, nullptr, HS54, HS55, HS56, HS57, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _today: Energieverbrauch heute
+    {EC0, EC1, EC2, EC3, EC4, EC5, nullptr, nullptr, SS53, SS54, SS55, EC9, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // EC0 EC1: EC2
+    {EC0, EC6, EC7, EC3, EC4, EC8, nullptr, nullptr, SS53, SS54, SS55, EC9, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // EC0 EC6: EC7
+    {HS11, HS61, HS62, HS14, HS46, HS63, nullptr, nullptr, HS54, HS64, HS65, HS32, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _power: Aktuelle Leistungsaufnahme
 
     // Maintenance tracking sensors
-    {"sensor", "_chlorine_age", "Letzte Chlorung", "sensor.", "/times", "{{ as_datetime(value_json.CLTIME | int) }}", nullptr, nullptr, "hass:hand-coin-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_filter_age", "Letzter Filterwechsel", "sensor.", "/times", "{{ as_datetime(value_json.FTIME | int) }}", nullptr, nullptr, "hass:air-filter", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_filter_clean_age", "Letzte Filterreinigung", "sensor.", "/times", "{{ as_datetime(value_json.FCTIME | int) }}", nullptr, nullptr, "mdi:filter-check-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_water_change_age", "Letzter Wasserwechsel", "sensor.", "/times", "{{ as_datetime(value_json.WCTIME | int) }}", nullptr, nullptr, "mdi:water-sync", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS11, HS66, HS67, HS14, HS46, HS68, nullptr, nullptr, HS69, nullptr, HS17, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _chlorine_age: Letzte Chlorung
+    {HS11, HS70, HS71, HS14, HS46, HS72, nullptr, nullptr, HS73, nullptr, HS17, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _filter_age: Letzter Filterwechsel
+    {HS11, HS74, HS75, HS14, HS46, HS76, nullptr, nullptr, HS77, nullptr, HS17, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _filter_clean_age: Letzte Filterreinigung
+    {HS11, HS78, HS79, HS14, HS46, HS80, nullptr, nullptr, HS81, nullptr, HS17, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _water_change_age: Letzter Wasserwechsel
 
     // Last care-product doses: pH/TA in g (minus = reducer), chlorine in g or tablets
-    {EC0, DS0, DS1, EC3, EC4, DS2, nullptr, nullptr, DS18, DS19, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {EC0, DS3, DS4, EC3, EC4, DS5, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {EC0, DS6, DS7, EC3, EC4, DS8, nullptr, nullptr, DS18, nullptr, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {EC0, DS9, DS10, EC3, EC4, DS11, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {EC0, DS12, DS13, EC3, EC4, DS14, nullptr, nullptr, DS18, DS19, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {EC0, DS15, DS16, EC3, EC4, DS17, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {EC0, DS0, DS1, EC3, EC4, DS2, nullptr, nullptr, DS18, DS19, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // EC0 DS0: DS1
+    {EC0, DS3, DS4, EC3, EC4, DS5, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // EC0 DS3: DS4
+    {EC0, DS6, DS7, EC3, EC4, DS8, nullptr, nullptr, DS18, nullptr, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // EC0 DS6: DS7
+    {EC0, DS9, DS10, EC3, EC4, DS11, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // EC0 DS9: DS10
+    {EC0, DS12, DS13, EC3, EC4, DS14, nullptr, nullptr, DS18, DS19, nullptr, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // EC0 DS12: DS13
+    {EC0, DS15, DS16, EC3, EC4, DS17, nullptr, nullptr, DS18, nullptr, DS20, nullptr, EC10, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // EC0 DS15: DS16
 
     // Maintenance interval configuration sensors (read-only)
-    {"sensor", "_chlorine_interval", "Chlorintervall", "sensor.", "/times", "{{ value_json.CLINT }}", nullptr, nullptr, "hass:hand-coin-outline", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_filter_interval", "Filterwechselintervall", "sensor.", "/times", "{{ value_json.FINT }}", nullptr, nullptr, "hass:air-filter", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_filter_clean_interval", "Filterreinigungsintervall", "sensor.", "/times", "{{ value_json.FCINT }}", nullptr, nullptr, "mdi:filter-check-outline", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_water_change_interval", "Wasserwechselintervall", "sensor.", "/times", "{{ value_json.WCINT }}", nullptr, nullptr, "mdi:water-sync", "d", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS11, HS82, HS83, HS14, HS46, HS84, nullptr, nullptr, HS69, HS85, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _chlorine_interval: Chlorintervall
+    {HS11, HS86, HS87, HS14, HS46, HS88, nullptr, nullptr, HS73, HS85, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _filter_interval: Filterwechselintervall
+    {HS11, HS89, HS90, HS14, HS46, HS91, nullptr, nullptr, HS77, HS85, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _filter_clean_interval: Filterreinigungsintervall
+    {HS11, HS92, HS93, HS14, HS46, HS94, nullptr, nullptr, HS81, HS85, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _water_change_interval: Wasserwechselintervall
 
     // Runtime tracking sensors
-    {"sensor", "_uptime", "Betriebszeit", "sensor.", "/times", "{{ ( (value_json.UPTIME|int)/3600) }}", nullptr, nullptr, "mdi:clock-outline", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_pumptime", "Pumpenlaufzeit", "sensor.", "/times", "{{ ( (value_json.PUMPTIME|int)/3600) }}", nullptr, nullptr, "mdi:clock-outline", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_heatertime", "Heizungslaufzeit", "sensor.", "/times", "{{ ( (value_json.HEATINGTIME|int)/3600) }}", nullptr, nullptr, "mdi:clock-outline", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_airtime", "AirJet Laufzeit", "sensor.", "/times", "{{ ( (value_json.AIRTIME|int)/3600) }}", nullptr, nullptr, "mdi:clock-outline", "h", "duration", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS11, HS95, HS96, HS14, HS46, HS97, nullptr, nullptr, HS98, HS49, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _uptime: Betriebszeit
+    {HS11, HS99, HS100, HS14, HS46, HS101, nullptr, nullptr, HS98, HS49, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _pumptime: Pumpenlaufzeit
+    {HS11, HS102, HS103, HS14, HS46, HS104, nullptr, nullptr, HS98, HS49, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _heatertime: Heizungslaufzeit
+    {HS11, HS105, HS106, HS14, HS46, HS107, nullptr, nullptr, HS98, HS49, HS50, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _airtime: AirJet Laufzeit
 
     // Temperature sensors
     // {"sensor", "_temperature_f", "Temperatur (F)", "sensor.", "/message", "{{ value_json.TMPF }}", nullptr, nullptr, nullptr, "°F", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_temp_c", "Aktuelle Temperatur", "sensor.", "/message", "{{ value_json.TMPC }}", nullptr, nullptr, nullptr, "°C", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS11, HS108, HS109, HS14, HS4, HS110, nullptr, nullptr, nullptr, HS111, HS112, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _temp_c: Aktuelle Temperatur
     // {"sensor", "_virtual_temp_f", "Virtuelle Temperatur (F)", "sensor.", "/message", "{{ value_json.VTMF | round(2) }}", nullptr, nullptr, nullptr, "°F", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     // {"sensor", "_virtual_temp_c", "Virtuelle Temperatur", "sensor.", "/message", "{{ value_json.VTMC | round(2) }}", nullptr, nullptr, nullptr, "°C", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     // {"sensor", "_target_temp_f", "Solltemperatur (F)", "sensor.", "/message", "{{ value_json.TGTF }}", nullptr, nullptr, nullptr, "°F", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_target_temp_c", "Zieltemperatur", "sensor.", "/message", "{{ value_json.TGTC }}", nullptr, nullptr, nullptr, "°C", "temperature", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_amb_temp_c", "Umgebungstemperatur", "sensor.", "/message", "{{ value_json.AMBC }}", nullptr, nullptr, nullptr, "°C", "temperature", "measurement", "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"number", "_amb_temp_c_manual", "Umgebungstemperatur", "number.", "/message", "{{ value_json.AMBC }}", "/command", "{CMD:15,VALUE:{{ value | int }}}", "mdi:thermometer", "°C", "temperature", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "-20", "50", "slider", nullptr},
+    {HS11, HS113, HS114, HS14, HS4, HS115, nullptr, nullptr, nullptr, HS111, HS112, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _target_temp_c: Zieltemperatur
+    {HS11, HS116, HS117, HS14, HS4, HS118, nullptr, nullptr, nullptr, HS111, HS112, HS32, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _amb_temp_c: Umgebungstemperatur
+    {HS0, HS119, HS117, HS3, HS4, HS118, HS6, HS120, HS121, HS111, HS112, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS122, HS123, HS10, nullptr}, // number _amb_temp_c_manual: Umgebungstemperatur
 
     // Status sensors
     // {"binary_sensor", "_lock", "Tastensperre", "binary_sensor.", "/message", "{% if value_json.LCK == 1 %}OFF{% else %}ON{% endif %}", nullptr, nullptr, nullptr, nullptr, "lock", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     // {"binary_sensor", "_heater", "Heizung", "binary_sensor.", "/message", "{% if value_json.RED == 1 %}ON{% else %}OFF{% endif %}", nullptr, nullptr, nullptr, nullptr, "heat", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"binary_sensor", "_ready", "Bereit", "binary_sensor.", "/message", "{% if value_json.TMP > 30 %}{% if value_json.TMP >= value_json.TGT-1 %}ON{% else %}OFF{% endif %}{% else %}OFF{% endif %}", nullptr, nullptr, "mdi:hot-tub", nullptr, nullptr, nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS124, HS125, HS126, HS127, HS4, HS128, nullptr, nullptr, HS129, nullptr, nullptr, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // binary_sensor _ready: Bereit
     // {"binary_sensor", "_connection", "Verbindung", "binary_sensor.", "/Status", nullptr, nullptr, nullptr, nullptr, nullptr, "connectivity", nullptr, nullptr, "Alive", "Dead", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
 
     // Control switches
-    {"switch", "_heat_regulation", "Heizung", "switch.", "/message", "{% if value_json.RED == 1 %}1{% elif value_json.GRN == 1 %}1{% else %}0{% endif %}", "/command", nullptr, "mdi:radiator", nullptr, "switch", nullptr, "700", "{CMD:3,VALUE:true}", "{CMD:3,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_jets", "HydroJet", "switch.", "/message", "{{ value_json.HJT }}", "/command", nullptr, "mdi:hydro-power", nullptr, "switch", nullptr, "700", "{CMD:11,VALUE:true}", "{CMD:11,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_airbubbles", "AirJet", "switch.", "/message", "{{ value_json.AIR }}", "/command", nullptr, "mdi:chart-bubble", nullptr, "switch", nullptr, "700", "{CMD:2,VALUE:true}", "{CMD:2,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_pump", "Filterpumpe", "switch.", "/message", "{{ value_json.FLT }}", "/command", nullptr, "mdi:pump", nullptr, "switch", nullptr, "700", "{CMD:4,VALUE:true}", "{CMD:4,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_unit", "°F/°C", "switch.", "/message", "{{ value_json.UNT }}", "/command", nullptr, "mdi:circle-outline", nullptr, nullptr, nullptr, "700", "{CMD:1,VALUE:true}", "{CMD:1,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS130, HS131, HS132, HS133, HS4, HS134, HS6, nullptr, HS135, nullptr, HS130, nullptr, HS25, HS136, HS137, HS138, HS8, nullptr, nullptr, nullptr, nullptr, nullptr}, // switch _heat_regulation: Heizung
+    {HS130, HS139, HS140, HS133, HS4, HS141, HS6, nullptr, HS142, nullptr, HS130, nullptr, HS25, HS143, HS144, HS138, HS8, nullptr, nullptr, nullptr, nullptr, nullptr}, // switch _jets: HydroJet
+    {HS130, HS145, HS146, HS133, HS4, HS147, HS6, nullptr, HS148, nullptr, HS130, nullptr, HS25, HS149, HS150, HS138, HS8, nullptr, nullptr, nullptr, nullptr, nullptr}, // switch _airbubbles: AirJet
+    {HS130, HS151, HS152, HS133, HS4, HS153, HS6, nullptr, HS154, nullptr, HS130, nullptr, HS25, HS155, HS156, HS138, HS8, nullptr, nullptr, nullptr, nullptr, nullptr}, // switch _pump: Filterpumpe
+    {HS130, HS157, HS158, HS133, HS4, HS159, HS6, nullptr, HS160, nullptr, nullptr, nullptr, HS25, HS161, HS162, HS138, HS8, nullptr, nullptr, nullptr, nullptr, nullptr}, // switch _unit: °F/°C
     // {"switch", "_ctrl", "Steuerung übernehmen", "switch.", "/message", "{{ value_json.GOD }}", "/command", nullptr, "mdi:steering", nullptr, nullptr, nullptr, "700", "{CMD:17,VALUE:true}", "{CMD:17,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, "0"},
-    {"switch", "_power", "Ein/Aus", "switch.", "/message", "{{ value_json.PWR }}", "/command", nullptr, "mdi:power", nullptr, "switch", nullptr, "700", "{CMD:22,VALUE:true}", "{CMD:22,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"switch", "_lock", "Tastensperre", "switch.", "/message", "{{ value_json.LCK }}", "/command", nullptr, "mdi:lock", nullptr, nullptr, nullptr, "700", "{CMD:23,VALUE:true}", "{CMD:23,VALUE:false}", "1", "0", nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS130, HS61, HS163, HS133, HS4, HS164, HS6, nullptr, HS165, nullptr, HS130, nullptr, HS25, HS166, HS167, HS138, HS8, nullptr, nullptr, nullptr, nullptr, nullptr}, // switch _power: Ein/Aus
+    {HS130, HS168, HS169, HS133, HS4, HS170, HS6, nullptr, HS171, nullptr, nullptr, nullptr, HS25, HS172, HS173, HS138, HS8, nullptr, nullptr, nullptr, nullptr, nullptr}, // switch _lock: Tastensperre
 
     // Reset buttons
-    {"button", "_reset_chlorine", "Timer Chlor zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:9,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_reset_filter", "Timer Filterwechsel zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:10,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_reset_clean_filter", "Timer Filterreinigung zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:filter-variant", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:24,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_reset_water_change", "Timer Wasserwechsel zurücksetzen", "button.", nullptr, nullptr, "/command", nullptr, "mdi:water-sync", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:25,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
-    {"button", "_restart_esp", "WifiWhirl Modul neustarten", "button.", nullptr, nullptr, "/command", nullptr, "mdi:restart", nullptr, "restart", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "{CMD:6,VALUE:true}", nullptr, nullptr, nullptr, nullptr},
+    {HS174, HS175, HS176, HS177, nullptr, nullptr, HS6, nullptr, HS178, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS179, nullptr, nullptr, nullptr, nullptr}, // button _reset_chlorine: Timer Chlor zurücksetzen
+    {HS174, HS180, HS181, HS177, nullptr, nullptr, HS6, nullptr, HS178, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS182, nullptr, nullptr, nullptr, nullptr}, // button _reset_filter: Timer Filterwechsel zurücksetzen
+    {HS174, HS183, HS184, HS177, nullptr, nullptr, HS6, nullptr, HS185, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS186, nullptr, nullptr, nullptr, nullptr}, // button _reset_clean_filter: Timer Filterreinigung zurücksetzen
+    {HS174, HS187, HS188, HS177, nullptr, nullptr, HS6, nullptr, HS81, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS189, nullptr, nullptr, nullptr, nullptr}, // button _reset_water_change: Timer Wasserwechsel zurücksetzen
+    {HS174, HS190, HS191, HS177, nullptr, nullptr, HS6, nullptr, HS178, nullptr, HS192, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS193, nullptr, nullptr, nullptr, nullptr}, // button _restart_esp: WifiWhirl Modul neustarten
 
     // Temperature control
-    {"number", "_target_temp_c_set", "Zieltemperatur einstellen", "number.", "/message", "{{ value_json.TGTC }}", "/command", "{CMD:0,VALUE:{{ value | int }}}", "mdi:thermometer", "°C", "temperature", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "20", "40", "slider", nullptr},
+    {HS0, HS194, HS195, HS3, HS4, HS115, HS6, HS196, HS121, HS111, HS112, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS197, HS198, HS10, nullptr}, // number _target_temp_c_set: Zieltemperatur einstellen
 
     // Water quality - settable number entities
-    {"number", "_ph_value", "pH-Wert", "number.", "/times", "{{ value_json.PHVAL / 10 }}", "/command", "{CMD:27,VALUE:{{ (value * 10) | int }}}", "mdi:beaker-outline", "pH", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "14", "box", nullptr},
-    {"number", "_cl_value", "Chlorgehalt", "number.", "/times", "{{ value_json.CLVAL / 10 }}", "/command", "{CMD:28,VALUE:{{ (value * 10) | int }}}", "mdi:flask-outline", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "10", "box", nullptr},
-    {"number", "_cya_value", "Cyanursäure", "number.", "/times", "{{ value_json.CYAVAL / 10 }}", "/command", "{CMD:29,VALUE:{{ (value * 10) | int }}}", "mdi:shield-sun-outline", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "100", "box", nullptr},
-    {"number", "_alk_value", "Alkalität", "number.", "/times", "{{ value_json.ALKVAL }}", "/command", "{CMD:30,VALUE:{{ value | int }}}", "mdi:water", "mg/L", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "0", "300", "box", nullptr},
+    {HS0, HS199, HS200, HS3, HS46, HS201, HS6, HS202, HS203, HS204, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS8, HS205, HS206, nullptr}, // number _ph_value: pH-Wert
+    {HS0, HS207, HS208, HS3, HS46, HS209, HS6, HS210, HS211, HS212, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS8, HS213, HS206, nullptr}, // number _cl_value: Chlorgehalt
+    {HS0, HS214, HS215, HS3, HS46, HS216, HS6, HS217, HS218, HS212, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS8, HS219, HS206, nullptr}, // number _cya_value: Cyanursäure
+    {HS0, HS220, HS221, HS3, HS46, HS222, HS6, HS223, HS224, HS212, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, HS8, HS225, HS206, nullptr}, // number _alk_value: Alkalität
 
     // Water quality - timestamp sensors
-    {"sensor", "_ph_time", "pH zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.PHTIME | int) }}", nullptr, nullptr, "mdi:beaker-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_cl_time", "Chlor zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.CLVTIME | int) }}", nullptr, nullptr, "mdi:flask-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_cya_time", "Cyanursäure zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.CYATIME | int) }}", nullptr, nullptr, "mdi:shield-sun-outline", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {"sensor", "_alk_time", "Alkalität zuletzt gemessen", "sensor.", "/times", "{{ as_datetime(value_json.ALKTIME | int) }}", nullptr, nullptr, "mdi:water", nullptr, "timestamp", nullptr, "700", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {HS11, HS226, HS227, HS14, HS46, HS228, nullptr, nullptr, HS203, nullptr, HS17, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _ph_time: pH zuletzt gemessen
+    {HS11, HS229, HS230, HS14, HS46, HS231, nullptr, nullptr, HS211, nullptr, HS17, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _cl_time: Chlor zuletzt gemessen
+    {HS11, HS232, HS233, HS14, HS46, HS234, nullptr, nullptr, HS218, nullptr, HS17, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _cya_time: Cyanursäure zuletzt gemessen
+    {HS11, HS235, HS236, HS14, HS46, HS237, nullptr, nullptr, HS224, nullptr, HS17, nullptr, HS25, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _alk_time: Alkalität zuletzt gemessen
 
     // Smart Schedule: inputs are staged in the module, "Starten" applies them
-    {SS0, SS1, SS2, SS3, SS4, SS5, SS6, SS7, SS8, SS9, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS10, SS11, SS12, nullptr},
-    {SS13, SS14, SS15, SS16, SS4, SS17, SS6, SS18, SS19, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {SS56, SS57, SS58, SS59, SS4, SS60, SS6, SS61, SS19, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {SS20, SS21, SS22, SS23, SS4, SS24, SS6, SS25, SS26, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {SS27, SS28, SS29, SS30, nullptr, nullptr, SS6, nullptr, SS31, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS32, nullptr, nullptr, nullptr, nullptr},
-    {SS27, SS33, SS34, SS30, nullptr, nullptr, SS6, nullptr, SS35, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS36, nullptr, nullptr, nullptr, nullptr},
-    {SS37, SS38, SS39, SS40, SS4, SS41, nullptr, nullptr, SS42, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {SS43, SS44, SS45, SS46, SS4, SS47, nullptr, nullptr, SS48, nullptr, SS49, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    {SS43, SS50, SS51, SS46, SS4, SS52, nullptr, nullptr, SS53, SS54, SS55, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {SS0, SS1, SS2, SS3, SS4, SS5, SS6, SS7, SS8, SS9, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS10, SS11, SS12, nullptr}, // number _ss_temp: Smart Schedule Zieltemperatur
+    {SS13, SS14, SS15, SS16, SS4, SS17, SS6, SS18, SS19, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // text _ss_time: Smart Schedule Zielzeit (JJJJ-MM-TT HH:MM)
+    {SS56, SS57, SS58, SS59, SS4, SS60, SS6, SS61, SS19, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // datetime _ss_datetime: Smart Schedule Zielzeit
+    {SS20, SS21, SS22, SS23, SS4, SS24, SS6, SS25, SS26, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // select _ss_after: Smart Schedule nach der Zielzeit
+    {SS27, SS28, SS29, SS30, nullptr, nullptr, SS6, nullptr, SS31, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS32, nullptr, nullptr, nullptr, nullptr}, // button _ss_start: Smart Schedule starten
+    {SS27, SS33, SS34, SS30, nullptr, nullptr, SS6, nullptr, SS35, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, SS36, nullptr, nullptr, nullptr, nullptr}, // button _ss_cancel: Smart Schedule abbrechen
+    {SS37, SS38, SS39, SS40, SS4, SS41, nullptr, nullptr, SS42, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // binary_sensor _ss_active: Smart Schedule aktiv
+    {SS43, SS44, SS45, SS46, SS4, SS47, nullptr, nullptr, SS48, nullptr, SS49, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _ss_heat_start: Smart Schedule Heizstart
+    {SS43, SS50, SS51, SS46, SS4, SS52, nullptr, nullptr, SS53, SS54, SS55, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, // sensor _ss_cost: Smart Schedule Kosten
 
 };
 
