@@ -349,17 +349,11 @@ void IRAM_ATTR CIO_6_TYPE1::eopHandler(void)
 
 // CIO comm
 // packet start
-// arduino core 3.0.1+ should work with digitalWrite() now.
 // CS line toggles
 void IRAM_ATTR CIO_6_TYPE1::isr_packetHandler()
 {
-#ifdef ESP8266
     if ((READ_PERI_REG(PIN_IN) & (1 << _CS_PIN)))
     {
-#else
-    if (digitalRead(_CS_PIN))
-    {
-#endif
         // end of packet (CS is idle at high)
         _packet_transm_active = false;
         _data_is_output = false;
@@ -383,11 +377,7 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         return;
         // CS line is active, so send/receive bits on DATA line
 
-#ifdef ESP8266
     bool clockstate = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
-#else
-    bool clockstate = digitalRead(_CLK_PIN);
-#endif
     // shift out bits on low clock (falling edge)
     if (!clockstate & _data_is_output)
     {
@@ -395,20 +385,12 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         if (_button_code & (1 << _send_bit))
         {
 // digitalWrite(_DATA_PIN, HIGH);
-#ifdef ESP8266
             WRITE_PERI_REG(PIN_OUT_SET, 1 << _DATA_PIN);
-#else
-            digitalWrite(_DATA_PIN, 1);
-#endif
         }
         else
         {
 // digitalWrite(_DATA_PIN, LOW);
-#ifdef ESP8266
             WRITE_PERI_REG(PIN_OUT_CLEAR, 1 << _DATA_PIN);
-#else
-            digitalWrite(_DATA_PIN, 0);
-#endif
         }
         _send_bit++;
         if (_send_bit > 15)
@@ -422,11 +404,7 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         //_received_byte = (_received_byte << 1) | digitalRead(_DATA_PIN);
         //_received_byte = (_received_byte << 1) | ( ( (READ_PERI_REG(PIN_IN) & (1 << _DATA_PIN)) ) > 0);
         //_received_byte = (_received_byte >> 1) | digitalRead(_DATA_PIN) << 7;
-#ifdef ESP8266
         _received_byte = (_received_byte >> 1) | (((READ_PERI_REG(PIN_IN) & (1 << _DATA_PIN))) > 0) << 7;
-#else
-        _received_byte = (_received_byte >> 1) | digitalRead(_DATA_PIN) << 7;
-#endif
         _bit_count++;
         if (_bit_count == 8)
         {
@@ -450,11 +428,7 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
                 _send_bit = 8;
                 _data_is_output = true;
                 // pinMode(_DATA_PIN, OUTPUT);
-#ifdef ESP8266
                 WRITE_PERI_REG(PIN_DIR_OUTPUT, 1 << _DATA_PIN);
-#else
-                pinMode(_DATA_PIN, OUTPUT);
-#endif
             }
             CIO_CMD_LOG[CIO_CMD_LOG_index++] = (uint8_t)_received_byte;
             CIO_CMD_LOG_index %= 64;
