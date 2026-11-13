@@ -220,6 +220,15 @@ void DSP_6_TYPE1::uploadPayload(uint8_t brightness)
         return;
 
     _dsp_last_refreshtime = millis();
+    // A full upload is ~5 ms of bit-banged busy wait. Send it only when the
+    // payload or brightness changed, plus a 1 s refresh against glitches;
+    // before, it went out every 90 ms (~6 % CPU) even with nothing new.
+    if (brightness == _uploaded_brightness && !memcmp(_payload, _uploaded, sizeof(_payload)) &&
+        millis() - _dsp_last_uploadtime < 1000)
+        return;
+    memcpy(_uploaded, _payload, sizeof(_payload));
+    _uploaded_brightness = brightness;
+    _dsp_last_uploadtime = millis();
     uint8_t enableLED = 0;
     if (brightness > 0)
     {

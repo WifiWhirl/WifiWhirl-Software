@@ -61,6 +61,9 @@ protected:
 
 protected:
     unsigned long _dsp_last_refreshtime = 0;
+    unsigned long _dsp_last_uploadtime = 0;
+    uint8_t _uploaded[11] = {};       // last payload sent to the display
+    int16_t _uploaded_brightness = -1; // -1: nothing sent yet
     unsigned long _dsp_getbutton_last_time = 0;
     int _CS_PIN;
     int _CLK_PIN;
