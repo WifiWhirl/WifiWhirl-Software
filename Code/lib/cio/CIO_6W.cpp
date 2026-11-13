@@ -121,6 +121,7 @@ void CIO_6W::handleToggles()
         item.btncode = getButtonCode(NOBTN);
         item.duration_ms = 200;
         _qButton(item);
+        held_taps++;
     }
 
     // Walk only from a known target (0 = not read yet) and only while the pool is

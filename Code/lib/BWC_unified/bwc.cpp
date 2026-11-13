@@ -660,13 +660,14 @@ void BWC::adjust_brightness()
 
 void BWC::play_sound()
 {
-    // UP/DOWN sound once per press and per target step, not every pass while
-    // held (that beeped every 0.26 s and sounded like a hang)
+    // UP/DOWN sound once per press and once per tap the module sends while the
+    // key is held, so it beeps evenly even when the pump skips a step.
+    // Not every pass while held: that beeped every 0.26 s and sounded like a hang.
     static Buttons prev_btn = NOBTN;
-    static uint8_t prev_target = 0;
-    bool step = dsp->dsp_toggles.pressed_button != prev_btn || cio->cio_states.target != prev_target;
+    static uint32_t prev_taps = 0;
+    bool step = dsp->dsp_toggles.pressed_button != prev_btn || cio->held_taps != prev_taps;
     prev_btn = dsp->dsp_toggles.pressed_button;
-    prev_target = cio->cio_states.target;
+    prev_taps = cio->held_taps;
     if (!dsp->dsp_states.locked && dsp->dsp_states.power)
     {
         switch (dsp->dsp_toggles.pressed_button)
