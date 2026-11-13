@@ -492,16 +492,7 @@ void BWC::_saveCommandQueue()
     }
 
     // Serialize JSON to file
-    if (serializeJson(doc, file) == 0)
-    {
-        // Serial.println(F("Failed to write cmdq.json"));
-    }
-    else
-    {
-        String s;
-        serializeJson(doc, s);
-        // Serial.println(s);
-    }
+    serializeJson(doc, file);
     file.close();
     // revive the dog
     //  ESP.wdtEnable(0);
