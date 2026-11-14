@@ -1,5 +1,7 @@
 #include "net/net.h"
 #include "WifiWhirl_Version.h"
+#include <memory>
+#include <new>
 
 #ifndef ESP8266
 // ESP32's heap-fragmentation metric is getMaxAllocHeap(); alias it so the
@@ -577,12 +579,36 @@ constexpr size_t MQTT_TOPIC_LEN = 256; // MQTT topic must be <=255 per spec + nu
  * @return true if the payload has been sent successfully.
  */
 //--------------------------------------------------------------------------------------------------
+// Scratch buffers of one discovery run, see setupHA().
+struct HaScratch
+{
+    char topic[MQTT_TOPIC_LEN]; // publishHaEntity()
+    uint8_t chunk[64];          // ChunkPrint
+    char mychipid_str[16];
+    char config_url[64];
+    char mac_conn[32];
+    char device_name[128];
+    char ram_buffer[48];
+    char topic_buf[220];
+    char uniq_id_buf[160];
+    char uniq_id_prefix_ram[32];
+    char entity_id_suffix_ram[64];
+    char suffix_ram[64];
+    char object_id_buf[160];
+    char component_ram[32];
+    char mode_cmd_topic[100];
+    char message_topic[100];
+    char temp_cmd_topic[100];
+    char status_topic[100];
+};
+static HaScratch *ha = nullptr;
+
 // ArduinoJson writes one character per call; through PubSubClient and the
 // WiFiClient each one became its own tcp_write (~600 per entity). Collect 64.
 class ChunkPrint : public Print
 {
     Print &_out;
-    uint8_t _buf[64];
+    uint8_t *_buf = ha->chunk; // not on the loop stack
     size_t _n = 0;
 
 public:
@@ -590,7 +616,7 @@ public:
     size_t write(uint8_t c) override
     {
         _buf[_n++] = c;
-        if (_n == sizeof(_buf))
+        if (_n == sizeof(ha->chunk))
             push();
         return 1;
     }
@@ -604,8 +630,8 @@ public:
 
 bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDocument &doc)
 {
-    char topic[MQTT_TOPIC_LEN];
-    snprintf(topic, sizeof(topic), "%s/%s/%s%s/config", HA_PREFIX, component, mqttBaseTopic.c_str(), entity_id_suffix);
+    char *topic = ha->topic; // setupHA() allocates it, not on the loop stack
+    snprintf(topic, MQTT_TOPIC_LEN, "%s/%s/%s%s/config", HA_PREFIX, component, mqttBaseTopic.c_str(), entity_id_suffix);
 
     size_t payloadSize = measureJson(doc);
     
@@ -659,6 +685,20 @@ bool publishHaEntity(const char *component, const char *entity_id_suffix, JsonDo
 //--------------------------------------------------------------------------------------------------
 bool setupHA()
 {
+    // The discovery's text buffers (~1.6 KB) lived on the 4 KB loop stack, which
+    // had only ~50-130 B left at the deepest point. They live on the heap for the
+    // duration of the discovery instead (freed on every return).
+    std::unique_ptr<HaScratch> scratch(new (std::nothrow) HaScratch);
+    if (!scratch)
+    {
+        Serial.println(F("HA: no memory for the discovery buffers, retry on the next connect"));
+        return false;
+    }
+    ha = scratch.get();
+    struct ClearHa
+    {
+        ~ClearHa() { ha = nullptr; }
+    } clearHa;
     haDiscoveryInProgress = true;
     bwc->dsp->audiofrequency = 0;
     bwc->loop();
@@ -678,13 +718,12 @@ bool setupHA()
     Serial.println(F("HA: WiFi sleep mode disabled during discovery"));
     
     // Generate unique chip ID for device identification
-    char mychipid_str[16];
 #if defined(ESP8266)
-    snprintf(mychipid_str, sizeof(mychipid_str), "%u", ESP.getChipId());
+    snprintf(ha->mychipid_str, sizeof(ha->mychipid_str), "%u", ESP.getChipId());
 #elif defined(ESP32)
     // Use MAC-based ID for ESP32 (no direct chip ID available)
     uint64_t chipid_mac = ESP.getEfuseMac();
-    snprintf(mychipid_str, sizeof(mychipid_str), "%04X%08X", (uint16_t)(chipid_mac >> 32), (uint32_t)chipid_mac);
+    snprintf(ha->mychipid_str, sizeof(ha->mychipid_str), "%04X%08X", (uint16_t)(chipid_mac >> 32), (uint32_t)chipid_mac);
 #endif
 
     // Device metadata - reusable across all entities. On the heap only while
@@ -699,32 +738,25 @@ bool setupHA()
         haDiscoveryInProgress = false;
         return false;
     }
-    char config_url[64]; // Optimized for IP-based URLs
-    snprintf(config_url, sizeof(config_url), "http://%s", WiFi.localIP().toString().c_str());
-    devicedoc[FPSTR(_dev)]["configuration_url"] = config_url;
+    snprintf(ha->config_url, sizeof(ha->config_url), "http://%s", WiFi.localIP().toString().c_str());
+    devicedoc[FPSTR(_dev)]["configuration_url"] = ha->config_url;
+    snprintf(ha->mac_conn, sizeof(ha->mac_conn), "[\"mac\",\"%s\"]", WiFi.macAddress().c_str());
+    devicedoc[FPSTR(_dev)]["connections"].add(serialized(ha->mac_conn));
 
-    char mac_conn[32];
-    snprintf(mac_conn, sizeof(mac_conn), "[\"mac\",\"%s\"]", WiFi.macAddress().c_str());
-    devicedoc[FPSTR(_dev)]["connections"].add(serialized(mac_conn));
-
-    devicedoc[FPSTR(_dev)]["identifiers"] = mychipid_str;
+    devicedoc[FPSTR(_dev)]["identifiers"] = ha->mychipid_str;
     devicedoc[FPSTR(_dev)]["manufacturer"] = F("WifiWhirl");
     devicedoc[FPSTR(_dev)]["model"] = F("Lay-Z-Spa");
     // devicedoc[FPSTR(_dev)]["model"] = bwc->getModel();
-
-    char device_name[128];
-    snprintf(device_name, sizeof(device_name), "%s Whirlpool", mqttBaseTopic.c_str());
-    devicedoc[FPSTR(_dev)][FPSTR(_name)] = device_name;
+    snprintf(ha->device_name, sizeof(ha->device_name), "%s Whirlpool", mqttBaseTopic.c_str());
+    devicedoc[FPSTR(_dev)][FPSTR(_name)] = ha->device_name;
 
     devicedoc[FPSTR(_dev)]["sw_version"] = F(FW_VERSION);
 
     // Scratch buffer for reading PROGMEM strings (48 bytes)
-    char ram_buffer[48];
-    // Compile-time sanity: ensure ram_buffer is sufficient for longest field
-    static_assert(sizeof(ram_buffer) > 32, "ram_buffer too small for field copies");
+    // Compile-time sanity: ensure ha->ram_buffer is sufficient for longest field
+    static_assert(sizeof(ha->ram_buffer) > 32, "ha->ram_buffer too small for field copies");
 
     // Topic construction buffer (220 bytes)
-    char topic_buf[220];
 
 
     const size_t totalEntities = sizeof(entities) / sizeof(entities[0]);
@@ -794,12 +826,12 @@ bool setupHA()
          * directly with a normal `const char *` - we must first read the
          * 32-bit address from flash using `pgm_read_ptr()` and cast it to
          * `PGM_P` (pointer to PROGMEM). Only then can we copy the bytes into
-         * the mutable `ram_buffer` with `strcpy_P()` for normal RAM access.
+         * the mutable `ha->ram_buffer` with `strcpy_P()` for normal RAM access.
          */
         //--------------------------------------------------------------------------------------------------
 
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
-        strcpy_P(ram_buffer, pgm_p);
+        strcpy_P(ha->ram_buffer, pgm_p);
 
         //--------------------------------------------------------------------------------------------------
         /**
@@ -810,18 +842,16 @@ bool setupHA()
          * 2. `_jets` exists only for the Maldives-2021 model variant.
          */
         //--------------------------------------------------------------------------------------------------
-        if (strcmp(ram_buffer, "_amb_temp_c_manual") == 0 && bwc->weatherEnabled())
+        if (strcmp(ha->ram_buffer, "_amb_temp_c_manual") == 0 && bwc->weatherEnabled())
         {
             continue;
         }
-        if (strcmp(ram_buffer, "_jets") == 0 && bwc->getModel() != "MALDIVES2021")
+        if (strcmp(ha->ram_buffer, "_jets") == 0 && bwc->getModel() != "MALDIVES2021")
         {
             continue;
         }
 
         doc[FPSTR(_dev)] = devicedoc[FPSTR(_dev)];
-
-        char uniq_id_buf[160];
         //--------------------------------------------------------------------------------------------------
         /**
          * Compose the globally-unique entity ID that Home Assistant will use
@@ -831,15 +861,14 @@ bool setupHA()
          */
         //--------------------------------------------------------------------------------------------------
 
-        if (strcmp(ram_buffer, "_amb_temp_c_manual") == 0)
+        if (strcmp(ha->ram_buffer, "_amb_temp_c_manual") == 0)
         {
             pgm_p = (PGM_P)pgm_read_ptr(&entities[i].name_suffix);
             doc[FPSTR(_name)] = (const __FlashStringHelper *)pgm_p;
 
             PGM_P uniq_id_prefix_p = (PGM_P)pgm_read_ptr(&entities[i].uniq_id_prefix);
-            char uniq_id_prefix_ram[32];
-            strcpy_P(uniq_id_prefix_ram, uniq_id_prefix_p);
-            snprintf(uniq_id_buf, sizeof(uniq_id_buf), "%s%s_amb_temp_c", uniq_id_prefix_ram, mqttBaseTopic.c_str());
+            strcpy_P(ha->uniq_id_prefix_ram, uniq_id_prefix_p);
+            snprintf(ha->uniq_id_buf, sizeof(ha->uniq_id_buf), "%s%s_amb_temp_c", ha->uniq_id_prefix_ram, mqttBaseTopic.c_str());
         }
         else
         {
@@ -847,32 +876,28 @@ bool setupHA()
             doc[FPSTR(_name)] = (const __FlashStringHelper *)pgm_p;
 
             PGM_P uniq_id_prefix_p = (PGM_P)pgm_read_ptr(&entities[i].uniq_id_prefix);
-            char uniq_id_prefix_ram[32];
-            strcpy_P(uniq_id_prefix_ram, uniq_id_prefix_p);
+            strcpy_P(ha->uniq_id_prefix_ram, uniq_id_prefix_p);
 
             PGM_P entity_id_suffix_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
-            char entity_id_suffix_ram[64];
-            strcpy_P(entity_id_suffix_ram, entity_id_suffix_p);
+            strcpy_P(ha->entity_id_suffix_ram, entity_id_suffix_p);
 
-            snprintf(uniq_id_buf, sizeof(uniq_id_buf), "%s%s%s", uniq_id_prefix_ram, mqttBaseTopic.c_str(), entity_id_suffix_ram);
+            snprintf(ha->uniq_id_buf, sizeof(ha->uniq_id_buf), "%s%s%s", ha->uniq_id_prefix_ram, mqttBaseTopic.c_str(), ha->entity_id_suffix_ram);
         }
-        doc[FPSTR(_uniq_id)] = uniq_id_buf;
+        doc[FPSTR(_uniq_id)] = ha->uniq_id_buf;
 
         PGM_P suffix_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
-        char suffix_ram[64];
-        strcpy_P(suffix_ram, suffix_p);
+        strcpy_P(ha->suffix_ram, suffix_p);
         // Strip leading underscore from entity suffix for object_id generation
-        const char *suffix_ptr = (suffix_ram[0] == '_') ? suffix_ram + 1 : suffix_ram;
-        char object_id_buf[160];
-        snprintf(object_id_buf, sizeof(object_id_buf), "%s_%s", mqttBaseTopic.c_str(), suffix_ptr);
-        doc[FPSTR(_object_id)] = object_id_buf;
+        const char *suffix_ptr = (ha->suffix_ram[0] == '_') ? ha->suffix_ram + 1 : ha->suffix_ram;
+        snprintf(ha->object_id_buf, sizeof(ha->object_id_buf), "%s_%s", mqttBaseTopic.c_str(), suffix_ptr);
+        doc[FPSTR(_object_id)] = ha->object_id_buf;
 
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].stat_t_suffix);
         if (pgm_p)
         {
-            strcpy_P(ram_buffer, pgm_p);
-            snprintf(topic_buf, sizeof(topic_buf), "%s%s", mqttBaseTopic.c_str(), ram_buffer);
-            doc[FPSTR(_stat_t)] = topic_buf;
+            strcpy_P(ha->ram_buffer, pgm_p);
+            snprintf(ha->topic_buf, sizeof(ha->topic_buf), "%s%s", mqttBaseTopic.c_str(), ha->ram_buffer);
+            doc[FPSTR(_stat_t)] = ha->topic_buf;
         }
 
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].val_tpl);
@@ -882,9 +907,9 @@ bool setupHA()
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].cmd_t_suffix);
         if (pgm_p)
         {
-            strcpy_P(ram_buffer, pgm_p);
-            snprintf(topic_buf, sizeof(topic_buf), "%s%s", mqttBaseTopic.c_str(), ram_buffer);
-            doc[FPSTR(_cmd_t)] = topic_buf;
+            strcpy_P(ha->ram_buffer, pgm_p);
+            snprintf(ha->topic_buf, sizeof(ha->topic_buf), "%s%s", mqttBaseTopic.c_str(), ha->ram_buffer);
+            doc[FPSTR(_cmd_t)] = ha->topic_buf;
         }
 
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].cmd_tpl);
@@ -910,8 +935,8 @@ bool setupHA()
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].expire_after);
         if (pgm_p)
         {
-            strcpy_P(ram_buffer, pgm_p);
-            doc[FPSTR(_expire_after)] = atoi(ram_buffer);
+            strcpy_P(ha->ram_buffer, pgm_p);
+            doc[FPSTR(_expire_after)] = atoi(ha->ram_buffer);
         }
 
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].pl_on);
@@ -937,15 +962,15 @@ bool setupHA()
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].min);
         if (pgm_p)
         {
-            strcpy_P(ram_buffer, pgm_p);
-            doc[FPSTR(_min_key)] = atoi(ram_buffer);
+            strcpy_P(ha->ram_buffer, pgm_p);
+            doc[FPSTR(_min_key)] = atoi(ha->ram_buffer);
         }
 
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].max);
         if (pgm_p)
         {
-            strcpy_P(ram_buffer, pgm_p);
-            doc[FPSTR(_max_key)] = atoi(ram_buffer);
+            strcpy_P(ha->ram_buffer, pgm_p);
+            doc[FPSTR(_max_key)] = atoi(ha->ram_buffer);
         }
 
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].mode);
@@ -955,22 +980,22 @@ bool setupHA()
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].assumed_state);
         if (pgm_p)
         {
-            strcpy_P(ram_buffer, pgm_p);
-            doc[FPSTR(_assumed_state)] = atoi(ram_buffer);
+            strcpy_P(ha->ram_buffer, pgm_p);
+            doc[FPSTR(_assumed_state)] = atoi(ha->ram_buffer);
         }
 
         // Add step attribute for water quality number entities (pH and chlorine need 0.1 step)
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
-        strcpy_P(ram_buffer, pgm_p);
-        if (strcmp(ram_buffer, "_ph_value") == 0 || strcmp(ram_buffer, "_cl_value") == 0)
+        strcpy_P(ha->ram_buffer, pgm_p);
+        if (strcmp(ha->ram_buffer, "_ph_value") == 0 || strcmp(ha->ram_buffer, "_cl_value") == 0)
         {
             doc[FPSTR(_step_key)] = 0.1;
         }
-        else if (strcmp(ram_buffer, "_cya_value") == 0 || strcmp(ram_buffer, "_alk_value") == 0)
+        else if (strcmp(ha->ram_buffer, "_cya_value") == 0 || strcmp(ha->ram_buffer, "_alk_value") == 0)
         {
             doc[FPSTR(_step_key)] = 1;
         }
-        else if (strcmp(ram_buffer, "_ss_after") == 0)
+        else if (strcmp(ha->ram_buffer, "_ss_after") == 0)
         {
             JsonArray options = doc.createNestedArray(F("options")); // must match SS_AFTER in mqtt_manager.cpp
             options.add(F("Alles aus"));
@@ -979,35 +1004,34 @@ bool setupHA()
         }
 
         // Set up availability topic for connection status monitoring
-        snprintf(topic_buf, sizeof(topic_buf), "%s/Status", mqttBaseTopic.c_str());
-        doc[FPSTR(_avty_t)] = topic_buf;
+        snprintf(ha->topic_buf, sizeof(ha->topic_buf), "%s/Status", mqttBaseTopic.c_str());
+        doc[FPSTR(_avty_t)] = ha->topic_buf;
         doc[FPSTR(_pl_avail)] = F("Alive");    // Payload when device is online
         doc[FPSTR(_pl_not_avail)] = F("Dead"); // Payload when device is offline
 
         pgm_p = (PGM_P)pgm_read_ptr(&entities[i].entity_id_suffix);
-        strcpy_P(ram_buffer, pgm_p);
+        strcpy_P(ha->ram_buffer, pgm_p);
 
         PGM_P component_p = (PGM_P)pgm_read_ptr(&entities[i].component);
-        char component_ram[32];
-        strcpy_P(component_ram, component_p);
+        strcpy_P(ha->component_ram, component_p);
 
         // Publish the entity
         bool publishResult = false;
         
-        if (strcmp(ram_buffer, "_amb_temp_c_manual") == 0)
+        if (strcmp(ha->ram_buffer, "_amb_temp_c_manual") == 0)
         {
             Serial.print(F("HA: Publishing entity "));
-            Serial.print(component_ram);
+            Serial.print(ha->component_ram);
             Serial.print(F(" -> _amb_temp_c"));
-            publishResult = publishHaEntity(component_ram, "_amb_temp_c", doc);
+            publishResult = publishHaEntity(ha->component_ram, "_amb_temp_c", doc);
         }
         else
         {
             Serial.print(F("HA: Publishing entity "));
-            Serial.print(component_ram);
+            Serial.print(ha->component_ram);
             Serial.print(F(" -> "));
-            Serial.print(ram_buffer);
-            publishResult = publishHaEntity(component_ram, ram_buffer, doc);
+            Serial.print(ha->ram_buffer);
+            publishResult = publishHaEntity(ha->component_ram, ha->ram_buffer, doc);
         }
         
         if (publishResult)
@@ -1050,16 +1074,16 @@ bool setupHA()
         climate_doc[FPSTR(_dev)] = devicedoc[FPSTR(_dev)];
 
         // Build climate entity name
-        snprintf(ram_buffer, sizeof(ram_buffer), "Temperatursteuerung");
-        climate_doc[FPSTR(_name)] = ram_buffer;
+        snprintf(ha->ram_buffer, sizeof(ha->ram_buffer), "Temperatursteuerung");
+        climate_doc[FPSTR(_name)] = ha->ram_buffer;
 
         // Build unique ID - consistent with other entities
-        snprintf(topic_buf, sizeof(topic_buf), "climate.%s_climate", mqttBaseTopic.c_str());
-        climate_doc[FPSTR(_uniq_id)] = topic_buf;
+        snprintf(ha->topic_buf, sizeof(ha->topic_buf), "climate.%s_climate", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_uniq_id)] = ha->topic_buf;
 
         // Build object_id
-        snprintf(ram_buffer, sizeof(ram_buffer), "%s_climate", mqttBaseTopic.c_str());
-        climate_doc[FPSTR(_object_id)] = ram_buffer;
+        snprintf(ha->ram_buffer, sizeof(ha->ram_buffer), "%s_climate", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_object_id)] = ha->ram_buffer;
 
         // Temperature settings
         climate_doc[FPSTR(_max_temp)] = 40;
@@ -1073,24 +1097,20 @@ bool setupHA()
         climate_doc[FPSTR(_modes)].add(F("fan_only"));
 
         // Climate entity buffers
-        char mode_cmd_topic[100];
-        char message_topic[100];
-        char temp_cmd_topic[100];
-        char status_topic[100];
         
         // Mode command topic
-        snprintf(mode_cmd_topic, sizeof(mode_cmd_topic), "%s/command_batch", mqttBaseTopic.c_str());
-        climate_doc[FPSTR(_mode_cmd_t)] = mode_cmd_topic;
+        snprintf(ha->mode_cmd_topic, sizeof(ha->mode_cmd_topic), "%s/command_batch", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_mode_cmd_t)] = ha->mode_cmd_topic;
         
         // Mode command template - simplified to avoid Flash string issues
         climate_doc[FPSTR(_mode_cmd_tpl)] = F("[{\"CMD\":3,\"VALUE\":{% if value == \"heat\" %}1{% else %}0{% endif %}},{\"CMD\":4,\"VALUE\":{% if value == \"fan_only\" %}1{% elif value == \"heat\" %}1{% else %}0{% endif %}}]");
 
         // Status topics - use dedicated buffer for message topic
-        snprintf(message_topic, sizeof(message_topic), "%s/message", mqttBaseTopic.c_str());
-        climate_doc[FPSTR(_mode_stat_t)] = message_topic;
-        climate_doc[FPSTR(_act_t)] = message_topic;
-        climate_doc[FPSTR(_temp_stat_t)] = message_topic;
-        climate_doc[FPSTR(_curr_temp_t)] = message_topic;
+        snprintf(ha->message_topic, sizeof(ha->message_topic), "%s/message", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_mode_stat_t)] = ha->message_topic;
+        climate_doc[FPSTR(_act_t)] = ha->message_topic;
+        climate_doc[FPSTR(_temp_stat_t)] = ha->message_topic;
+        climate_doc[FPSTR(_curr_temp_t)] = ha->message_topic;
 
         // Templates - add all at once without interruption
         climate_doc[FPSTR(_mode_stat_tpl)] = F("{% if value_json.RED == 1 or value_json.GRN == 1 %}heat{% elif value_json.FLT == 1 %}fan_only{% else %}off{% endif %}");
@@ -1099,13 +1119,13 @@ bool setupHA()
         climate_doc[FPSTR(_curr_temp_tpl)] = F("{{ value_json.TMPC }}");
 
         // Temperature command - use dedicated buffer
-        snprintf(temp_cmd_topic, sizeof(temp_cmd_topic), "%s/command", mqttBaseTopic.c_str());
-        climate_doc[FPSTR(_temp_cmd_t)] = temp_cmd_topic;
+        snprintf(ha->temp_cmd_topic, sizeof(ha->temp_cmd_topic), "%s/command", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_temp_cmd_t)] = ha->temp_cmd_topic;
         climate_doc[FPSTR(_temp_cmd_tpl)] = F("{CMD:0,VALUE:{{ value|int }}}");
 
         // Availability setup - use dedicated buffer
-        snprintf(status_topic, sizeof(status_topic), "%s/Status", mqttBaseTopic.c_str());
-        climate_doc[FPSTR(_avty_t)] = status_topic;
+        snprintf(ha->status_topic, sizeof(ha->status_topic), "%s/Status", mqttBaseTopic.c_str());
+        climate_doc[FPSTR(_avty_t)] = ha->status_topic;
         climate_doc[FPSTR(_pl_avail)] = F("Alive");
         climate_doc[FPSTR(_pl_not_avail)] = F("Dead");
 
