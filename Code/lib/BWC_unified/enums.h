@@ -107,6 +107,9 @@ struct Power
     int JETPOWER;
 };
 
+/** "GCF" on the panel: ground fault (not an E-number). */
+static constexpr uint8_t ERROR_GCF = 100;
+
 struct sStates
 {
     uint8_t locked = 0;
@@ -123,7 +126,7 @@ struct sStates
     uint8_t char2 = 'b';
     uint8_t char3 = 'c';
     uint8_t jets = 0;
-    uint8_t error = 0;
+    uint8_t error = 0; // E01..E99 as 1..99, ERROR_GCF for "GCF"
     // uint8_t timerbutton = 0;
     // uint8_t upbutton = 0;
     // uint8_t downbutton = 0;

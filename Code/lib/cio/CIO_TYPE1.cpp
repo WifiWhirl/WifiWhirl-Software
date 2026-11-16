@@ -229,6 +229,14 @@ void CIO_6_TYPE1::updateStates()
         return;
     // Error or user plays with timer button - exit (error notification can be dealt with in main.cpp or elsewhere)
     static uint32_t error_seen_ms;
+    // "GCF": the pump found a ground fault. A 7-segment G reads as a 6, so the
+    // frame decodes as "6cf". Not an E-number; reported as error 100 (shown as GCF).
+    if ((cio_states.char1 == '6' || cio_states.char1 == 'g') && cio_states.char2 == 'c' && cio_states.char3 == 'f')
+    {
+        cio_states.error = ERROR_GCF;
+        error_seen_ms = millis();
+        return;
+    }
     if (cio_states.char1 == 'e')
     {
         // Only "E" plus two digits is an error code. Without digits (a blinking

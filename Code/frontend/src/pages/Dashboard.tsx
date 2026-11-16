@@ -125,7 +125,7 @@ export function Dashboard() {
   const rawDisplay = String.fromCharCode(s.CH1, s.CH2, s.CH3).trim().toUpperCase();
   // An error code blinks on the panel; the 1 s poll catches it lit or dark at
   // random (steady, or '--' after a reload), so the page blinks it itself.
-  const errCode = s.ERR ? `E${String(s.ERR).padStart(2, '0')}` : null;
+  const errCode = !s.ERR ? null : s.ERR === 100 ? 'GCF' : `E${String(s.ERR).padStart(2, '0')}`; // 100 = ground fault (ERROR_GCF)
   const isNumeric = /^-?\d+$/.test(rawDisplay);
   // Three spaces are the pump's display switched dark (the target blinks while
   // it is set): show it dark too. '--' only when there is no reading at all.
