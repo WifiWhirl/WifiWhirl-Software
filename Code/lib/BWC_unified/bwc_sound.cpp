@@ -112,11 +112,13 @@ static const char MEL_REMINDER[] PROGMEM = "120 0.6 4000 1 0 1 4000 1";
 static const char MEL_UP[] PROGMEM = "45 0.9 3520 1 3951 1 4186 1";
 static const char MEL_DOWN[] PROGMEM = "45 0.9 4186 1 3951 1 3520 1";
 static const char *const MELODIES[] PROGMEM = {MEL_BOOT, MEL_CONNECTED, MEL_CLICK, MEL_CONFIRM, MEL_ERROR,
-                                               MEL_READY, MEL_REMINDER, MEL_UP, MEL_DOWN};
+                                               MEL_READY, MEL_REMINDER, MEL_UP, MEL_DOWN,
+                                               MEL_CLICK /* SND_UNLOCK: the short click, as before */};
 
 void BWC::playSound(Sound s, bool interrupt)
 {
-    if (!_audio_enabled || s >= sizeof(MELODIES) / sizeof(MELODIES[0]) || !(_sound_mask & (1 << s)))
+    const uint8_t bit = s == SND_UNLOCK ? SND_CONFIRM : s; // one switch for lock and unlock
+    if (!_audio_enabled || s >= sizeof(MELODIES) / sizeof(MELODIES[0]) || !(_sound_mask & (1 << bit)))
         return;
     if (_notes.size())
     {
