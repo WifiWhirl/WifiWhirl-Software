@@ -356,7 +356,8 @@ void loadDevice()
 }
 
 /**
- * Factory reset: drop ONLY the user overrides (/devuser.json).
+ * Factory reset: drop the user overrides (/devuser.json) and switch the cloud
+ * link off again (the shipped state).
  *
  * The provisioned identity must survive a factory reset, so this must never
  * touch /device.json (factory base: hostname + cloud API creds) or /cloudpsk
@@ -366,6 +367,10 @@ void loadDevice()
 void resetDeviceConfig()
 {
     LittleFS.remove("/devuser.json");
+    // The cloud switch is the end user's, and modules ship with it off. Host,
+    // port and the PSK stay, so the owner can switch it back on.
+    cloudEnabled = false;
+    saveCloudConfig();
 }
 
 // /setdevice/ and /provision/ secrets. An empty OTA password turns the auth of
