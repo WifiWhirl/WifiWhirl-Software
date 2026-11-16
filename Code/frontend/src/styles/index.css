@@ -2035,6 +2035,7 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 /* LED readout flashes brighter when the value changes (mirrors a segment refresh). */
 .display-value.flash { animation: led-flash var(--dur-slow) var(--ease-out); }
 .display-screen.blink3 { animation: led-blink 1s step-end 3; }
+.display-screen.blinkloop { animation: led-blink 1s step-end infinite; }
 @keyframes led-blink { 50% { visibility: hidden; } }
 @keyframes led-flash { from { filter: brightness(1.8); } to { filter: brightness(1); } }
 

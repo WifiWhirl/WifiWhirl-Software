@@ -37,6 +37,8 @@ export interface StatesMsg {
   // heat-loss calibration running (functions locked firmware-side)
   HLCAL?: boolean;
   CH1: number; CH2: number; CH3: number;
+  /** error number shown as "E02" on the panel, 0 = none */
+  ERR?: number;
   BRT: number; AMB: number;
   // brightness boost (optional - only on builds with the feature)
   BRTBASE?: number; BRTOVR?: boolean;

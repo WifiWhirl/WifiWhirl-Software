@@ -86,6 +86,7 @@ export function Dashboard() {
     if (!s) return;
     const raw = String.fromCharCode(s.CH1, s.CH2, s.CH3);
     const isDark = raw === '   ';
+    if (s.ERR) { lastTgt.current = s.TGT; return; } // the error code blinks on its own (see below)
     // a unit switch converts TGT too, that's not a new target
     if (lastTgt.current !== null && s.TGT !== lastTgt.current && s.UNT === lastUnt.current && s.PWR) blink(String(s.TGT));
     else if (isDark && s.PWR && blinkText === null) blink(/H$/.test(lastShown.current) ? lastShown.current : String(s.TGT));
@@ -120,7 +121,11 @@ export function Dashboard() {
   // Mirror the pump's own LED: render the raw display characters verbatim
   // (temperature, "co", error codes like "E02"/"FLt", ...) and only tag a
   // unit when the readout is a plain number.
-  const rawDisplay = String.fromCharCode(s.CH1, s.CH2, s.CH3).trim();
+  // The panel's 7-segment letters read as capitals ("E02", "FLt" -> "FLT").
+  const rawDisplay = String.fromCharCode(s.CH1, s.CH2, s.CH3).trim().toUpperCase();
+  // An error code blinks on the panel; the 1 s poll catches it lit or dark at
+  // random (steady, or '--' after a reload), so the page blinks it itself.
+  const errCode = s.ERR ? `E${String(s.ERR).padStart(2, '0')}` : null;
   const isNumeric = /^-?\d+$/.test(rawDisplay);
   // Three spaces are the pump's display switched dark (the target blinks while
   // it is set): show it dark too. '--' only when there is no reading at all.
@@ -135,7 +140,9 @@ export function Dashboard() {
       <Card id="sectionDisplay" className={`hero${heating ? ' heating' : reached ? ' reached' : ''}`}>
         <div class="hero-inner">
           <div class="hero-head"><p class="eyebrow">{t('dashboard.display')}</p></div>
-          {blinkText !== null
+          {errCode !== null
+            ? <LedDisplay main={errCode} brt={s.BRT} blink="loop" />
+            : blinkText !== null
             ? <LedDisplay main={blinkText} unit={/^-?\d+$/.test(blinkText) ? u : undefined} brt={s.BRT} blink />
             : <LedDisplay main={ledMain} unit={ledUnit} brt={s.BRT} />}
         </div>
