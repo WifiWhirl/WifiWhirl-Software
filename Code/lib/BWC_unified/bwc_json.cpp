@@ -788,7 +788,10 @@ bool BWC::setJSONSettings(const String &message, String &errorMessage)
         dsp->EnabledButtons[POWER] = buttonEnabled[POWER];
     if (doc.containsKey(F("HJT")))
         dsp->EnabledButtons[HYDROJETS] = buttonEnabled[HYDROJETS];
-    saveSettings();
-    _loadSettings();
+    // Saved by loop(), not here: from the cloud this runs at the bottom of the
+    // PoolLink command handler, and LittleFS on top of that (a directory
+    // compaction now and then) ran out of the 4 KB stack - a hardware watchdog
+    // reset on "save" in the cloud. The members are set, so no reload either.
+    _save_settings_needed = true;
     return true;
 }
