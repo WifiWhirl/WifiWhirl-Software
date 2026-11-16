@@ -118,7 +118,7 @@
   "spa.filterCleanInterval": "Filter cleaning",
   "spa.filterChangeInterval": "Filter change",
   "spa.waterChangeInterval": "Water change",
-  "spa.poolCap": "Spa capacity in liters",
+  "spa.poolCap": "Spa capacity",
   "spa.weatherAuto": "Use weather data:",
   "spa.cityLookup": "Temperature is fetched for {city}.",
   "spa.save": "Save",

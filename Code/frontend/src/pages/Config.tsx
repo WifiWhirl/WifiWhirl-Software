@@ -268,22 +268,11 @@ export function Config() {
             <h2>{t('cfg.maintenance')}</h2>
           </div>
         </div>
-        <div class="cfg-maint-grid">
-          {maintenance.map((item) => (
-            <div class="cfg-maint-tile" key={item.key}>
-              <span>{item.label}</span>
-              <b>{t('cfg.everyDays', { days: Number(item.value) || 0 })}</b>
-              <input
-                type="number"
-                min={1}
-                max={99}
-                value={item.value}
-                inputMode="numeric"
-                onInput={(e) => set(item.key, (e.target as HTMLInputElement).value)}
-              />
-            </div>
-          ))}
-        </div>
+        {/* compact - / + fields with the unit, like the pool size (was one big field per tile) */}
+        {maintenance.map((item) => (
+          <NumField key={item.key} label={item.label} value={item.value} min={1} max={365} unit={t('time.days')}
+            onInput={(v) => set(item.key, v)} />
+        ))}
         {save(() => ({ CLINT: Number(d.CLINT), FINT: Number(d.FINT), FCINT: Number(d.FCINT), WCINT: Number(d.WCINT) }))}
       </Card>
 

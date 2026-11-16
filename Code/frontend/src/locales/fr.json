@@ -169,7 +169,7 @@
   "spa.filterCleanInterval": "Nettoyage du filtre",
   "spa.filterChangeInterval": "Changement du filtre",
   "spa.waterChangeInterval": "Changement d'eau",
-  "spa.poolCap": "Capacité du spa en litres",
+  "spa.poolCap": "Capacité du spa",
   "spa.weatherAuto": "Utiliser les données météo :",
   "spa.cityLookup": "La température est récupérée pour {city}.",
   "spa.save": "Enregistrer",

@@ -118,7 +118,7 @@
   "spa.filterCleanInterval": "Filterreinigung",
   "spa.filterChangeInterval": "Filterwechsel",
   "spa.waterChangeInterval": "Wasserwechsel",
-  "spa.poolCap": "Poolinhalt in Liter",
+  "spa.poolCap": "Poolinhalt",
   "spa.weatherAuto": "Wetterdaten verwenden:",
   "spa.cityLookup": "Die Temperatur wird für {city} abgerufen.",
   "spa.save": "Speichern",

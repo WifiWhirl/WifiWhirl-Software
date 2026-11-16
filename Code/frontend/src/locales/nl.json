@@ -169,7 +169,7 @@
   "spa.filterCleanInterval": "Filterreiniging",
   "spa.filterChangeInterval": "Filtervervanging",
   "spa.waterChangeInterval": "Water verversen",
-  "spa.poolCap": "Badinhoud in liters",
+  "spa.poolCap": "Badinhoud",
   "spa.weatherAuto": "Weergegevens gebruiken:",
   "spa.cityLookup": "De temperatuur wordt opgehaald voor {city}.",
   "spa.save": "Opslaan",
