@@ -65,6 +65,38 @@ export function Dashboard() {
     setCalNote(null);
   }
 
+  // A new target blinks three times on the display, like on the panel - whether
+  // it was set here, on the panel or from anywhere else. The 1 s poll can't follow
+  // the pump's 500 ms blink (it showed '--', nothing, or a steady value), so the
+  // page draws the blink itself: on a new TGT, or on a dark frame while the pump
+  // is on (the panel blinking the target, or the timer hours when that was shown),
+  // or when the display jumps from the water temperature to the target.
+  const [blinkText, setBlinkText] = useState<string | null>(null);
+  const blinkTimer = useRef(0);
+  const lastTgt = useRef<number | null>(null);
+  const lastUnt = useRef<boolean | null>(null);
+  const lastShown = useRef('');
+  const blink = (v: string) => {
+    setBlinkText(v);
+    clearTimeout(blinkTimer.current);
+    blinkTimer.current = window.setTimeout(() => setBlinkText(null), 3000);
+  };
+  useEffect(() => () => clearTimeout(blinkTimer.current), []);
+  useEffect(() => {
+    if (!s) return;
+    const raw = String.fromCharCode(s.CH1, s.CH2, s.CH3);
+    const isDark = raw === '   ';
+    // a unit switch converts TGT too, that's not a new target
+    if (lastTgt.current !== null && s.TGT !== lastTgt.current && s.UNT === lastUnt.current && s.PWR) blink(String(s.TGT));
+    else if (isDark && s.PWR && blinkText === null) blink(/H$/.test(lastShown.current) ? lastShown.current : String(s.TGT));
+    // the panel switched from the water temperature to the target (a key press)
+    else if (!isDark && s.PWR && blinkText === null && s.TGT !== s.TMP && raw.trim() === String(s.TGT)
+      && lastShown.current !== raw.trim()) blink(String(s.TGT));
+    lastTgt.current = s.TGT;
+    lastUnt.current = s.UNT;
+    if (!isDark) lastShown.current = raw.trim();
+  }, [s]);
+
   if (!s) return (
     <div aria-busy="true" aria-label={t('dashboard.loading')}>
       <div class="card hero"><div class="hero-inner">
@@ -94,16 +126,6 @@ export function Dashboard() {
   // it is set): show it dark too. '--' only when there is no reading at all.
   const dark = rawDisplay === '' && [s.CH1, s.CH2, s.CH3].every((c) => c === 32);
   const ledMain = dark ? '\u00a0' : rawDisplay || '--';
-  // A target set here blinks three times on the display, like on the panel. The
-  // 1 s poll can't follow the pump's 500 ms blink, so the page draws it itself.
-  const [blinkTarget, setBlinkTarget] = useState<number | null>(null);
-  const blinkTimer = useRef(0);
-  const showTarget = (v: number) => {
-    setBlinkTarget(v);
-    clearTimeout(blinkTimer.current);
-    blinkTimer.current = window.setTimeout(() => setBlinkTarget(null), 3000);
-  };
-  useEffect(() => () => clearTimeout(blinkTimer.current), []);
   const ledUnit = isNumeric ? u : undefined;
   // brightness boost feature: edit the base level, not the momentarily boosted one
   const brtBase = s.BRTBASE ?? s.BRT;
@@ -113,8 +135,8 @@ export function Dashboard() {
       <Card id="sectionDisplay" className={`hero${heating ? ' heating' : reached ? ' reached' : ''}`}>
         <div class="hero-inner">
           <div class="hero-head"><p class="eyebrow">{t('dashboard.display')}</p></div>
-          {blinkTarget !== null
-            ? <LedDisplay main={String(blinkTarget)} unit={u} brt={s.BRT} blink />
+          {blinkText !== null
+            ? <LedDisplay main={blinkText} unit={/^-?\d+$/.test(blinkText) ? u : undefined} brt={s.BRT} blink />
             : <LedDisplay main={ledMain} unit={ledUnit} brt={s.BRT} />}
         </div>
       </Card>
@@ -125,7 +147,7 @@ export function Dashboard() {
           <div class="overview-panel">
             <span class="target-label">{t('dashboard.targetTemp')}</span>
             <Thermostat value={s.TGT} current={s.TMP} min={unit ? 20 : 68} max={unit ? 40 : 104}
-              unit={u} heating={heating} off={!s.PWR} onChange={(v) => { sendCommand('setTargetSelector', v); showTarget(v); }} />
+              unit={u} heating={heating} off={!s.PWR} onChange={(v) => { sendCommand('setTargetSelector', v); blink(String(v)); }} />
             {tm && <p class="th-ready">{t('dashboard.readyIn')}: <b>{t2rText(tm.T2R)}</b></p>}
           </div>
         </div>
