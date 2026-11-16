@@ -281,6 +281,8 @@ export function timelineStep(data: Sched, now: number, heating: boolean): number
   if (target > 0 && now >= target) return 3;
   if (heating) return 2 + part(start, target);
   if (data.CHECKCOMPLETED) return 1 + part(data.NEXTCHECK ?? 0, start);
+  // after the first check the start is known: the bar reaches "next check"
+  if (start > 0) return 1;
   return 0;
 }
 
