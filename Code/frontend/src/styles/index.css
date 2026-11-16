@@ -2135,15 +2135,17 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   .hero { padding: 0; }
   .hero-inner { padding: 12px; }
   .hero-head { align-items: flex-start; gap: 8px; }
-  .row {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 8px;
-    padding: 14px 0;
-  }
-  .row > div:last-child { justify-content: stretch; width: 100%; }
-  .row input:not([type="checkbox"]):not([type="radio"]), .row select, .row textarea { width: 100%; }
-  .row .number-control input { width: 76px; }
+  /* Phones: label left, control right as on a wide screen. Only a control too
+     wide for the rest of the line (text field, long choice) moves below. */
+  .row { flex-wrap: wrap; column-gap: 10px; row-gap: 8px; padding: 12px 0; }
+  .row > label { flex: 1 1 34%; min-width: 0; }
+  .row > div:last-child { margin-left: auto; max-width: 100%; }
+  /* text entry keeps the full width, on its own line */
+  .row:has(> div > input:not([type="checkbox"]):not([type="radio"]):not([type="number"]):not([type="range"])) > div:last-child,
+  .row:has(> div > select) > div:last-child, .row:has(> div > textarea) > div:last-child { width: 100%; }
+  .row > div > input:not([type="checkbox"]):not([type="radio"]):not([type="number"]):not([type="range"]), .row > div > select, .row > div > textarea { width: 100%; }
+  .row:has(.segmented.many) > div:last-child { width: 100%; }
+  .row .number-control input { width: 60px; }
   .row .number-control { max-width: 100%; }
   .inline-field, .range-control, .inline-actions, .actions { width: 100%; }
   .inline-actions .btn, .actions .btn { flex: 1 1 150px; }
@@ -2152,7 +2154,7 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   .wifi-ssid-control { max-width: none; min-width: 0; width: 100%; }
   .wifi-network { align-items: center; flex-direction: row; }
   .wifi-network-meta { justify-content: flex-end; white-space: nowrap; }
-  .segmented { width: 100%; }
+  .segmented.many { width: 100%; }
   .segmented button { min-width: 0; }
   .segmented.many {
     grid-auto-flow: row;
