@@ -356,8 +356,8 @@ void loadDevice()
 }
 
 /**
- * Factory reset: drop the user overrides (/devuser.json) and switch the cloud
- * link off again (the shipped state).
+ * Factory reset: drop the user overrides (/devuser.json) and the MQTT settings,
+ * and switch the cloud link off again (the shipped state).
  *
  * The provisioned identity must survive a factory reset, so this must never
  * touch /device.json (factory base: hostname + cloud API creds) or /cloudpsk
@@ -367,6 +367,9 @@ void loadDevice()
 void resetDeviceConfig()
 {
     LittleFS.remove("/devuser.json");
+    // MQTT back to off with the default broker settings: a reset is a fresh
+    // start (e.g. the spa changed hands), the old broker login doesn't belong.
+    LittleFS.remove("/mqtt.json");
     // The cloud switch is the end user's, and modules ship with it off. Host,
     // port and the PSK stay, so the owner can switch it back on.
     cloudEnabled = false;
