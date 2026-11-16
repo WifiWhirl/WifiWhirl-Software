@@ -171,8 +171,8 @@ export function SmartSchedule() {
             />
             <ScheduleMetric label={t('ss.estCost')} value={costText} />
             {remainingHeating && <ScheduleMetric label={t('ss.remainingHeating')} value={remainingHeating} />}
-            <ScheduleMetric label={t('ss.nextCheck')} value={nextCheckText(data)} wide />
-            {readingState && <ScheduleMetric label={t('ss.readingState')} value={readingState} wide tone={reachedGrn(data) ? 'ok' : 'info'} />}
+            <ScheduleMetric label={t('ss.nextCheck')} value={nextCheckText(data)} />
+            {readingState && <ScheduleMetric label={t('ss.readingState')} value={readingState} tone={reachedGrn(data) ? 'ok' : 'info'} />}
           </div>
         </Card>
 
