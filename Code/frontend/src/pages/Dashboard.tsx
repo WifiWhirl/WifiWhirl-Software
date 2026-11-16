@@ -90,7 +90,10 @@ export function Dashboard() {
   // unit when the readout is a plain number.
   const rawDisplay = String.fromCharCode(s.CH1, s.CH2, s.CH3).trim();
   const isNumeric = /^-?\d+$/.test(rawDisplay);
-  const ledMain = rawDisplay || '--';
+  // Three spaces are the pump's display switched dark (the target blinks while
+  // it is set): show it dark too. '--' only when there is no reading at all.
+  const dark = rawDisplay === '' && [s.CH1, s.CH2, s.CH3].every((c) => c === 32);
+  const ledMain = dark ? '\u00a0' : rawDisplay || '--';
   const ledUnit = isNumeric ? u : undefined;
   // brightness boost feature: edit the base level, not the momentarily boosted one
   const brtBase = s.BRTBASE ?? s.BRT;
