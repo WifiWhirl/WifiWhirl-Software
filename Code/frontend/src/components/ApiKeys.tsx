@@ -15,7 +15,7 @@ export function ApiKeys() {
   const [keys, setKeys] = useState<Key[]>([]);
   const [max, setMax] = useState(4);
   const [name, setName] = useState('');
-  const [control, setControl] = useState(true);
+  const [control, setControl] = useState(false); // "read only" preselected: the safer choice
   const [fresh, setFresh] = useState<{ name: string; key: string } | null>(null);
   const keyRef = useRef<HTMLInputElement>(null);
 
