@@ -120,7 +120,7 @@ export function Config() {
   const weatherReady = true;
   const weatherSummary = !d.WEATHER
     ? t('cfg.weatherOff')
-    : city || t('cfg.weatherConfigured');
+    : city ? t('cfg.weatherActiveFor', { city }) : t('cfg.weatherConfigured');
   const ready = weatherReady;
   const maintenance = [
     { key: 'CLINT' as const, label: t('spa.chlorineInterval'), value: d.CLINT },
