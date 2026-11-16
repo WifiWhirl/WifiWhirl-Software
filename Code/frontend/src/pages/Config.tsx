@@ -14,6 +14,7 @@ const SOUNDS: [string, number][] = [
   ['confirm', 1 << 3], ['error', 1 << 4], ['ready', 1 << 5], ['reminder', 1 << 6],
 ];
 import { currencies, currency, currencySymbol, setCurrency } from '../currency';
+import { comma } from '../util/format';
 
 interface Cfg {
   PRICE: number; PRICE_NIGHT: number; NIGHT_ENABLED: boolean;
@@ -150,7 +151,7 @@ export function Config() {
         <div class="cfg-hero-grid">
           <ConfigStat label={t('cfg.pool')} value={`${Number(d.POOLCAP) || 0} ${t('spa.liters')}`} />
           <ConfigStat label={t('cfg.weatherStat')} value={weatherSummary} tone={!weatherReady ? 'warn' : undefined} />
-          <ConfigStat label={t('cfg.energy')} value={`${Number(d.PRICE).toFixed(2)} ${currencySymbol()}/kWh`} />
+          <ConfigStat label={t('cfg.energy')} value={`${comma(Number(d.PRICE))} ${currencySymbol()}/kWh`} />
           <ConfigStat label={t('config.unit')} value={unitC ? '°C' : '°F'} />
           <ConfigStat label={t('spa.lastBoot')} value={lastBoot || '--'} />
           <ConfigStat label={t('cfg.controlButtons')} value={disabledButtons === 0 ? t('cfg.allButtonsOn') : t('cfg.disabledButtons', { count: disabledButtons })} tone={disabledButtons > 0 ? 'warn' : undefined} />

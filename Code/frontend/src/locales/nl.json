@@ -616,7 +616,7 @@
   "cfg.attentionHint": "Voltooi de gemarkeerde instelling voordat je dit profiel opslaat.",
   "cfg.behavior": "Spa",
   "cfg.disabledButtons": "{count} uitgeschakeld",
-  "cfg.energy": "Energie",
+  "cfg.energy": "Stroomprijs",
   "cfg.essentials": "Essentieel",
   "cfg.essentialsHint": "Deze waarden beïnvloeden de berekening van de opwarmtijd, de kostenschatting en Smart Schedule.",
   "cfg.everyDays": "Elke {days} dagen",

@@ -581,7 +581,7 @@
   "cfg.pool": "Spa",
   "cfg.weather": "Outdoor temperature",
   "cfg.weatherStat": "Automatic weather lookup",
-  "cfg.energy": "Energy",
+  "cfg.energy": "Electricity price",
   "cfg.essentials": "Essentials",
   "cfg.essentialsHint": "These values affect the heat-up time calculation, cost estimates and Smart Schedule.",
   "cfg.weatherData": "Weather data",

@@ -581,7 +581,7 @@
   "cfg.pool": "Pool",
   "cfg.weather": "Außentemperatur",
   "cfg.weatherStat": "Automatische Wetterabfrage",
-  "cfg.energy": "Energie",
+  "cfg.energy": "Strompreis",
   "cfg.essentials": "Grunddaten",
   "cfg.essentialsHint": "Diese Werte beeinflussen die Berechnung der Aufheizzeit, Kostenschätzung und Smart Schedule.",
   "cfg.weatherData": "Wetterdaten",

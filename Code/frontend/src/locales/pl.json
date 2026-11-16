@@ -616,7 +616,7 @@
   "cfg.attentionHint": "Uzupełnij wyróżnione ustawienie przed zapisaniem tego profilu.",
   "cfg.behavior": "SPA",
   "cfg.disabledButtons": "Wyłączone: {count}",
-  "cfg.energy": "Energia",
+  "cfg.energy": "Cena prądu",
   "cfg.essentials": "Podstawy",
   "cfg.essentialsHint": "Te wartości wpływają na obliczanie czasu nagrzewania, szacowanie kosztów i Smart Schedule.",
   "cfg.everyDays": "Co {days} dni",

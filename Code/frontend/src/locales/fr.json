@@ -616,7 +616,7 @@
   "cfg.attentionHint": "Complète le réglage en surbrillance avant d'enregistrer ce profil.",
   "cfg.behavior": "Spa",
   "cfg.disabledButtons": "{count} désactivé(s)",
-  "cfg.energy": "Énergie",
+  "cfg.energy": "Prix de l'électricité",
   "cfg.essentials": "Essentiel",
   "cfg.essentialsHint": "Ces valeurs influencent le calcul du temps de chauffe, l'estimation des coûts et Smart Schedule.",
   "cfg.everyDays": "Tous les {days} jours",
