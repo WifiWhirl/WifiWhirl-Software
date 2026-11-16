@@ -693,8 +693,8 @@ select:focus-visible, .switch input:focus-visible + .slider { outline: none; box
   -webkit-user-select: none;
   user-select: none;
 }
-.thermostat-dial { display: block; width: 100%; height: 100%; touch-action: none; cursor: default; outline: none; }
-.th-hit { fill: transparent; cursor: grab; }
+.thermostat-dial { display: block; width: 100%; height: 100%; touch-action: pan-y; /* scrolling over the dial; only the knob drags */ cursor: default; outline: none; }
+.th-hit { fill: transparent; cursor: grab; touch-action: none; }
 .th-hit:active { cursor: grabbing; }
 .th-track { fill: none; stroke: color-mix(in srgb, var(--border) 58%, var(--surface-2)); stroke-width: 12; stroke-linecap: round; }
 /* gradient arc: cool (accent) -> warm (heat), both existing palette tokens */

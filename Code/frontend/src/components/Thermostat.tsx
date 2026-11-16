@@ -145,7 +145,10 @@ export function Thermostat(props: {
         {/* Grab area, last so it sits on top of the arcs and labels it overlaps.
             HIT_R is in viewBox units (dial = 220 wide): ~55px across on a 304px
             dial, a comfortable touch target that stays off the rest of the ring. */}
-        <circle class="th-hit" cx={tx} cy={ty} r={HIT_R} onPointerDown={onPointerDown} />
+        {/* The dial lets the page scroll (touch-action: pan-y); a touch on the knob
+            must not, and touch-action on SVG children isn't honoured everywhere. */}
+        <circle class="th-hit" cx={tx} cy={ty} r={HIT_R} onPointerDown={onPointerDown}
+          onTouchStart={(e) => e.preventDefault()} />
       </svg>
       <div class="thermostat-center">
         <span class="th-value">{val}<span class="th-unit">{unit}</span></span>
