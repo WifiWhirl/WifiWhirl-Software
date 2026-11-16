@@ -3,15 +3,20 @@ import { postJson } from '../api';
 import { lastStates } from '../comms';
 import { confirmDialog, showToast } from './feedback';
 import { navigate } from '../router';
-import { t } from '../i18n';
+import { activeLocale, t } from '../i18n';
 
 interface Sched { ACTIVE?: boolean; TARGETTEMP?: number; TARGETTIME?: number; STARTTIME?: number; HEATER?: boolean }
 
-/** "19:00" today, otherwise "Di. 19:00". */
+/** Monday 00:00 of the week `d` is in. */
+const weekStart = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime(); };
+
+/** "um 16:55 Uhr" today, "am Dienstag um 16:55 Uhr" this week, "am 01.01.2027 um 16:55 Uhr" later. */
 const when = (ts: number) => {
-  const d = new Date(ts * 1000);
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString([], { weekday: 'short' })} ${time}`;
+  const d = new Date(ts * 1000), now = new Date(), loc = activeLocale.value;
+  const time = d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return t('ss.whenToday', { time });
+  if (weekStart(d) === weekStart(now)) return t('ss.whenWeekday', { day: d.toLocaleDateString(loc, { weekday: 'long' }), time });
+  return t('ss.whenDate', { date: d.toLocaleDateString(loc, { day: '2-digit', month: '2-digit', year: 'numeric' }), time });
 };
 
 /**
@@ -33,13 +38,9 @@ export function SmartScheduleNote() {
 
   const c = lastStates.value?.UNT !== false;
   const temp = `${Math.round(c ? d.TARGETTEMP ?? 0 : (d.TARGETTEMP ?? 0) * 9 / 5 + 32)} ${c ? '°C' : '°F'}`;
-  const now = Date.now() / 1000;
   const start = d.STARTTIME ?? 0;
-  const text = d.HEATER || (start > 0 && now >= start)
-    ? t('ss.noteHeating', { temp, time: when(d.TARGETTIME) })
-    : start > 0
-      ? t('ss.notePlanned', { temp, time: when(d.TARGETTIME), start: when(start) })
-      : t('ss.notePlannedNoStart', { temp, time: when(d.TARGETTIME) });
+  const heating = d.HEATER || (start > 0 && Date.now() / 1000 >= start);
+  const text = t(heating ? 'ss.noteHeating' : 'ss.notePlanned', { temp, when: when(d.TARGETTIME) });
 
   async function cancel(e: Event) {
     e.stopPropagation();
