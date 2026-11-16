@@ -159,6 +159,8 @@ public:
     bool setJSONSettings(const String &message, String &error);
     void getJSONCommandQueue(String &rtn);
     void writeJSONCommandQueue(Print &out);
+    // Hash of exactly what getJSONCommandQueue() would return, without building it.
+    uint32_t commandQueueHash();
     uint8_t getState(int state);
     // Full state snapshot for the cloud link: same compact keys as the local
     // UI JSON (states + times + smart schedule), one flat object.

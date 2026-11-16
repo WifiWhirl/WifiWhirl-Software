@@ -34,6 +34,8 @@ bool       CloudTask::_hello_sent       = false;
 bool       CloudTask::_notify_pending   = false;
 bool       CloudTask::_force_resync     = false;
 bool       CloudTask::_queue_dirty      = false;
+uint32_t   CloudTask::_queue_hash       = 0;
+uint32_t   CloudTask::_queue_check_ms   = 0;
 bool       CloudTask::_settings_dirty   = false;
 uint8_t   *CloudTask::_rx_buf = nullptr;
 // All three link buffers (rx, scratch, tx frame, ~3.1 KB) are allocated in
@@ -307,6 +309,16 @@ void CloudTask::_doConnected()
         }
     }
 
+    // The module changes the queue by itself too (a one-off entry ran, a
+    // repeating one moved on, Smart Schedule or a timeout added one). Those
+    // paths don't call notifyQueueChanged(), so compare once a second instead
+    // of leaving the cloud with entries that are long gone.
+    if (!_queue_dirty && now - _queue_check_ms >= 1000) {
+        _queue_check_ms = now;
+        if (bwc->commandQueueHash() != _queue_hash)
+            _queue_dirty = true;
+    }
+
     // Push the command queue snapshot after connect / queue mutations
     if (_queue_dirty) {
         if (_sendQueueData())
@@ -553,6 +565,7 @@ bool CloudTask::_sendQueueData()
     // Same columnar JSON the local UI gets (LEN/QEN/CMD[]/VALUE[]/XTIME[]/…).
     String json;
     bwc->getJSONCommandQueue(json);
+    _queue_hash = bwc->commandQueueHash();
     if (json.length() == 0)
         return true;  // nothing to send
     if (json.length() > POOLLINK_MAX_PAYLOAD) {

@@ -111,6 +111,8 @@ private:
     static bool     _sendSensorData(bool force = false);
     static bool     _sendQueueData();
     static bool     _queue_dirty;
+    static uint32_t _queue_hash;          // hash of the last queue snapshot sent
+    static uint32_t _queue_check_ms;
     static bool     _sendSettingsData();
     static bool     _settings_dirty;
     static bool     _sendPing();

@@ -406,6 +406,18 @@ struct StringPrint : public Print
     explicit StringPrint(String &str) : s(str) {}
     size_t write(uint8_t c) override { return s.concat((char)c) ? 1 : 0; }
 };
+struct HashPrint : public Print
+{
+    uint32_t h = 2166136261u; // FNV-1a
+    size_t write(uint8_t c) override { h = (h ^ c) * 16777619u; return 1; }
+};
+}
+
+uint32_t BWC::commandQueueHash()
+{
+    HashPrint hp;
+    writeJSONCommandQueue(hp);
+    return hp.h;
 }
 
 void BWC::getJSONCommandQueue(String &rtn)
