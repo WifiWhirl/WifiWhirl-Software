@@ -478,7 +478,7 @@ void BWC::_handleStateChanges()
     if (cio->cio_states.locked != _prev_cio_states.locked)
     {
         if (_lock_press_ms && millis() - _lock_press_ms < 8000 && dsp->EnabledButtons[LOCK])
-            playSound(cio->cio_states.locked ? SND_CONFIRM : SND_CLICK);
+            playSound(SND_CONFIRM); // locking and unlocking: the "key lock on/off" sound
         _lock_press_ms = 0;
     }
 
