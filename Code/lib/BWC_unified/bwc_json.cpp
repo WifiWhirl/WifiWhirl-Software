@@ -116,6 +116,7 @@ void BWC::_buildJSONStates(JsonObject doc)
     doc[F("BRTOVR")] = (_override_dsp_brt_timer > 0);
     doc[F("ERR")] = cio->cio_states.error;
     doc[F("HLCAL")] = _hlcal.active;
+    doc[F("SSA")] = _smart_schedule.active; // the dashboard shows a Smart Schedule note
     doc[F("GOD")] = (uint8_t)cio->cio_states.godmode;
     // A pool in standby never shows its target: report the last known one
     // instead of 0, the web UI greys it out while PWR is off.

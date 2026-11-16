@@ -2359,6 +2359,7 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 /* a running calibration locks the dashboard (the LED display stays readable) */
 .cal-locked .dash-widget:not([data-id="display"]) { opacity: 0.45; pointer-events: none; filter: grayscale(0.4); }
 .cal-banner .btn { margin-left: 8px; }
+.ss-note { cursor: pointer; }
 
 /* care-product suggestion under a water value, click fills the dose form */
 .suggest {

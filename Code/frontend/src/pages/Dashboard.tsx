@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Card, Row, NumberInput, Slider, Toggle, Modal } from '../components/ui';
 import { ControlTile } from '../components/ControlTile';
 import { LedDisplay } from '../components/LedDisplay';
+import { SmartScheduleNote } from '../components/SmartScheduleNote';
 import { Thermostat } from '../components/Thermostat';
 import { DashboardGrid } from '../components/DashboardGrid';
 import { Icon } from '../components/icons';
@@ -236,6 +237,7 @@ export function Dashboard() {
           }}>{t('expert.calCancel')}</button>
         </div>
       )}
+      <SmartScheduleNote />
       {calNote && !s.HLCAL && (
         <div class="cal-banner" role="status">
           <b>{t('dashboard.calLast')}:</b> {calAbortText(calNote)}{' '}

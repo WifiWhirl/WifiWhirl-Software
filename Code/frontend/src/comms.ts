@@ -39,6 +39,8 @@ export interface StatesMsg {
   CH1: number; CH2: number; CH3: number;
   /** error number shown as "E02" on the panel, 0 = none */
   ERR?: number;
+  /** a Smart Schedule is planned or heating */
+  SSA?: boolean;
   BRT: number; AMB: number;
   // brightness boost (optional - only on builds with the feature)
   BRTBASE?: number; BRTOVR?: boolean;
