@@ -5,7 +5,8 @@
 // --- WiFi (wifi_manager.cpp) ---
 void startWiFi();
 void startSetupPortal(const String &storedSsid = "", const String &storedPwd = "");
-void startNTP();
+void startNTP(bool wait = true);
+void setBootTimeFromClock();
 sWifi_info loadWifi();
 void saveWifi(const sWifi_info &wifi_info);
 void handleGetWifi();
@@ -28,7 +29,7 @@ void handleGetDevice();
 void handleSetDevice();
 
 // --- MQTT (mqtt_manager.cpp) ---
-void sendMQTT();
+void sendMQTT(bool full);
 void loadMqtt();
 void saveMqtt();
 void handleGetMqtt();
@@ -36,10 +37,18 @@ void handleSetMqtt();
 void startMqtt();
 void mqttCallback(char *topic, byte *payload, unsigned int length);
 void mqttConnect();
-const String &getMqttTopicButton();
+void publishRebootTime();
+const char *getMqttTopicButton();
 
 // --- PoolLink Cloud (cloud.cpp) ---
 extern bool cloudEnabled;
+// ESP8266: RAM only fits one link, so the cloud link replaces MQTT. ESP32 runs both.
+#ifdef ESP8266
+constexpr bool linkExclusive = true;
+#else
+constexpr bool linkExclusive = false;
+#endif
+inline bool mqttAllowed() { return !(linkExclusive && cloudEnabled); }
 extern String cloudHost;
 extern int cloudPort;
 extern String cloudWebUrl;
@@ -53,7 +62,7 @@ void handleGetPairing();
 void handleGetWeather();
 
 // --- Home Assistant (homeassistant.cpp) ---
-void setupHA();
+bool setupHA(); // false: not enough memory, retry on the next connect
 
 // --- OTA (ota.cpp) ---
 void startOTA();
@@ -61,9 +70,19 @@ void startOTA();
 // --- Web firmware self-update (web_update.cpp) ---
 // Daily update check
 void updateCheckTick();
+void cloudUpdateTick(); // runs an update the cloud asked for
 const String &updateAvailableVersion();
 void handleGetUpdate();
 void handleDoUpdate();
+#if defined(UPDATE_SIGNING) && !defined(ESP8266)
+// ESP32 /update upload: feed the uploaded file through these instead of Update.
+// The signature trailer is held back, the image is hashed and flashed, and
+// signedUploadEnd() only commits it when the RSA signature checks out.
+bool signedUploadBegin();
+bool signedUploadWrite(const uint8_t *buf, size_t n);
+bool signedUploadEnd();
+const char *signedUploadError(); // why the last upload was refused, "" if not
+#endif
 
 // --- Webhooks (webhooks.cpp) ---
 // Enforce the optional webhook basic-auth credentials. Returns true if the

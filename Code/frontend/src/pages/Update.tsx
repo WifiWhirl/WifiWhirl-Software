@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Card } from '../components/ui';
 import { t } from '../i18n';
+import { withOtaAuth } from '../components/OtaAuth';
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 Bytes';
@@ -19,32 +20,26 @@ export function Update() {
   const [pct, setPct] = useState<number | null>(null);
   const [done, setDone] = useState(false);
 
-  // The firmware's updater rejects a POST only after the whole .bin has been
-  // received, so waiting for its 401 meant the browser asked for the OTA
-  // credentials once the upload had already run - and then sent the file again.
-  // A GET on the same path with ?basic=1 triggers that prompt up front; the
-  // browser reuses the credentials for the POST that follows.
-  function authenticate(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const pre = new XMLHttpRequest();
-      pre.open('GET', '/update?basic=1', true);
-      pre.onload = () => (pre.status === 200 ? resolve() : reject(new Error(String(pre.status))));
-      pre.onerror = () => reject(new Error('network'));
-      pre.send();
-    });
-  }
-
   async function upload() {
     if (!file) return;
     if (!file.name.endsWith('.fw.bin')) {
       setStatus(t('upd.wrongFile'));
       return;
     }
+    // The updater checks the OTA password only after the whole .bin arrived,
+    // so check it up front on GET /update?basic=1 - always, the updater can't
+    // read the login session. Wrong password: the dialog asks again.
     setStatus(t('upd.authPending'));
+    let auth;
     try {
-      await authenticate();
+      auth = await withOtaAuth('update', t('update.title'),
+        (headers) => fetch('/update?basic=1', { headers }), true);
     } catch {
       setStatus(t('upd.authFailed'));
+      return;
+    }
+    if (!auth || !auth.res.ok) {
+      setStatus(auth ? t('upd.authFailed') : '');
       return;
     }
     const fd = new FormData();
@@ -63,6 +58,7 @@ export function Update() {
     xhr.upload.onerror = () => setStatus(t('upd.failed'));
     xhr.upload.onabort = () => setStatus(t('upd.aborted'));
     xhr.open('POST', '/update', true);
+    for (const [k, v] of Object.entries(auth.headers)) xhr.setRequestHeader(k, v);
     xhr.send(fd);
   }
 

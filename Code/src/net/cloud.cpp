@@ -80,6 +80,7 @@ void handleGetCloud()
     // Tell the UI whether a PSK is provisioned without ever exposing it.
     uint8_t psk[32];
     doc[F("hasPsk")] = CloudPSKStorage::readPSK(psk);
+    doc[F("exclusive")] = linkExclusive; // ESP8266: cloud and MQTT never run together
 
     String json;
     if (serializeJson(doc, json) == 0)
@@ -150,8 +151,12 @@ void handleGetPairing()
     uint8_t nonce[POOLLINK_NONCE_SIZE];
     CloudCrypto::randomBytes(nonce, sizeof(nonce));
 
+    // v2: sign the issue time so the cloud refuses old links. Without a
+    // synced clock fall back to v1, which the cloud still accepts once.
+    time_t now = time(nullptr);
+    uint64_t ts = now > 1600000000 ? (uint64_t)now : 0;
     uint8_t proof[32];
-    CloudCrypto::accountPairingHmac(psk, hn.c_str(), nonce, proof);
+    CloudCrypto::accountPairingHmac(psk, hn.c_str(), nonce, proof, ts);
 
     char nonceB64[48];
     char proofB64[48];
@@ -162,6 +167,8 @@ void handleGetPairing()
     doc[F("hostname")] = hn;
     doc[F("nonce_b64")] = nonceB64;
     doc[F("proof_b64")] = proofB64;
+    if (ts)
+        doc[F("ts")] = ts;
 
     String json;
     if (serializeJson(doc, json) == 0)

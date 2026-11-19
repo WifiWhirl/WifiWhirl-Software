@@ -34,7 +34,7 @@ protected:
 
     /*These must be declared for the API to work*/
 public:
-    const Power _powerDefault = {1900, 40, 800, 2, 400};
+    const Power _powerDefault = {1840, 40, 800, 2, 400}; // heater: measured mean 1835 W over 7 h
     Power power = _powerDefault;
 
 public:
@@ -43,12 +43,13 @@ public:
 protected:
     sButton_queue_item _button_que[MAXBUTTONS];
     /*Hex code, like 0x1B1B*/
-    const uint8_t DSP_DIM_BASE = 0x80;
-    const uint8_t DSP_DIM_ON = 0x8;
+    static constexpr uint8_t DSP_DIM_BASE = 0x80;
+    static constexpr uint8_t DSP_DIM_ON = 0x8;
     volatile bool _new_packet_available;
-    volatile bool _packet_transm_active;
+    volatile bool _packet_transm_active = false; // read before the first CS edge
     volatile uint16_t _button_code;
     uint8_t _pressed_button = NOBTN;
+    uint32_t _release_until = 0; // millis(): button held released after a press
     // sToggles _requested_states; //not used
     // sStates cio_states;
 };

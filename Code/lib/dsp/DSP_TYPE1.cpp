@@ -15,11 +15,22 @@ void DSP_6_TYPE1::setup(int dsp_data_pin, int dsp_clk_pin, int dsp_cs_pin, int d
     /*Shift on falling, latch on rising edges*/
     digitalWrite(_CLK_PIN, HIGH);
     digitalWrite(_AUDIO_PIN, LOW);
+#ifndef ESP8266
+    // ESP32: keep the buzzer on one LEDC channel and only change the frequency.
+    // Core 3's tone()/noTone() run through a task and noTone() detaches LEDC;
+    // after the boot melody no further tone came out.
+    ledcAttach(_AUDIO_PIN, 1000, 10);
+    ledcWriteTone(_AUDIO_PIN, 0);
+#endif
 }
 
 void DSP_6_TYPE1::stop()
 {
+#ifdef ESP8266
     noTone(_AUDIO_PIN);
+#else
+    ledcWriteTone(_AUDIO_PIN, 0);
+#endif
 }
 
 uint8_t DSP_6_TYPE1::charTo7SegmCode(char c)
@@ -166,18 +177,39 @@ void DSP_6_TYPE1::handleStates()
     }
     else
     {
+        // Standby: no LEDs, but text still shows (boot IP and version). The
+        // module used to press POWER at every boot, which hid this.
+        uint8_t d1 = _payload[getDGT1_IDX()], d2 = _payload[getDGT2_IDX()], d3 = _payload[getDGT3_IDX()];
         clearpayload();
+        // Like the original panel (tester's photo): what the pump board
+        // sends (water temperature) plus the unit LED, dimmed, power LED off.
+        if (text.length() || standby_original)
+        {
+            _payload[getDGT1_IDX()] = d1;
+            _payload[getDGT2_IDX()] = d2;
+            _payload[getDGT3_IDX()] = d3;
+        }
+        if (standby_original)
+        {
+            _payload[getC_IDX()] |= dsp_states.unit << getC_BIT();
+            _payload[getF_IDX()] |= !dsp_states.unit << getF_BIT();
+        }
     }
     if (audiofrequency != _prev_audiofrequency)
     {
+#ifdef ESP8266
         if (audiofrequency)
             tone(getAUDIO(), audiofrequency);
         else
             noTone(getAUDIO());
+#else
+        ledcWriteTone(getAUDIO(), audiofrequency); // 0 = silent
+#endif
         _prev_audiofrequency = audiofrequency;
     }
 
-    uploadPayload(dsp_states.brightness);
+    shown_brightness = !dsp_states.power && standby_original && !text.length() ? 1 : dsp_states.brightness;
+    uploadPayload(shown_brightness);
 }
 
 /*Send _payload[] to display*/
@@ -188,6 +220,15 @@ void DSP_6_TYPE1::uploadPayload(uint8_t brightness)
         return;
 
     _dsp_last_refreshtime = millis();
+    // A full upload is ~5 ms of bit-banged busy wait. Send it only when the
+    // payload or brightness changed, plus a 1 s refresh against glitches;
+    // before, it went out every 90 ms (~6 % CPU) even with nothing new.
+    if (brightness == _uploaded_brightness && !memcmp(_payload, _uploaded, sizeof(_payload)) &&
+        millis() - _dsp_last_uploadtime < 1000)
+        return;
+    memcpy(_uploaded, _payload, sizeof(_payload));
+    _uploaded_brightness = brightness;
+    _dsp_last_uploadtime = millis();
     uint8_t enableLED = 0;
     if (brightness > 0)
     {

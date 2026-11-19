@@ -22,13 +22,17 @@ const MQTT_DEFAULTS: Required<MqttCfg> = {
 export function Mqtt() {
   const [d, setD] = useState<Required<MqttCfg> | null>(null);
   const [cloudOn, setCloudOn] = useState(false);
+  const [exclusive, setExclusive] = useState(true);
   const [pwd, setPwd] = useState('');
 
   useEffect(() => {
     postJson<MqttCfg>('/getmqtt/').then((j) => setD({ ...MQTT_DEFAULTS, ...j })).catch(() => {});
-    // The firmware runs either MQTT or the cloud link, never both - so the
-    // page needs to know whether the cloud connection currently claims the slot.
-    postJson<CloudCfg>('/getcloud/').then((j) => setCloudOn(!!j.enabled)).catch(() => {});
+    // ESP8266 runs either MQTT or the cloud link, never both - so the page needs
+    // to know whether the cloud connection currently claims the slot. ESP32 runs both.
+    postJson<CloudCfg>('/getcloud/').then((j) => {
+      setCloudOn(!!j.enabled);
+      setExclusive(j.exclusive !== false);
+    }).catch(() => {});
   }, []);
   if (!d) return <PageSkeleton cards={2} rows={7} actions={false} />;
   const set = (k: keyof MqttCfg, v: unknown) => setD({ ...d, [k]: v });
@@ -41,7 +45,7 @@ export function Mqtt() {
     : 'err';
   const state = !d.enableMqtt ? t('mqtt.state.disabled') : t(mqttStateKey(live));
   // Cloud owns the link right now: explain why MQTT can't be switched on.
-  const blocked = cloudOn && !d.enableMqtt;
+  const blocked = exclusive && cloudOn && !d.enableMqtt;
 
   const payload = () => {
     const p: Record<string, unknown> = {
@@ -80,9 +84,11 @@ export function Mqtt() {
           { label: t('mqtt.statInterval'), value: `${d.mqttTelemetryInterval} s` },
         ]}
       />
-      <p class={`note${blocked ? ' warn' : ''}`}>
-        {blocked ? t('mqtt.cloudActive') : t('link.exclusiveNote')}
-      </p>
+      {exclusive && (
+        <p class={`note${blocked ? ' warn' : ''}`}>
+          {blocked ? t('mqtt.cloudActive') : t('link.exclusiveNote')}
+        </p>
+      )}
       <Card>
         <CheckField label={t('mqtt.enable')} checked={d.enableMqtt} disabled={blocked} onChange={(v) => set('enableMqtt', v)} />
         <TextField label={t('mqtt.server')} value={d.mqttServer} onInput={(v) => set('mqttServer', v)} />

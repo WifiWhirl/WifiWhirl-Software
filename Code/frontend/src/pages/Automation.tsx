@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { postJson, postBlob, postRaw } from '../api';
+import { HttpError, postJson, postBlob, postRaw } from '../api';
 import { Card, NumberInput, Row, Segmented, Toggle } from '../components/ui';
 import { lastOther } from '../comms';
 import { confirmDialog, showToast } from '../components/feedback';
@@ -230,13 +230,21 @@ export function Automation() {
       showToast(String(e), true);
     }
   }
+  // The entry the user acted on, so the firmware can refuse when the queue moved
+  // in the meantime (an entry ran or was re-sorted) instead of hitting the
+  // neighbour. 409 = changed: reload and say so.
+  const at = (idx: number) => ({ ATCMD: queue?.CMD[idx], ATXTIME: queue?.XTIME[idx] });
+  function queueActionFailed(e: unknown) {
+    showToast(t(e instanceof HttpError && e.status === 409 ? 'auto.queueChanged' : 'common.error'), true);
+    load();
+  }
   async function edit(idx: number) {
-    try { await postJson('/editcommand/', { ...buildJson(), IDX: idx }); load(); }
-    catch { showToast(t('common.error'), true); }
+    try { await postJson('/editcommand/', { ...buildJson(), IDX: idx, ...at(idx) }); load(); }
+    catch (e) { queueActionFailed(e); }
   }
   async function del(idx: number) {
-    try { await postJson('/delcommand/', { IDX: idx }); load(); }
-    catch { showToast(t('common.error'), true); }
+    try { await postJson('/delcommand/', { IDX: idx, ...at(idx) }); load(); }
+    catch (e) { queueActionFailed(e); }
   }
   async function setQueueEnabled(enabled: boolean) {
     setQueue((q) => q ? { ...q, QEN: enabled } : q);
@@ -250,8 +258,8 @@ export function Automation() {
       nextEnabled[idx] = enabled;
       return { ...q, EN: nextEnabled };
     });
-    try { await postJson('/setcommands/', { IDX: idx, EN: enabled ? 1 : 0 }); load(); }
-    catch { showToast(t('common.error'), true); load(); }
+    try { await postJson('/setcommands/', { IDX: idx, EN: enabled ? 1 : 0, ...at(idx) }); load(); }
+    catch (e) { queueActionFailed(e); }
   }
   async function clearQueue() {
     if (!await confirmDialog(t('auto.confirmClear'), { danger: true })) return;
@@ -289,9 +297,6 @@ export function Automation() {
   const queueEnabled = queue?.QEN !== false;
   const next = queueEnabled ? nextEntry(entries) : null;
   const canSaveQueue = !queueError && (queue?.LEN ?? 0) > 0;
-  const hasPumpCycle =
-    entries.some((e) => e.cmd === FILTER_PUMP_CMD && e.value === 1) &&
-    entries.some((e) => e.cmd === FILTER_PUMP_CMD && e.value === 0);
 
   useEffect(() => {
     if (!opts.some((o) => o.v === cmd)) setCmd(4);
@@ -323,7 +328,7 @@ export function Automation() {
         </div>
       </Card>
 
-      {!hasPumpCycle && (
+      {/* always shown: several pump runs a day are fine */}
       <Card className="auto-preset">
         <div class="auto-preset-info">
           <p class="eyebrow">{t('auto.presets')}</p>
@@ -336,7 +341,6 @@ export function Automation() {
           <button class="btn secondary" onClick={addDailyPumpPreset}>{t('auto.addDailyPumpRun')}</button>
         </div>
       </Card>
-      )}
 
       <Card className="auto-planner">
         <div class="auto-section-head">

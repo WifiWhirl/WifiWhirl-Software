@@ -65,14 +65,37 @@ bool serveEmbeddedFile(const EmbeddedFile *file)
         server->sendHeader(F("Content-Encoding"), F("gzip"));
     }
 
-    // Send in chunks to feed the watchdog. sendContent_P reads PROGMEM directly,
-    // so no RAM staging buffer - keeps the ~4KB ESP8266 stack clear on big files.
-    // 1KB chunk is plenty; sendContent_P copies in HTTP_DOWNLOAD_UNIT_SIZE pieces anyway.
-    const size_t CHUNK_SIZE = 1024;
-
     server->setContentLength(fileSize);
     server->send(200, (const char *)contentTypeBuf, (const char *)"");
+    if (server->method() == HTTP_HEAD)
+        return true;
 
+#ifdef ESP8266
+    // sendContent_P() wraps PROGMEM in a StreamConstPtr with Stream's 1 s default
+    // timeout. With the low-memory lwIP build the TCP send buffer is ~1 KB, so a
+    // 100 KB file is ~100 ACK round trips; one ACK later than 1 s and the core drops
+    // the rest of that piece while we keep sending -> gzip with a hole
+    // (ERR_CONTENT_DECODING_FAILED). Own stream, own timeout, resume on short send.
+    StreamConstPtr body((const char *)data, fileSize);
+    body.setTimeout(HTTP_MAX_SEND_WAIT); // 5 s max stall per attempt
+    WiFiClient &client = server->client();
+    size_t sent = 0;
+    for (int attempt = 0; attempt < 3 && sent < fileSize && client.connected(); attempt++)
+    {
+        body.resetPointer(sent);                         // re-read bytes the core consumed but never sent
+        sent += body.sendSize(&client, fileSize - sent); // yields internally, feeds the WDT
+    }
+    if (sent < fileSize)
+    {
+        client.abort(); // RST beats a half body the browser may cache
+        Serial.println(F("HTTP > embedded file send aborted (client stalled)"));
+        return false;
+    }
+#else
+    // Send in chunks to feed the watchdog. sendContent_P reads PROGMEM directly,
+    // so no RAM staging buffer. 1KB chunk is plenty; sendContent_P copies in
+    // HTTP_DOWNLOAD_UNIT_SIZE pieces anyway.
+    const size_t CHUNK_SIZE = 1024;
     size_t bytesSent = 0;
     while (bytesSent < fileSize)
     {
@@ -81,6 +104,7 @@ bool serveEmbeddedFile(const EmbeddedFile *file)
         bytesSent += chunkLen;
         yield(); // feed watchdog during large transfers
     }
+#endif
 
     Serial.print(F("HTTP > embedded file sent: "));
     Serial.print(fileSize);

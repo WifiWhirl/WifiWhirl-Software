@@ -1,7 +1,19 @@
 #include "CIO_TYPE1.h"
 #include "ports.h"
+#include "util.h"
+#ifndef ESP8266
+#include "esp_cpu.h"
+#include "driver/gpio.h"
+#include "esp_intr_alloc.h"
+#include "soc/interrupts.h"
+#include "soc/gpio_reg.h"
+#endif
 
 CIO_6_TYPE1 *pointerToClassCIO61;
+// CLK level of the last edge acted on. A ringing bus fires the CLK interrupt
+// twice for one edge (seen ~1 us apart on an ESP32-S3 board); acting on both
+// shifted in one bit twice and broke the packet.
+static volatile bool s_clk_level = true;
 
 static void IRAM_ATTR isr_cs_type1(void)
 {
@@ -11,6 +23,61 @@ static void IRAM_ATTR isr_clk_type1(void)
 {
     pointerToClassCIO61->isr_clkHandler();
 }
+
+#ifdef ESP8266
+static void attachBus(int cs, int clk)
+{
+    attachInterrupt(digitalPinToInterrupt(cs), isr_cs_type1, CHANGE);
+    // Write on falling edge and read on rising edge
+    attachInterrupt(digitalPinToInterrupt(clk), isr_clk_type1, CHANGE);
+}
+static void detachBus(int cs, int clk)
+{
+    detachInterrupt(digitalPinToInterrupt(cs));
+    detachInterrupt(digitalPinToInterrupt(clk));
+}
+#else
+// ESP32: one own GPIO interrupt instead of attachInterrupt(). Arduino's ISR
+// service sits on level 1 behind a dispatcher and, without CONFIG_ARDUINO_ISR_IRAM,
+// is masked during every flash access, so bus edges got lost. This one is
+// level 3 (highest allowed for C handlers) and IRAM-safe. It is allocated on
+// the core that runs setup(), i.e. core 1 (APP CPU), away from Wi-Fi on core 0.
+// Pins must be GPIO0..31 (GPIO_STATUS_REG covers bank 0 only).
+static intr_handle_t s_bus_intr;
+static uint32_t s_cs_mask, s_clk_mask;
+
+static void IRAM_ATTR bus_isr(void *)
+{
+    uint32_t st = READ_PERI_REG(GPIO_STATUS_REG) & (s_cs_mask | s_clk_mask);
+    WRITE_PERI_REG(GPIO_STATUS_W1TC_REG, st);
+    // CS low = packet start: handle before the clock edge; CS high = end: after it
+    bool cs_first = !(READ_PERI_REG(GPIO_IN_REG) & s_cs_mask);
+    if ((st & s_cs_mask) && cs_first)
+        isr_cs_type1();
+    if (st & s_clk_mask)
+        isr_clk_type1();
+    if ((st & s_cs_mask) && !cs_first)
+        isr_cs_type1();
+}
+
+static void attachBus(int cs, int clk)
+{
+    s_cs_mask = 1u << cs;
+    s_clk_mask = 1u << clk;
+    gpio_set_intr_type((gpio_num_t)cs, GPIO_INTR_ANYEDGE);
+    gpio_set_intr_type((gpio_num_t)clk, GPIO_INTR_ANYEDGE);
+    if (!s_bus_intr &&
+        esp_intr_alloc(ETS_GPIO_INTR_SOURCE, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3, bus_isr, nullptr, &s_bus_intr) != ESP_OK)
+        Serial.println(F("CIO: GPIO interrupt alloc failed"));
+    gpio_intr_enable((gpio_num_t)cs); // enables it for the calling core
+    gpio_intr_enable((gpio_num_t)clk);
+}
+static void detachBus(int cs, int clk)
+{
+    gpio_intr_disable((gpio_num_t)cs);
+    gpio_intr_disable((gpio_num_t)clk);
+}
+#endif
 
 CIO_6_TYPE1::CIO_6_TYPE1()
 {
@@ -35,15 +102,12 @@ void CIO_6_TYPE1::setup(int cio_data_pin, int cio_clk_pin, int cio_cs_pin)
     pinMode(_CS_PIN, INPUT);
     pinMode(_DATA_PIN, INPUT);
     pinMode(_CLK_PIN, INPUT);
-    attachInterrupt(digitalPinToInterrupt(_CS_PIN), isr_cs_type1, CHANGE);
-    // Write on falling edge and read on rising edge
-    attachInterrupt(digitalPinToInterrupt(_CLK_PIN), isr_clk_type1, CHANGE);
+    attachBus(_CS_PIN, _CLK_PIN);
 }
 
 void CIO_6_TYPE1::stop()
 {
-    detachInterrupt(digitalPinToInterrupt(_CS_PIN));
-    detachInterrupt(digitalPinToInterrupt(_CLK_PIN));
+    detachBus(_CS_PIN, _CLK_PIN);
 }
 
 void CIO_6_TYPE1::pause_all(bool action)
@@ -51,14 +115,12 @@ void CIO_6_TYPE1::pause_all(bool action)
     if (action)
     {
         /*pause*/
-        detachInterrupt(digitalPinToInterrupt(_CS_PIN));
-        detachInterrupt(digitalPinToInterrupt(_CLK_PIN));
+        detachBus(_CS_PIN, _CLK_PIN);
     }
     else
     {
         /*resume*/
-        attachInterrupt(digitalPinToInterrupt(_CS_PIN), isr_cs_type1, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(_CLK_PIN), isr_clk_type1, CHANGE);
+        attachBus(_CS_PIN, _CLK_PIN);
     }
 }
 
@@ -73,10 +135,9 @@ void CIO_6_TYPE1::updateStates()
     // Critical section: copy volatile ISR data to local scope atomically
     noInterrupts();
     _new_packet_available = false;
-    uint8_t local_packet_error = _packet_error;
-    _packet_error = 0;
+    uint8_t local_packet_error = _ready_packet_error;
     uint8_t local_payload[11];
-    memcpy(local_payload, (const void *)_payload, sizeof(local_payload));
+    memcpy(local_payload, (const void *)_ready_payload, sizeof(local_payload));
     uint8_t local_brightness = _brightness;
     interrupts();
 
@@ -97,10 +158,12 @@ void CIO_6_TYPE1::updateStates()
     // Store last valid temperature to enable rate-of-change validation
     static uint8_t last_valid_temperature = 25;
     static bool first_temperature_reading = true; // Bypass validation for first reading
+    static uint32_t last_valid_temperature_ms = 0;
     // A °C<->°F switch makes the reading legitimately jump ~30-50°, which the
     // rate-of-change check below would reject forever (locking TMP at the stale
     // value). Treat a unit change like a fresh start so the next reading is taken.
     static uint8_t last_unit = cio_states.unit;
+    static uint8_t temperature_unit = 255; // unit of the last accepted reading, 255 = none yet
     if (cio_states.unit != last_unit)
     {
         last_unit = cio_states.unit;
@@ -133,6 +196,16 @@ void CIO_6_TYPE1::updateStates()
     /*If both leds are out, don't change (When TIMER is pressed)*/
     if (_raw_payload_from_cio[C_IDX] & (1 << C_BIT) || _raw_payload_from_cio[F_IDX] & (1 << F_BIT))
         cio_states.unit = (_raw_payload_from_cio[C_IDX] & (1 << C_BIT)) > 0;
+    // After a unit switch the display shows the target for a while, so the next
+    // reading comes seconds later. Until then TMP kept the old unit's number:
+    // 73 "°C" in the web UI and on MQTT (seen on a real unit). Convert it in the
+    // same pass that learns the new unit.
+    if (temperature_unit <= 1 && temperature_unit != cio_states.unit)
+    {
+        cio_states.temperature = round(cio_states.unit ? F2C(cio_states.temperature) : C2F(cio_states.temperature));
+        last_valid_temperature = cio_states.temperature;
+        temperature_unit = cio_states.unit;
+    }
     cio_states.bubbles = (_raw_payload_from_cio[AIR_IDX] & (1 << AIR_BIT)) > 0;
     cio_states.heatgrn = (_raw_payload_from_cio[GRNHTR_IDX] & (1 << GRNHTR_BIT)) > 0;
     cio_states.heatred = (_raw_payload_from_cio[REDHTR_IDX] & (1 << REDHTR_BIT)) > 0;
@@ -155,25 +228,60 @@ void CIO_6_TYPE1::updateStates()
     if (cio_states.char1 == '*' || cio_states.char2 == '*' || cio_states.char3 == '*')
         return;
     // Error or user plays with timer button - exit (error notification can be dealt with in main.cpp or elsewhere)
+    static uint32_t error_seen_ms;
+    // "GCF": the pump found a ground fault. A 7-segment G reads as a 6, so the
+    // frame decodes as "6cf". Not an E-number; reported as error 100 (shown as GCF).
+    if ((cio_states.char1 == '6' || cio_states.char1 == 'g') && cio_states.char2 == 'c' && cio_states.char3 == 'f')
+    {
+        cio_states.error = ERROR_GCF;
+        error_seen_ms = millis();
+        return;
+    }
     if (cio_states.char1 == 'e')
     {
-        String errornumber;
-        errornumber = (char)cio_states.char2;
-        errornumber += (char)cio_states.char3;
-        cio_states.error = (uint8_t)(errornumber.toInt());
+        // Only "E" plus two digits is an error code. Without digits (a blinking
+        // or half-drawn display) toInt() gave 0 and the error flickered between
+        // 0 and its number (upstream 1d93c76).
+        if (!isdigit(cio_states.char2) || !isdigit(cio_states.char3))
+            return;
+        cio_states.error = (uint8_t)((cio_states.char2 - '0') * 10 + (cio_states.char3 - '0'));
+        error_seen_ms = millis();
         return;
     }
     if (cio_states.char3 == 'H' || cio_states.char3 == ' ')
         return;
 
-    /* Reset error state */
-    cio_states.error = 0;
+    /* Reset error state, but only 5 s after the last error frame: a single
+       normal frame in between must not clear it (upstream 8b8fa95) */
+    if (cio_states.error && millis() - error_seen_ms > 5000)
+        cio_states.error = 0;
 
     // capture TARGET after UP/DOWN has been pressed...
+    // the pump board switches the display to the target some frames
+    // after the press. Reading at once took the water temperature as the
+    // target, and the boot restore then walked UP/DOWN from that wrong value.
+    // fixed 250 ms settle, the real board's reaction time is unmeasured.
+    static uint32_t buttonPressTime;
+    static bool upDownHeld = false;
     if ((_button_code == getButtonCode(UP)) || (_button_code == getButtonCode(DOWN)))
     {
+        if (!upDownHeld)
+        {
+            upDownHeld = true;
+            buttonPressTime = millis();
+        }
         buttonReleaseTime = millis(); // updated as long as buttons are pressed
         if (cio_states.power && !cio_states.locked)
+            capturePhase = (millis() - buttonPressTime) < 250 ? uncertain : readtarget;
+    }
+    else
+    {
+        upDownHeld = false;
+        // the module taps UP/DOWN shorter than 250 ms (a held key
+        // auto-repeats on the panel), so the target is read after the release
+        // too: from 250 ms after the press until the 2 s timeout below.
+        if (capturePhase == uncertain && cio_states.power && !cio_states.locked &&
+            buttonReleaseTime != 0 && (millis() - buttonPressTime) >= 250 && (millis() - buttonReleaseTime) <= 2000)
             capturePhase = readtarget;
     }
 
@@ -213,6 +321,12 @@ void CIO_6_TYPE1::updateStates()
             return; // Exit if temperature is outside reasonable operating range
         }
         
+        // Standby shows a blank display, so no reading passes for hours while the
+        // water cools; the jump check below then rejected the real value forever.
+        // After 30 s without a valid reading, start over.
+        if (millis() - last_valid_temperature_ms > 30000)
+            first_temperature_reading = true;
+
         // VALIDATION LAYER 3: 
         if (parsedValue == cio_states.target && !first_temperature_reading)
         {
@@ -238,8 +352,10 @@ void CIO_6_TYPE1::updateStates()
         
         // ALL VALIDATIONS PASSED - Safe to update actual temperature
         last_valid_temperature = parsedValue;
+        last_valid_temperature_ms = millis();
         first_temperature_reading = false;
         cio_states.temperature = parsedValue;
+        temperature_unit = cio_states.unit;
         cio_states.tmp_ok = true;
     }
 
@@ -284,6 +400,12 @@ void IRAM_ATTR CIO_6_TYPE1::eopHandler(void)
         {
             _brightness = msg;
             _CIO_cmd_matches = 0;
+            // Hand over a complete copy: the next frame writes _payload byte by
+            // byte, and a slow loop() could copy a mix of two frames.
+            for (int i = 0; i < 11; i++)
+                _ready_payload[i] = _payload[i];
+            _ready_packet_error = _packet_error;
+            _packet_error = 0;
             _new_packet_available = true;
         }
         if (_CIO_cmd_matches == 2)
@@ -296,17 +418,11 @@ void IRAM_ATTR CIO_6_TYPE1::eopHandler(void)
 
 // CIO comm
 // packet start
-// arduino core 3.0.1+ should work with digitalWrite() now.
 // CS line toggles
 void IRAM_ATTR CIO_6_TYPE1::isr_packetHandler()
 {
-#ifdef ESP8266
     if ((READ_PERI_REG(PIN_IN) & (1 << _CS_PIN)))
     {
-#else
-    if (digitalRead(_CS_PIN))
-    {
-#endif
         // end of packet (CS is idle at high)
         _packet_transm_active = false;
         _data_is_output = false;
@@ -316,6 +432,7 @@ void IRAM_ATTR CIO_6_TYPE1::isr_packetHandler()
     {
         // packet start (CS active low)
         _packet_transm_active = true;
+        s_clk_level = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
     }
 }
 
@@ -330,37 +447,30 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         return;
         // CS line is active, so send/receive bits on DATA line
 
-#ifdef ESP8266
     bool clockstate = READ_PERI_REG(PIN_IN) & (1 << _CLK_PIN);
-#else
-    bool clockstate = digitalRead(_CLK_PIN);
-#endif
-    // shift out bits on low clock (falling edge)
+    if (clockstate == s_clk_level)
+        return; // same level as the last handled edge: ringing, not a new edge
+    s_clk_level = clockstate;
+#ifdef ESP8266
+    // shift out bits on low clock (falling edge). ESP32: _sendButtonPolled()
     if (!clockstate & _data_is_output)
     {
         // send BTN_OUT
         if (_button_code & (1 << _send_bit))
         {
 // digitalWrite(_DATA_PIN, HIGH);
-#ifdef ESP8266
             WRITE_PERI_REG(PIN_OUT_SET, 1 << _DATA_PIN);
-#else
-            digitalWrite(_DATA_PIN, 1);
-#endif
         }
         else
         {
 // digitalWrite(_DATA_PIN, LOW);
-#ifdef ESP8266
             WRITE_PERI_REG(PIN_OUT_CLEAR, 1 << _DATA_PIN);
-#else
-            digitalWrite(_DATA_PIN, 0);
-#endif
         }
         _send_bit++;
         if (_send_bit > 15)
             _send_bit = 0;
     }
+#endif
 
     // read bits on high clock (rising edge)
     if (clockstate & !_data_is_output)
@@ -369,11 +479,7 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         //_received_byte = (_received_byte << 1) | digitalRead(_DATA_PIN);
         //_received_byte = (_received_byte << 1) | ( ( (READ_PERI_REG(PIN_IN) & (1 << _DATA_PIN)) ) > 0);
         //_received_byte = (_received_byte >> 1) | digitalRead(_DATA_PIN) << 7;
-#ifdef ESP8266
         _received_byte = (_received_byte >> 1) | (((READ_PERI_REG(PIN_IN) & (1 << _DATA_PIN))) > 0) << 7;
-#else
-        _received_byte = (_received_byte >> 1) | digitalRead(_DATA_PIN) << 7;
-#endif
         _bit_count++;
         if (_bit_count == 8)
         {
@@ -397,10 +503,9 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
                 _send_bit = 8;
                 _data_is_output = true;
                 // pinMode(_DATA_PIN, OUTPUT);
-#ifdef ESP8266
                 WRITE_PERI_REG(PIN_DIR_OUTPUT, 1 << _DATA_PIN);
-#else
-                pinMode(_DATA_PIN, OUTPUT);
+#ifndef ESP8266
+                _sendButtonPolled();
 #endif
             }
             CIO_CMD_LOG[CIO_CMD_LOG_index++] = (uint8_t)_received_byte;
@@ -408,6 +513,55 @@ void IRAM_ATTR CIO_6_TYPE1::isr_clkHandler(void)
         }
     }
 }
+
+#ifndef ESP8266
+// ESP32: the GPIO interrupt latency is close to the bus clock half period, so
+// an edge-per-interrupt answer lost ~1.6 % of the edges and the pump read
+// phantom buttons. Answer the 16 button bits in one go instead, polling CLK
+// in the register. Called from the CLK ISR right after DSP_CMD2_DATAREAD;
+// stops early on CS high or after ~2 ms (at 240 MHz) if the clock stalls.
+// Wait until CLK sits at `high` for ~2 us (480 cycles at 240 MHz), so the
+// ringing right after an edge is not taken for the next edge. false on CS high
+// (end of packet) or when the whole answer took longer than ~2 ms.
+static inline bool IRAM_ATTR waitClk(uint32_t clk, uint32_t cs, bool high, uint32_t start)
+{
+    for (;;)
+    {
+        uint32_t in = READ_PERI_REG(PIN_IN);
+        if ((in & cs) || esp_cpu_get_cycle_count() - start > 480000)
+            return false;
+        if (((in & clk) != 0) != high)
+            continue;
+        uint32_t t = esp_cpu_get_cycle_count();
+        while (((READ_PERI_REG(PIN_IN) & clk) != 0) == high)
+            if (esp_cpu_get_cycle_count() - t > 480)
+                return true;
+    }
+}
+
+void IRAM_ATTR CIO_6_TYPE1::_sendButtonPolled()
+{
+    const uint32_t clk = 1u << _CLK_PIN, cs = 1u << _CS_PIN, data = 1u << _DATA_PIN;
+    const uint32_t start = esp_cpu_get_cycle_count();
+    const uint16_t code = _button_code;
+    uint8_t bit = 8; // 8..15 then 0..7, same order as the ESP8266 path
+    int n = 0;
+    for (; n < 16; n++)
+    {
+        if (!waitClk(clk, cs, false, start)) // falling edge: put the bit out
+            goto done;
+        WRITE_PERI_REG((code & (1u << bit)) ? PIN_OUT_SET : PIN_OUT_CLEAR, data);
+        bit = (bit + 1) & 15;
+        if (!waitClk(clk, cs, true, start)) // pump samples on the rising edge
+            goto done;
+    }
+done:
+    // the edges polled above are handled: drop their pending interrupt
+    WRITE_PERI_REG(GPIO_STATUS_W1TC_REG, clk);
+    s_clk_level = READ_PERI_REG(PIN_IN) & clk;
+    return;
+}
+#endif
 
 char CIO_6_TYPE1::_getChar(uint8_t value)
 {

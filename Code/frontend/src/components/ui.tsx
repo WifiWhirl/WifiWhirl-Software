@@ -32,7 +32,7 @@ export function Row({ label, htmlFor, children }: { label?: ComponentChildren; h
  * @brief One step of the horizontal ss-timeline (dot + label + value).
  *
  * Wrap steps in `.ss-timeline` > `.ss-timeline-bar` + `.ss-timeline-steps`
- * (see SmartSchedule/Expert); `--ss-progress` drives the bar fill.
+ * (see SmartSchedule/Expert); `--ss-step` (0..3, the dot the bar reaches) drives the bar fill.
  */
 export function TimelineStep({ label, value, active, done }: { label: string; value: string; active?: boolean; done?: boolean }) {
   return (

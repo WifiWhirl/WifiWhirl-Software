@@ -2,17 +2,174 @@
 #include "api/api.h"
 #include "web/web.h"
 
-static String mqttTopicMessage;
-static String mqttTopicTimes;
-static String mqttTopicOther;
-static String mqttTopicStatus;
-static String mqttTopicMac;
-static String mqttTopicConnCount;
-static String mqttTopicCommand;
-static String mqttTopicCommandBatch;
-static String mqttTopicRebootTime;
-static String mqttTopicRebootReason;
-static String mqttTopicButton;
+// Topics are base + suffix, built when used: 13 cached Strings held ~550 B of
+// heap for good. One shared buffer, so never keep two results at the same time.
+static const char *mqttTopic(const __FlashStringHelper *suffix)
+{
+    static char buf[160]; // base topic <= 128 (isValidMqttBaseTopic) + longest suffix
+    strlcpy(buf, mqttBaseTopic.c_str(), sizeof(buf));
+    size_t len = strlen(buf); // strncpy_P: strncat_P is not available on every build target
+    strncpy_P(buf + len, (PGM_P)suffix, sizeof(buf) - len - 1);
+    buf[sizeof(buf) - 1] = '\0';
+    return buf;
+}
+
+// Smart Schedule from Home Assistant. Temperature, time and "after"
+// are staged here and only applied on "start", as the tester asked; the
+// state topic shows the staged values (or the running schedule's).
+// staged values live in RAM only, a reboot drops unstarted edits
+static uint8_t ssPendTemp;  // °C, 0 = not set
+static time_t ssPendTime;   // epoch, 0 = not set
+static uint8_t ssPendAfter; // 0 everything off, 1 filter pump only, 2 heater holds
+static const char SS_AFTER0[] PROGMEM = "Alles aus";
+static const char SS_AFTER1[] PROGMEM = "Nur Filterpumpe";
+static const char SS_AFTER2[] PROGMEM = "Heizung hält Temperatur";
+static const char *const SS_AFTER[] PROGMEM = {SS_AFTER0, SS_AFTER1, SS_AFTER2};
+
+void publishSmartSchedule(bool onlyIfChanged)
+{
+    if (!mqttClient || !mqttClient->connected())
+        return;
+    // filled directly: building the 1 KB document on the stack, serialising it
+    // and parsing it back through a filter cost ~1.6 KB of the 4 KB loop stack
+    DynamicJsonDocument ss(1024);
+    bwc->buildJSONSmartSchedule(ss.to<JsonObject>());
+    bool active = ss["ACTIVE"] | false;
+    if (active && !ssPendTemp)
+    {
+        ssPendTemp = ss["TARGETTEMP"] | 0;
+        ssPendTime = ss["TARGETTIME"] | (time_t)0;
+        ssPendAfter = (ss["KEEPON"] | false) ? 2 : (ss["KEEPPUMP"] | false) ? 1 : 0;
+    }
+    StaticJsonDocument<256> out;
+    out[F("ACTIVE")] = active;
+    out[F("TEMP")] = ssPendTemp ? ssPendTemp : 38;
+    char buf[24] = "";
+    if (ssPendTime)
+    {
+        struct tm tmv;
+        localtime_r(&ssPendTime, &tmv);
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tmv);
+    }
+    out[F("TIME")] = buf;
+    // same target as an ISO UTC time for Home Assistant's date/time picker
+    if (ssPendTime)
+    {
+        struct tm tmv;
+        gmtime_r(&ssPendTime, &tmv);
+        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tmv);
+        out[F("TS")] = buf;
+    }
+    else
+        out[F("TS")] = nullptr;
+    out[F("AFTER")] = FPSTR((PGM_P)pgm_read_ptr(&SS_AFTER[ssPendAfter]));
+    time_t start = ss["STARTTIME"] | (time_t)0;
+    if (active && start > 0)
+    {
+        struct tm tmv;
+        gmtime_r(&start, &tmv);
+        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tmv);
+        out[F("START")] = buf;
+    }
+    else
+        out[F("START")] = nullptr;
+    out[F("COST")] = active ? (float)(ss["ESTIMATED_COST"] | 0.0f) : 0.0f;
+    String payload;
+    serializeJson(out, payload);
+    // a pump state change re-sent the unchanged schedule every time
+    static uint32_t lastHash = 0;
+    uint32_t h = 2166136261u; // FNV-1a
+    for (size_t i = 0; i < payload.length(); i++)
+        h = (h ^ (uint8_t)payload[i]) * 16777619u;
+    if (onlyIfChanged && h == lastHash)
+        return;
+    if (mqttClient->publish(mqttTopic(F("/smartschedule")), payload.c_str(), true))
+        lastHash = h;
+}
+
+static void handleScheduleSet(JsonObjectConst o)
+{
+    if (o.containsKey(F("TEMP")))
+    {
+        int v = o[F("TEMP")] | 0;
+        if (v >= 20 && v <= 40)
+            ssPendTemp = v;
+    }
+    if (o.containsKey(F("TIME")))
+    {
+        struct tm tmv = {};
+        if (sscanf(o[F("TIME")] | "", "%d-%d-%d %d:%d", &tmv.tm_year, &tmv.tm_mon, &tmv.tm_mday, &tmv.tm_hour, &tmv.tm_min) == 5)
+        {
+            tmv.tm_year -= 1900;
+            tmv.tm_mon -= 1;
+            tmv.tm_isdst = -1;
+            ssPendTime = mktime(&tmv); // local time of the module's timezone
+        }
+    }
+    if (o.containsKey(F("EPOCH"))) // from the date/time picker: Unix time, no time zone guessing
+    {
+        time_t t = o[F("EPOCH")] | (time_t)0;
+        if (t > 1600000000)
+            ssPendTime = t;
+    }
+    if (o.containsKey(F("AFTER")))
+    {
+        const char *a = o[F("AFTER")] | "";
+        for (uint8_t i = 0; i < 3; i++)
+            if (!strcmp_P(a, (PGM_P)pgm_read_ptr(&SS_AFTER[i])))
+                ssPendAfter = i;
+    }
+    const char *action = o[F("ACTION")] | "";
+    if (!strcmp_P(action, PSTR("start")) && ssPendTime)
+        bwc->setSmartSchedule(ssPendTime, ssPendTemp ? ssPendTemp : 38, ssPendAfter == 2, 0, ssPendAfter == 1);
+    else if (!strcmp_P(action, PSTR("cancel")))
+    {
+        bwc->cancelSmartSchedule();
+        ssPendTemp = 0;
+        ssPendTime = 0;
+        ssPendAfter = 0;
+    }
+    publishSmartSchedule(false);
+}
+
+// on a weak link a write can time out half way. PubSubClient then
+// returns false but keeps the socket, so the next publish follows the packet
+// fragment and the broker reads garbage ("malformed packet", mixed topics and
+// payloads) and drops the client. Close on a short write instead: the broker
+// only sees a cut-off connection, and mqttConnect() reconnects as usual.
+class MqttWiFiClient : public WiFiClient
+{
+public:
+    using WiFiClient::write;
+    size_t write(const uint8_t *buf, size_t size) override
+    {
+        // A write gives up after 5 s without an ACK. After a short WiFi hiccup
+        // TCP backs off (1, 2, 4, 8 s) before it resends, so 5 s cut the
+        // connection on a link that was fine again (tester: 2 drops in
+        // 80 min, free heap 18 KB). Keep sending the rest for up to 15 s.
+        // blocks loop() while the link is stalled, nothing gets out then anyway
+        uint32_t t0 = millis();
+        size_t sent = WiFiClient::write(buf, size);
+        uint32_t start = millis();
+        while (sent < size && connected() && millis() - start < 10000)
+        {
+            sent += WiFiClient::write(buf + sent, size - sent);
+            yield();
+        }
+        uint32_t took = millis() - t0;
+        if (took > mqttLongestWriteMs)
+            mqttLongestWriteMs = took;
+        if (sent == size && took >= 5000)
+            mqttRescuedWrites++; // the old 5 s limit would have dropped this one
+        if (sent != size && connected()) // not connected: nothing reached the broker
+        {
+            Serial.printf_P(PSTR("MQTT: short write (%u of %u bytes), closing connection\n"), (unsigned)sent, (unsigned)size);
+            mqttShortWrites++;
+            stop();
+        }
+        return sent;
+    }
+};
 
 static bool isPrintableNoControl(const String &value, size_t maxLen, bool allowEmpty)
 {
@@ -93,28 +250,9 @@ static bool validateMqttSettings(bool wantMqtt, const String &serverName, int po
 
 /**
  * Accessor for the MQTT button topic (used by the main loop)
- * @return reference to the cached button topic string
+ * @return the button topic (shared buffer, see mqttTopic())
  */
-const String& getMqttTopicButton() { return mqttTopicButton; }
-
-/**
- * Build all MQTT topic strings from the configured base topic
- * Must be called after the base topic is loaded/changed
- */
-void initMqttTopics()
-{
-    mqttTopicMessage      = mqttBaseTopic + "/message";
-    mqttTopicTimes        = mqttBaseTopic + "/times";
-    mqttTopicOther        = mqttBaseTopic + "/other";
-    mqttTopicStatus       = mqttBaseTopic + "/Status";
-    mqttTopicMac          = mqttBaseTopic + "/MAC_Address";
-    mqttTopicConnCount    = mqttBaseTopic + "/MQTT_Connect_Count";
-    mqttTopicCommand      = mqttBaseTopic + "/command";
-    mqttTopicCommandBatch = mqttBaseTopic + "/command_batch";
-    mqttTopicRebootTime   = mqttBaseTopic + "/reboot_time";
-    mqttTopicRebootReason = mqttBaseTopic + "/reboot_reason";
-    mqttTopicButton       = mqttBaseTopic + "/button";
-}
+const char *getMqttTopicButton() { return mqttTopic(F("/button")); }
 
 /**
  * Send STATES and TIMES to MQTT
@@ -124,21 +262,30 @@ void initMqttTopics()
  * compatible I choose to start a new topic "/times"
  * @author 877dev
  */
-void sendMQTT()
+// full: the telemetry tick and the connect publish everything. A pump state
+// change (newData) only sends STATES and TIMES, which carry what changed, and
+// the schedule when its content changed. OTHER (RSSI, IP, firmware) waits for
+// the tick: it was 4 retained publishes with their JSON on every display blink.
+void sendMQTT(bool full)
 {
     String json;
     json.reserve(320);
 
     bwc->getJSONStates(json);
-    mqttClient->publish(mqttTopicMessage.c_str(), json.c_str(), true);
+    mqttClient->publish(mqttTopic(F("/message")), json.c_str(), true);
 
     json.clear();
     bwc->getJSONTimes(json);
-    mqttClient->publish(mqttTopicTimes.c_str(), json.c_str(), true);
+    mqttClient->publish(mqttTopic(F("/times")), json.c_str(), true);
 
-    json.clear();
-    getOtherInfo(json);
-    mqttClient->publish(mqttTopicOther.c_str(), json.c_str(), true);
+    if (full)
+    {
+        json.clear();
+        getOtherInfo(json);
+        mqttClient->publish(mqttTopic(F("/other")), json.c_str(), true);
+    }
+
+    publishSmartSchedule(!full);
 }
 
 /**
@@ -275,7 +422,7 @@ void handleSetMqtt()
         return;
 
     StaticJsonDocument<512> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -362,7 +509,7 @@ void handleSetMqtt()
     }
 
     useMqtt = nextUseMqtt;
-    enableMqtt = useMqtt;
+    enableMqtt = useMqtt && mqttAllowed();
     mqttServer = nextMqttServer;
     mqttPort = nextMqttPort;
     mqttUsername = nextMqttUsername;
@@ -431,6 +578,15 @@ void handleSetMqtt()
 
     // Save settings before responding
     saveMqtt();
+
+    // ESP8266 cloud mode replaces MQTT (see main.cpp): keep the settings for when
+    // the cloud is switched off, but don't start, stop or restart anything.
+    if (!mqttAllowed())
+    {
+        Serial.println(F("MQTT: Settings saved (inactive in cloud mode)"));
+        server->send(200, F("text/plain"), "");
+        return;
+    }
 
     // Restart ESP if:
     // 1. MQTT is being enabled (disabled -> enabled): Clean boot ensures proper discovery
@@ -507,14 +663,13 @@ void startMqtt()
         Serial.printf("IRamheap %d\n", ESP.getFreeHeap());
         Serial.println(F("startmqtt"));
         if (!aWifiClient)
-            aWifiClient = new WiFiClient;
+            aWifiClient = new MqttWiFiClient;
         if (!mqttClient)
             mqttClient = new PubSubClient(*aWifiClient);
     }
 
     // load mqtt credential file if it exists, and update default strings
     loadMqtt();
-    initMqttTopics();
 
     // disconnect in case we are already connected
     mqttClient->disconnect();
@@ -528,7 +683,10 @@ void startMqtt()
         Serial.println(F("MQTT > Buffer size set to 768 bytes"));
     }
     mqttClient->setKeepAlive(60);
-    mqttClient->setSocketTimeout(30);
+    // How long connect() waits for CONNACK (and a packet read for its bytes).
+    // mqttConnect() runs in loop() every 60 s: with 30 s a broker that accepts
+    // TCP but never answers froze the web UI half of every minute.
+    mqttClient->setSocketTimeout(5);
     // set callback details
     // this function is called automatically whenever a message arrives on a subscribed topic.
     mqttClient->setCallback(mqttCallback);
@@ -552,7 +710,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     // terminator is needed.
     String topicStr(topic);
 
-    if (topicStr.equals(mqttTopicCommand))
+    if (topicStr.equals(mqttTopic(F("/command"))))
     {
         StaticJsonDocument<256> doc;
         DeserializationError error = deserializeJson(doc, payload, length);
@@ -564,10 +722,17 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
         command_que_item item;
         String parseError;
         if (parseCommandValidated(doc.as<JsonVariantConst>(), item, parseError))
-            bwc->add_command(item);
+            bwc->add_live_command(item);
     }
 
-    if (topicStr.equals(mqttTopicCommandBatch))
+    if (topicStr.equals(mqttTopic(F("/smartschedule/set"))))
+    {
+        StaticJsonDocument<192> doc;
+        if (!deserializeJson(doc, payload, length) && doc.is<JsonObject>())
+            handleScheduleSet(doc.as<JsonObjectConst>());
+        return;
+    }
+    if (topicStr.equals(mqttTopic(F("/command_batch"))))
     {
         DynamicJsonDocument doc(1024);
         DeserializationError error = deserializeJson(doc, payload, length);
@@ -582,7 +747,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
             command_que_item item;
             String parseError;
             if (parseCommandValidated(commandItem, item, parseError))
-                bwc->add_command(item);
+                bwc->add_live_command(item);
         }
     }
 }
@@ -590,6 +755,16 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 /**
  * Connect to MQTT broker, publish Status/MAC/count, and subscribe to keypad topic.
  */
+// only once the boot time is known. Before NTP the string was empty,
+// HA got "Z" and logged "'None' has no attribute ..." until the next connect.
+// setBootTimeFromClock() calls this again when the clock becomes valid.
+void publishRebootTime()
+{
+    if (!bwc->reboot_time_t || !mqttClient || !mqttClient->connected())
+        return;
+    mqttClient->publish(mqttTopic(F("/reboot_time")), (bwc->reboot_time_str + 'Z').c_str(), true);
+}
+
 void mqttConnect()
 {
     // do not connect if MQTT is not enabled
@@ -605,7 +780,7 @@ void mqttConnect()
             mqttClientId.c_str(),
             mqttUsername.c_str(),
             mqttPassword.c_str(),
-            mqttTopicStatus.c_str(),
+            mqttTopic(F("/Status")),
             0,
             1,
             "Dead"))
@@ -615,36 +790,36 @@ void mqttConnect()
         updateMqttTimer.attach(mqttTelemetryInterval, []
                                { sendMQTTFlag = true; });
 
-        mqttClient->publish(mqttTopicStatus.c_str(), "Alive", true);
-        mqttClient->publish(mqttTopicMac.c_str(), WiFi.macAddress().c_str(), true);
-        mqttClient->publish(mqttTopicConnCount.c_str(), String(mqtt_connect_count).c_str(), true);
+        mqttClient->publish(mqttTopic(F("/Status")), "Alive", true);
+        mqttClient->publish(mqttTopic(F("/MAC_Address")), WiFi.macAddress().c_str(), true);
+        mqttClient->publish(mqttTopic(F("/MQTT_Connect_Count")), String(mqtt_connect_count).c_str(), true);
         mqttClient->loop();
 
-        mqttClient->subscribe(mqttTopicCommand.c_str());
-        mqttClient->subscribe(mqttTopicCommandBatch.c_str());
+        mqttClient->subscribe(mqttTopic(F("/command")));
+        mqttClient->subscribe(mqttTopic(F("/command_batch")));
+        mqttClient->subscribe(mqttTopic(F("/smartschedule/set")));
         mqttClient->loop();
 
-        mqttClient->publish(mqttTopicRebootTime.c_str(), (bwc->reboot_time_str + 'Z').c_str(), true);
+        publishRebootTime();
 #ifdef ESP8266
-        mqttClient->publish(mqttTopicRebootReason.c_str(), ESP.getResetReason().c_str(), true);
+        mqttClient->publish(mqttTopic(F("/reboot_reason")), ESP.getResetReason().c_str(), true);
 #else
-        mqttClient->publish(mqttTopicRebootReason.c_str(), String((int)esp_reset_reason()).c_str(), true);
+        mqttClient->publish(mqttTopic(F("/reboot_reason")), String((int)esp_reset_reason()).c_str(), true);
 #endif
         String buttonname;
         buttonname.reserve(32);
         bwc->getButtonName(buttonname);
-        mqttClient->publish(mqttTopicButton.c_str(), buttonname.c_str(), true);
+        mqttClient->publish(mqttTopic(F("/button")), buttonname.c_str(), true);
         mqttClient->loop();
-        sendMQTT();
+        sendMQTT(true);
 
         // Only run HA discovery on FIRST connection after boot
         // NOT on every reconnect (would waste memory and cause instability)
         if (!haDiscoveryHasRunOnce)
         {
             Serial.println(F("HA"));
-            setupHA();
+            haDiscoveryHasRunOnce = setupHA();
             Serial.println(F("done"));
-            haDiscoveryHasRunOnce = true;
         }
         else
         {

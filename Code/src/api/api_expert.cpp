@@ -41,6 +41,16 @@ void handleStartHlCal()
     if (!requireExpertMode())
         return;
 
+    // {"AT": epoch} plans a single start instead
+    StaticJsonDocument<64> doc;
+    if (!deserializeJson(doc, getRequestBody()) && doc.containsKey(F("AT")))
+    {
+        if (bwc->planHeatLossCalibration(doc[F("AT")].as<uint64_t>()))
+            server->send(200, F("application/json"), F("{\"planned\":true}"));
+        else
+            server->send(400, F("text/plain"), F("plan"));
+        return;
+    }
     String err;
     if (bwc->startHeatLossCalibration(err))
         server->send(200, F("application/json"), F("{\"started\":true}"));
@@ -55,8 +65,8 @@ void handleCancelHlCal()
 {
     if (!checkHttpPost(server->method()))
         return;
-    if (!requireExpertMode())
-        return;
+    // No expert-mode check: the dashboard offers "cancel" to anyone who sees
+    // the tub locked by a running calibration. Starting stays expert.
 
     bwc->cancelHeatLossCalibration();
     server->send(200, F("application/json"), F("{\"cancelled\":true}"));
@@ -75,7 +85,7 @@ void handleSetHeatLoss()
         return;
 
     StaticJsonDocument<64> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error || !doc.containsKey(F("HLOSS")))
     {

@@ -1,5 +1,7 @@
 #include "sys/sys.h"
 #include "web/web.h"
+#include "api/api.h"
+#include "build_ver.h"
 #include <ArduinoJson.h>
 #include <initializer_list>
 
@@ -125,6 +127,18 @@ namespace
                 doc[secretKey] = F("***redacted***");
             }
         }
+        // Also any key that looks like a secret: older firmware left fields such
+        // as cloudApiKey in device.json, and the package went out with them in
+        // plain text (seen on a tester's unit).
+        for (JsonPair kv : doc.as<JsonObject>())
+        {
+            String k = kv.key().c_str();
+            k.toLowerCase();
+            if (k.indexOf(F("pwd")) >= 0 || k.indexOf(F("password")) >= 0 || k.indexOf(F("psk")) >= 0 ||
+                k.indexOf(F("key")) >= 0 || k.indexOf(F("hash")) >= 0 || k.indexOf(F("salt")) >= 0 ||
+                k.indexOf(F("secret")) >= 0 || k.indexOf(F("token")) >= 0)
+                kv.value().set(F("***redacted***"));
+        }
         if (doc.containsKey("apSsid"))
         {
             doc["apSsid"] = anonymizeSsid(doc["apSsid"].as<String>());
@@ -209,6 +223,8 @@ void handleSupportPackage()
 
     json += F("{\"firmware\":");
     appendJsonString(json, FW_VERSION);
+    json += F(",\"build\":");
+    appendJsonString(json, BUILD_LABEL);
     json += F(",\"WifiWhirl Model\":"); // full build env, incl. any "_seed" suffix
     appendJsonString(json, PIO_ENV_NAME);
     json += F(",\"model\":");
@@ -265,6 +281,14 @@ void handleSupportPackage()
     appendJsonString(json, WiFi.dnsIP(1).toString());
     json += F(",\"mac\":");
     appendJsonString(json, WiFi.macAddress());
+    // lastDropReason is the ESP8266 station disconnect reason
+    // (e.g. 200 beacon timeout, 201 AP not found, 202 auth fail, 8 AP left)
+    json += F(",\"drops\":");
+    json += String(wifiDrops.count);
+    json += F(",\"lastDropAgoS\":");
+    json += wifiDrops.count ? String((millis() - wifiDrops.lastMs) / 1000) : String(F("null"));
+    json += F(",\"lastDropReason\":");
+    json += String(wifiDrops.lastCode);
     json += F("}");
     flush();
 
@@ -272,7 +296,38 @@ void handleSupportPackage()
     json += enableMqtt ? F("true") : F("false");
     json += F(",\"connected\":");
     json += (mqttClient && mqttClient->connected()) ? F("true") : F("false");
+    // why it went away. lastDropState: -4 keep-alive timeout,
+    // -3 connection lost, -2 connect failed, -1 disconnected
+    json += F(",\"connectCount\":");
+    json += String(mqtt_connect_count);
+    json += F(",\"drops\":");
+    json += String(mqttDrops.count);
+    json += F(",\"lastDropAgoS\":");
+    json += mqttDrops.count ? String((millis() - mqttDrops.lastMs) / 1000) : String(F("null"));
+    json += F(",\"lastDropState\":");
+    json += String(mqttDrops.lastCode);
+    json += F(",\"shortWrites\":");
+    json += String(mqttShortWrites);
+    json += F(",\"rescuedWrites\":");
+    json += String(mqttRescuedWrites);
+    json += F(",\"longestWriteMs\":");
+    json += String(mqttLongestWriteMs);
     json += F("}");
+    flush();
+
+    // API: on/off and which keys exist - names and rights, never the keys
+    json += F(",\"api\":");
+    apiSupportInfo(json);
+    flush();
+
+    // heat-loss calibration: phase, measured values, result or abort reason,
+    // planned start
+    json += F(",\"hlcal\":");
+    {
+        String cal;
+        bwc->getJSONHeatLossCalibration(cal);
+        json += cal;
+    }
     flush();
 
     // ESP runtime diagnostics (folded in from the former /info/ endpoint)
@@ -345,7 +400,8 @@ void handleSupportPackage()
     json += readConfigFileRedacted("/device.json", 512, {"apPwd", "otaPwd"});
     flush();
     json += F(",\"devuser\":");
-    json += readConfigFileRedacted("/devuser.json", 768, {"apPwd", "otaPwd", "authHash", "webhookAuthPassword"});
+    json += readConfigFileRedacted("/devuser.json", 1536, // = the loader's buffer
+                                    {"apPwd", "otaPwd", "authHash", "webhookAuthPassword"});
     json += F("}}");
     flush();
 

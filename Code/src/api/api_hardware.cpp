@@ -129,7 +129,7 @@ void handleSetHardware()
     if (!checkHttpPost(server->method()))
         return;
 
-    String message = getRequestBody();
+    const String &message = getRequestBody();
 
     // The cio/dsp objects are created once in BWC::setup(), so any model change
     // needs a restart. Compare against the stored file, not just bwc->getModel():

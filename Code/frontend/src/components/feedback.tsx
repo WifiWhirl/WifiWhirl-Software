@@ -84,15 +84,24 @@ export function confirmDialog(message: string, opts: Partial<Pick<Dialog, 'title
  * Shared by the Expert page (live polling) and the Dashboard (HLCAL flag
  * transition), so the user sees the outcome wherever they are.
  */
-export function showCalResult(d: { CURRENT?: number; RESULT?: number; ERROR?: string }): void {
+/** Why the last calibration stopped or (planned) never started, with its numbers. */
+export function calAbortText(d: { ERROR?: string; REQWATER?: number; STARTAMB?: number; MINDIFF?: number }): string {
+  const key = `expert.calAbort.${d.ERROR}`;
+  const msg = t(key, {
+    d: dec((d.REQWATER ?? 0) - (d.STARTAMB ?? 0), 1),
+    min: dec(d.MINDIFF ?? 15, 0),
+  });
+  return msg === key ? t('common.error') : msg;
+}
+
+export function showCalResult(d: { CURRENT?: number; RESULT?: number; ERROR?: string; REQWATER?: number; STARTAMB?: number; MINDIFF?: number }): void {
   if (d.RESULT) {
     void confirmDialog(t('expert.calDone', { v: dec(d.CURRENT ?? d.RESULT, 2) }), {
       title: t('expert.calDoneTitle'), confirmLabel: t('common.ok'), noCancel: true,
     });
   } else if (d.ERROR) {
-    const key = `expert.calAbort.${d.ERROR}`;
-    const msg = t(key);
-    void confirmDialog(msg === key ? t('common.error') : msg, {
+    const msg = calAbortText(d);
+    void confirmDialog(msg, {
       title: t('expert.calAbortTitle'), confirmLabel: t('common.ok'), noCancel: true, danger: true,
     });
   }

@@ -17,19 +17,6 @@ enum Buttons : byte
     HYDROJETS
 };
 
-/*Pretty names for buttons. Must be in same order as "enum Buttons" in file "enums.h"*/
-const String ButtonNames[] = {
-    "NOBTN",
-    "LOCK",
-    "TIMER",
-    "BUBBLES",
-    "UNIT",
-    "HEAT",
-    "PUMP",
-    "DOWN",
-    "UP",
-    "POWER",
-    "HYDROJETS"};
 
 enum States : byte
 {
@@ -87,7 +74,12 @@ enum Commands : byte
     SETPHVALUE,        // Set last measured pH value (val = pH * 10, e.g. 72 = 7.2)
     SETCLVALUE,        // Set last measured chlorine value (val = Cl * 10, e.g. 15 = 1.5 mg/L)
     SETCYAVALUE,       // Set last measured cyanuric acid value (val = CYA * 10, e.g. 300 = 30.0 mg/L)
-    SETALKVALUE        // Set last measured alkalinity value in mg/L (e.g. 100 = 100 mg/L)
+    SETALKVALUE,       // Set last measured alkalinity value in mg/L (e.g. 100 = 100 mg/L)
+    // care products added, only the last one per kind is kept
+    ADDPH,             // pH- / pH+ in g: val < 0 = pH-, val > 0 = pH+ (1-2000 g)
+    ADDCL,             // chlorine in g (1-2000)
+    ADDCLTAB,          // chlorine tablets (1-50)
+    ADDTA              // TA- / TA+ in g: val < 0 = TA-, val > 0 = TA+ (1-2000 g)
 };
 
 enum ToggleButtons : byte
@@ -115,6 +107,9 @@ struct Power
     int JETPOWER;
 };
 
+/** "GCF" on the panel: ground fault (not an E-number). */
+static constexpr uint8_t ERROR_GCF = 100;
+
 struct sStates
 {
     uint8_t locked = 0;
@@ -131,7 +126,7 @@ struct sStates
     uint8_t char2 = 'b';
     uint8_t char3 = 'c';
     uint8_t jets = 0;
-    uint8_t error = 0;
+    uint8_t error = 0; // E01..E99 as 1..99, ERROR_GCF for "GCF"
     // uint8_t timerbutton = 0;
     // uint8_t upbutton = 0;
     // uint8_t downbutton = 0;
@@ -205,6 +200,8 @@ struct sToggles
     bool up_pressed = 0;
     bool down_pressed = 0;
     Buttons pressed_button = NOBTN;
+    /*6-wire: panel UP/DOWN currently held (CIO_6W taps it at a steady pace)*/
+    Buttons held_button = NOBTN;
     /*Requested state, not toggled*/
     bool godmode = false;
     /*Requested state, not toggled*/
@@ -247,7 +244,7 @@ struct sNote
 
 struct sWifi_info
 {
-    bool enableAp;
+    bool enableAp = false;
     bool enableWmApFallback = true;
     String apSsid;
     String apPwd;

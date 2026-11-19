@@ -13,6 +13,15 @@ void handleDelCommand();
 void handleSetCommandQueue();
 void handle_cmdq_file();
 
+// --- Public API /api/v1 (api_v1.cpp) ---
+extern bool apiEnabled; // persisted in /devuser.json
+extern bool apiRequest; // true while an /api/v1 handler runs
+void registerApiV1Routes();
+void handleGetApiKeys(); // SPA key management, routed via PLAIN_ROUTES
+void handleAddApiKey();
+void handleDelApiKey();
+void apiSupportInfo(String &json); // support package section
+
 // --- Config (api_config.cpp) ---
 void handleGetConfig();
 void handleSetConfig();
@@ -24,6 +33,7 @@ void handleSetHardware();
 // --- Smart schedule (api_schedule.cpp) ---
 void handleGetSmartSchedule();
 void handleSetSmartSchedule();
+String setSmartScheduleFromJson(JsonObjectConst obj);
 void handleUpdateSmartSchedule();
 void handleCancelSmartSchedule();
 

@@ -1,4 +1,5 @@
 #include "api/api.h"
+#include "build_ver.h"
 #include "web/web.h"
 #include "net/net.h"
 #include "cloud_task.h"
@@ -15,54 +16,6 @@ static const size_t MAX_CMDQ_UPLOAD_BYTES = 4096;
 // scaled to the payload (see handle_cmdq_file): always demanding the ceiling
 // failed to allocate on a fragmented heap, which surfaced as "Invalid JSON".
 static const size_t CMDQ_UPLOAD_JSON_CAPACITY = 6144;
-
-class ChunkedResponsePrint : public Print
-{
-public:
-    ~ChunkedResponsePrint()
-    {
-        flush();
-    }
-
-    size_t write(uint8_t b) override
-    {
-        return write(&b, 1);
-    }
-
-    size_t write(const uint8_t *buffer, size_t size) override
-    {
-        size_t written = 0;
-        while (written < size)
-        {
-            size_t space = sizeof(_buffer) - 1 - _len;
-            if (space == 0)
-            {
-                flush();
-                space = sizeof(_buffer) - 1;
-            }
-            size_t n = size - written;
-            if (n > space)
-                n = space;
-            memcpy(_buffer + _len, buffer + written, n);
-            _len += n;
-            written += n;
-        }
-        return written;
-    }
-
-    void flush() override
-    {
-        if (_len == 0)
-            return;
-        _buffer[_len] = '\0';
-        server->sendContent(_buffer);
-        _len = 0;
-    }
-
-private:
-    char _buffer[256];
-    size_t _len = 0;
-};
 
 static bool readIntegerOrBool(const JsonVariantConst &value, int64_t &out)
 {
@@ -99,8 +52,8 @@ static bool validateCommandValue(Commands cmd, int64_t value, uint64_t xtime, St
     switch (cmd)
     {
     case SETTARGET:
-        if (!((value > 0 && value < 41) || (value > 50 && value < 105)))
-            error = F("VALUE out of range for SETTARGET");
+        if (!((value >= 20 && value <= 40) || (value >= 68 && value <= 104)))
+            error = F("VALUE out of range for SETTARGET (20-40 C or 68-104 F)");
         break;
     case SETUNIT:
     case SETBUBBLES:
@@ -138,12 +91,25 @@ static bool validateCommandValue(Commands cmd, int64_t value, uint64_t xtime, St
             error = F("VALUE out of range for SETCLVALUE");
         break;
     case SETCYAVALUE:
-        if (value < 0 || value > 1000)
+        if (value < 0 || value > 2000)
             error = F("VALUE out of range for SETCYAVALUE");
         break;
     case SETALKVALUE:
         if (value < 0 || value > 300)
             error = F("VALUE out of range for SETALKVALUE");
+        break;
+    case ADDPH:
+    case ADDTA:
+        if (value == 0 || value < -2000 || value > 2000)
+            error = F("VALUE out of range (-2000..2000 g, not 0)");
+        break;
+    case ADDCL:
+        if (value < 1 || value > 2000)
+            error = F("VALUE out of range for ADDCL (1..2000 g)");
+        break;
+    case ADDCLTAB:
+        if (value < 1 || value > 50)
+            error = F("VALUE out of range for ADDCLTAB (1..50)");
         break;
     case GETTARGET:
         error = F("Unsupported command");
@@ -158,7 +124,7 @@ static bool buildCommandFromFields(int64_t cmdValue, int64_t value, int64_t xtim
                                    int64_t intervalValue, const String &text, bool force,
                                    command_que_item &item, String &error)
 {
-    if (cmdValue < SETTARGET || cmdValue > SETALKVALUE)
+    if (cmdValue < SETTARGET || cmdValue > ADDTA)
     {
         error = F("Unsupported command");
         return false;
@@ -232,6 +198,10 @@ static bool parseCommandObject(const JsonVariantConst &src, command_que_item &it
             error = F("Missing or invalid VALUE");
             return false;
         }
+        // TOGGLEPWR/TOGGLELCK without VALUE keep toggling (0/1 = wanted state)
+        if ((cmdValue == TOGGLEPWR || cmdValue == TOGGLELCK) &&
+            (!obj.containsKey(F("VALUE")) || obj[F("VALUE")].isNull()))
+            value = 2;
         if (obj.containsKey(F("XTIME")) && !obj[F("XTIME")].isNull() &&
             !readIntegerOrBool(obj[F("XTIME")], xtimeValue))
         {
@@ -276,6 +246,13 @@ static bool parseCommandFromJsonStrict(const JsonVariantConst &src, command_que_
     return parseCommandObject(src, item, true, error);
 }
 
+#define QUEUE_CHANGED "Queue changed, reload it"
+// 409 for a stale index (the client reloads), 400 for bad input
+static int queueIndexStatus(const String &error)
+{
+    return error == F(QUEUE_CHANGED) ? 409 : 400;
+}
+
 static bool readQueueIndex(const JsonObjectConst &obj, uint8_t &index, String &error)
 {
     int64_t indexValue = 0;
@@ -287,6 +264,16 @@ static bool readQueueIndex(const JsonObjectConst &obj, uint8_t &index, String &e
         return false;
     }
     index = (uint8_t)indexValue;
+    // Optional ATCMD/ATXTIME: the entry the client saw at IDX. Entries move when
+    // one runs or is re-sorted, so a bare index could hit the neighbour.
+    if (obj.containsKey(F("ATCMD")) || obj.containsKey(F("ATXTIME")))
+    {
+        if (!bwc->command_at_matches(index, obj[F("ATCMD")].as<uint8_t>(), obj[F("ATXTIME")].as<uint64_t>()))
+        {
+            error = F(QUEUE_CHANGED);
+            return false;
+        }
+    }
     return true;
 }
 
@@ -367,6 +354,26 @@ bool parseCommandValidated(const JsonVariantConst &src, command_que_item &item, 
 }
 
 /**
+ * Why the station is not associated, as a stable code for the web app.
+ * "nossid" - network not found, "badpwd" - rejected, "down" - anything else.
+ */
+static const __FlashStringHelper *staFailReason()
+{
+    switch (WiFi.status())
+    {
+    case WL_NO_SSID_AVAIL:
+        return F("nossid");
+    case WL_CONNECT_FAILED: // ESP32 reports auth failures here
+#ifdef ESP8266
+    case WL_WRONG_PASSWORD:
+#endif
+        return F("badpwd");
+    default:
+        return F("down");
+    }
+}
+
+/**
  * Build the "OTHER" status JSON (MQTT state, model, weather, WiFi info, FW, loop rate)
  * Resets the loop counter after reading it. Used by the poll endpoint and MQTT.
  * @param rtn output string receiving the serialized JSON
@@ -379,10 +386,19 @@ static void buildOtherInfo(JsonObject doc)
     doc[F("HASGOD")] = bwc->hasgod;
     doc[F("MODEL")] = bwc->getModel();
     doc[F("WEATHER")] = bwc->getWeather();
-    doc[F("RSSI")] = WiFi.RSSI();
-    doc[F("IP")] = WiFi.localIP().toString();
-    doc[F("SSID")] = WiFi.SSID();
+    // Gate on the actual link: WiFi.RSSI() returns the sentinel 31 when the STA
+    // is not associated, which the UI used to render as "31 dBm - sehr gut".
+    // Keys stay present unconditionally - homeassistant.cpp maps value_json.RSSI.
+    bool staConnected = (WiFi.status() == WL_CONNECTED);
+    doc[F("RSSI")] = staConnected ? WiFi.RSSI() : 0;
+    doc[F("IP")] = staConnected ? WiFi.localIP().toString() : String();
+    doc[F("SSID")] = staConnected ? WiFi.SSID() : String();
+    // Platform-independent reason code, not the raw wl_status_t: the enum values
+    // differ between ESP8266 (WL_WRONG_PASSWORD=6, WL_DISCONNECTED=7) and ESP32
+    // (WL_DISCONNECTED=6, no WL_WRONG_PASSWORD), so mapping has to happen here.
+    doc[F("STA")] = staConnected ? F("up") : staFailReason();
     doc[F("FW")] = FW_VERSION;
+    doc[F("BUILD")] = BUILD_LABEL; // commit + date of a test build, "" otherwise
     doc[F("BUILDENV")] = PIO_ENV_NAME;
     doc[F("NEWFW")] = updateAvailableVersion(); // "" unless a newer version is known
     doc[F("loopfq")] = bwc->loop_count;
@@ -391,14 +407,14 @@ static void buildOtherInfo(JsonObject doc)
 
 static size_t writeOtherInfo(Print &out)
 {
-    StaticJsonDocument<640> doc;
+    StaticJsonDocument<704> doc; // 704: fits the OTHER payload incl. the STA key
     buildOtherInfo(doc.to<JsonObject>());
     return serializeJson(doc, out);
 }
 
 void getOtherInfo(String &rtn)
 {
-    StaticJsonDocument<640> doc;
+    StaticJsonDocument<704> doc; // 704: fits the OTHER payload incl. the STA key
     buildOtherInfo(doc.to<JsonObject>());
 
     if (serializeJson(doc, rtn) == 0)
@@ -447,7 +463,7 @@ void handleSendCommand()
 
     // Parse the JSON command from the request body
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -462,9 +478,12 @@ void handleSendCommand()
         server->send(400, F("text/plain"), parseError);
         return;
     }
-    if (!bwc->add_command(item))
+    if (!bwc->add_live_command(item))
     {
-        server->send(409, F("text/plain"), F("Queue full (max. 20 commands)"));
+        if (bwc->calibrating())
+            server->send(423, F("text/plain"), F("Calibration running"));
+        else
+            server->send(409, F("text/plain"), F("Queue full (max. 20 commands)"));
         return;
     }
 
@@ -495,7 +514,7 @@ void handleAddCommand()
         return;
 
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -531,7 +550,7 @@ void handleEditCommand()
         return;
 
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -553,7 +572,7 @@ void handleEditCommand()
     JsonObjectConst obj = doc.as<JsonObjectConst>();
     if (!readQueueIndex(obj, index, parseError))
     {
-        server->send(400, F("text/plain"), parseError);
+        server->send(queueIndexStatus(parseError), F("text/plain"), parseError);
         return;
     }
     if (!bwc->edit_command(index, item))
@@ -576,7 +595,7 @@ void handleDelCommand()
         return;
 
     StaticJsonDocument<256> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -589,7 +608,7 @@ void handleDelCommand()
     JsonObjectConst obj = doc.as<JsonObjectConst>();
     if (!readQueueIndex(obj, index, parseError))
     {
-        server->send(400, F("text/plain"), parseError);
+        server->send(queueIndexStatus(parseError), F("text/plain"), parseError);
         return;
     }
     if (!bwc->del_command(index))
@@ -613,7 +632,7 @@ void handleSetCommandQueue()
         return;
 
     StaticJsonDocument<128> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error || !doc.is<JsonObject>())
     {
@@ -647,7 +666,7 @@ void handleSetCommandQueue()
     if (hasCmd && (!readQueueIndex(obj, index, parseError) ||
                    !readRequired01Field(obj, F("EN"), enabled, parseError)))
     {
-        server->send(400, F("text/plain"), parseError);
+        server->send(queueIndexStatus(parseError), F("text/plain"), parseError);
         return;
     }
 
@@ -681,7 +700,7 @@ void handle_cmdq_file()
     if (action.equals("upload"))
     {
         // Upload: body contains raw JSON file content
-        String data = getRequestBody();
+        const String &data = getRequestBody();
         if (data.length() == 0)
         {
             server->send(400, F("text/plain"), F("No data received"));
@@ -885,7 +904,7 @@ void handle_cmdq_file()
     }
 
     // Download: parse JSON body for action
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     StaticJsonDocument<128> doc;
     DeserializationError error = deserializeJson(doc, message);
     if (error)

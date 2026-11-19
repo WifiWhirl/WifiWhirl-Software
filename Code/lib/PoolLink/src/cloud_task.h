@@ -83,6 +83,7 @@ private:
     static uint64_t   _rx_seq_last;
 
     static uint32_t   _last_ping_ms;
+    static uint32_t   _last_rx_ms;   // last frame from the server (dead-link check)
     static uint32_t   _last_connect_attempt_ms;
     static uint8_t    _backoff_index;
 
@@ -92,7 +93,7 @@ private:
     static bool       _notify_pending;
     static bool       _force_resync;
 
-    static uint8_t    _rx_buf[POOLLINK_MAX_FRAME];
+    static uint8_t   *_rx_buf; // POOLLINK_MAX_FRAME, allocated in begin()
     static size_t     _rx_buf_len;
 
     static char       _location[48];
@@ -103,13 +104,15 @@ private:
     static void     _doConnecting();
     static void     _doHandshake();
     static void     _doConnected();
-    static void     _disconnect(const char* reason);
+    static void     _disconnect(const __FlashStringHelper* reason);
 
     static bool     _sendHello();
     static bool     _receiveHelloAck();
     static bool     _sendSensorData(bool force = false);
     static bool     _sendQueueData();
     static bool     _queue_dirty;
+    static uint32_t _queue_hash;          // hash of the last queue snapshot sent
+    static uint32_t _queue_check_ms;
     static bool     _sendSettingsData();
     static bool     _settings_dirty;
     static bool     _sendPing();

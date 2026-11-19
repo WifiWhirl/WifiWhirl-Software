@@ -4,6 +4,8 @@
 export interface WifiCfg {
   enableAp?: boolean;
   apSsid?: string;
+  /** True when a password is on file, so "leave empty to keep it" has something to keep. */
+  hasApPwd?: boolean;
   enableWM?: boolean;
   enableStaticIp4?: boolean;
   ip4Address?: string;
@@ -50,4 +52,5 @@ export interface CloudCfg {
   webUrl?: string;  // cloud web app base; the Connect button redirects here to pair
   state?: string;   // link state name (read-only): disconnected/connecting/handshaking/connected/disabled
   hasPsk?: boolean; // whether a PSK is provisioned (read-only)
+  exclusive?: boolean; // cloud and MQTT can't run together (ESP8266 RAM); false on ESP32
 }

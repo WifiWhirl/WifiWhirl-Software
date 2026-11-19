@@ -2,23 +2,33 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { needsLogin, postJson, postJsonResponse, saveConfig } from '../api';
 import { Card, Row, SaveButton, TimelineStep } from '../components/ui';
 import { CheckField, NumField } from '../components/fields';
-import { showToast, confirmDialog, showCalResult } from '../components/feedback';
+import { showToast, confirmDialog, showCalResult, calAbortText } from '../components/feedback';
 import { PageSkeleton } from '../components/Skeleton';
 import { t } from '../i18n';
 import { dec, durLong } from '../util/format';
 import { SHOW_HEAT_LOSS_CALIBRATION } from '../flags';
+import { ApiKeys } from '../components/ApiKeys';
 
 interface PowerSet { heater: number; pump: number; air: number; idle: number; jet: number }
 interface DevPower {
   hasjets?: boolean;
   power?: PowerSet;
   powerDefaults?: PowerSet;
+  apiEnabled?: boolean;
 }
 interface HlCal {
   ACTIVE?: boolean; PHASE?: number; CURRENT?: number; DEFAULT?: number; TARGETDROP?: number;
   RESULT?: number; ERROR?: string;
-  STARTWATER?: number; STARTAMB?: number; DROP?: number; ELAPSED?: number;
-  ANCHORED?: boolean; ANCHORELAPSED?: number; RESTORING?: boolean; DISCARDED?: number;
+  STARTAMB?: number; ANCHORED?: boolean; RESTORING?: boolean; DISCARDED?: number;
+  PLANNED?: number; MINDIFF?: number; NOW?: number;
+  // the last run, kept until the next start (epoch seconds, water in °C)
+  REQTS?: number; REQWATER?: number; STARTTS?: number; STARTWATER?: number;
+  ANCHORTS?: number; ANCHORWATER?: number; ENDTS?: number; ENDWATER?: number;
+}
+/** today 22:00, as a datetime-local value */
+function tonight(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T22:00`;
 }
 
 const EMPTY: PowerSet = { heater: 0, pump: 0, air: 0, idle: 0, jet: 0 };
@@ -38,9 +48,11 @@ export function Expert() {
   const [hasjets, setHasjets] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+  const [api, setApi] = useState(false); // public API /api/v1
   const [wmFallback, setWmFallback] = useState(false); // WiFi AP fallback (moved here)
   const [hl, setHl] = useState<number>(HEAT_LOSS_DEFAULT);
   const [cal, setCal] = useState<HlCal | null>(null);
+  const [planAt, setPlanAt] = useState(tonight());
   const prevActive = useRef(false);
   const firstCal = useRef(true);
 
@@ -63,6 +75,7 @@ export function Expert() {
       setPower(j.power || EMPTY);
       setDefaults(j.powerDefaults || EMPTY);
       setHasjets(!!j.hasjets);
+      setApi(!!j.apiEnabled);
       setLoaded(true);
     }).catch(() => {});
     postJson<{ enableWM?: boolean }>('/getwifi/').then((j) => setWmFallback(!!j.enableWM)).catch(() => {});
@@ -99,10 +112,11 @@ export function Expert() {
   );
 
   async function saveHeatLoss(v: number) {
+    v = Math.min(50, Math.max(0.5, v || 0)); // same limits as the firmware
     setHl(v);
     const r = await saveConfig('/setheatloss/', { HLOSS: v });
     if (r.kind === 'error') showToast(t('common.error'), true);
-    else showToast(t('common.saved'));
+    else { showToast(t('common.saved')); refreshCal(); } // the old timeline goes
   }
 
   async function startCal() {
@@ -114,9 +128,21 @@ export function Expert() {
       if (res.ok) { showToast(t('expert.calStarted')); refreshCal(); }
       else {
         const key = `expert.calErr.${(await res.text()).trim()}`;
-        const msg = t(key);
+        const msg = t(key, { min: dec(cal?.MINDIFF ?? 15, 0) });
         showToast(msg === key ? t('common.error') : msg, true); // t() echoes the key when missing
       }
+    } catch {
+      if (!needsLogin.value) showToast(t('common.error'), true);
+    }
+  }
+
+  async function planCal() {
+    const at = Math.floor(new Date(planAt).getTime() / 1000);
+    if (!planAt || at <= Math.floor(Date.now() / 1000)) { showToast(t('ss.errFuture'), true); return; }
+    try {
+      const res = await postJsonResponse('/starthlcal/', { AT: at });
+      if (res.ok) { showToast(t('expert.calPlannedToast')); refreshCal(); }
+      else showToast(t('common.error'), true);
     } catch {
       if (!needsLogin.value) showToast(t('common.error'), true);
     }
@@ -130,9 +156,9 @@ export function Expert() {
   // Gated at the source, so the hero state and the timeline stay inert while the
   // calibration UI is hidden - even if a run were started outside the frontend.
   const active = SHOW_HEAT_LOSS_CALIBRATION && !!cal?.ACTIVE;
-  const finished = SHOW_HEAT_LOSS_CALIBRATION && !active && !cal?.ERROR && (cal?.RESULT ?? 0) > 0;
-  // 0 prep, 1 waiting for the first sensor tick, 2 measuring the interval, 3 done
-  const step = !active ? 3 : cal?.PHASE !== 1 ? 0 : cal?.ANCHORED ? 2 : 1;
+  // the last run stays visible until the next start, also after an abort
+  const hasRun = SHOW_HEAT_LOSS_CALIBRATION && !!cal?.REQTS && cal?.ERROR !== 'tempdiff';
+  const minDiff = cal?.MINDIFF ?? 15;
 
 
   return (
@@ -163,18 +189,40 @@ export function Expert() {
 
         {SHOW_HEAT_LOSS_CALIBRATION && (
           <>
+            {/* customer-facing: what it does and how to get a good result */}
             <p class="hint" style="margin-top:16px">{t('expert.calInfo')}</p>
-            <p class="hint">{t('expert.calHow')}</p>
-            {(active || finished) && <CalTimeline cal={cal} step={step} finished={finished} />}
+            {(() => {
+              const [head, ...tips] = t('expert.calTips', { min: dec(minDiff, 0) }).split('\n');
+              return <div class="hint cal-tips">{head}<ul>{tips.map((x) => <li key={x}>{x}</li>)}</ul></div>;
+            })()}
+            {hasRun && cal && <CalTimeline cal={cal} />}
+            {/* the last run ended without a result: say why, not only in the dialog
+                someone watching the page got */}
+            {!active && cal?.ERROR && <p class="hint warn">{calAbortText(cal)}</p>}
+            {!active && !!cal?.PLANNED && (
+              <div class="actions">
+                <p class="hint">{t('expert.calPlannedAt', { at: new Date(cal.PLANNED * 1000).toLocaleString() })}</p>
+                <button class="btn ghost" onClick={cancelCal}>{t('expert.calPlanCancel')}</button>
+              </div>
+            )}
+            {!active && !cal?.PLANNED && (
+              <Row label={t('expert.calPlanAt')}>
+                <input type="datetime-local" value={planAt} onInput={(e) => setPlanAt((e.target as HTMLInputElement).value)} />
+              </Row>
+            )}
+            {/* start and plan side by side under the line, like save/reset above */}
             {active ? (
               <div class="actions">
                 <button class="btn ghost" onClick={cancelCal}>{t('expert.calCancel')}</button>
               </div>
             ) : (
               <div class="actions">
-                <button class="btn" onClick={startCal}>{t('expert.calStart')}</button>
+                {/* plan first, then "start now"; ghost style like "reset to defaults" */}
+                {!cal?.PLANNED && <button class="btn" onClick={planCal}>{t('expert.calPlan')}</button>}
+                <button class={cal?.PLANNED ? 'btn' : 'btn ghost'} onClick={startCal}>{t('expert.calStart')}</button>
               </div>
             )}
+            {!active && !cal?.PLANNED && <p class="hint">{t('expert.calPlanHint')}</p>}
           </>
         )}
       </Card>
@@ -182,6 +230,15 @@ export function Expert() {
       {/* Moved off the network page: recovering a device through the fallback AP
           is an expert task. /setwifi/ merges by key, so sending enableWM alone
           leaves SSID and static-IP settings alone (it still reboots). */}
+      <Card title={t('expert.apiTitle')}>
+        <p class="hint">{t('expert.apiInfo')}</p>
+        <CheckField label={t('expert.apiEnable')} checked={api} onChange={setApi} />
+        <div class="card-save">
+          <SaveButton url="/setdevice/" data={() => ({ apiEnabled: api })} />
+        </div>
+        <ApiKeys />
+      </Card>
+
       <Card title={t('wifi.fallback')}>
         <p class="hint">{t('wifi.fallbackInfo')}</p>
         <CheckField label={t('wifi.fallbackEnable')} checked={wmFallback} onChange={setWmFallback} />
@@ -194,35 +251,55 @@ export function Expert() {
 }
 
 /**
- * @brief Calibration progress on the shared ss-timeline: prepare → wait for a
- * sensor tick → measure between ticks → result.
+ * @brief The last calibration run on the shared ss-timeline: start, first and
+ * second sensor step, result. Water temperature at each point, the time
+ * between them under the line. Stays until the next
+ * start, so a finished or aborted run can still be read afterwards.
  */
-function CalTimeline({ cal, step, finished }: { cal: HlCal | null; step: number; finished: boolean }) {
-  const check = '✓';
+function CalTimeline({ cal }: { cal: HlCal }) {
+  const now = cal.NOW ?? Math.floor(Date.now() / 1000);
+  const end = cal.ENDTS ?? now;
+  const temp = (v?: number) => (v != null ? `${dec(v, 1)} °C` : '…');
+  const ok = (cal.RESULT ?? 0) > 0 && !cal.ERROR;
+  // 0 start, 1 first step, 2 second step, 3 result
+  const reached = ok ? 3 : cal.ANCHORTS ? 1 : 0;
+  // which step is in progress: 0 pump settling, 1 first step, 2 second step
+  const waiting = cal.ACTIVE ? (!cal.STARTTS ? 0 : cal.ANCHORTS ? 2 : 1) : -1;
+  // "Vorbereitung" is the reading after the pump has run (STARTTS), not the
+  // one at the request, which the still sensor may take from standing water.
+  const gap1 = cal.STARTTS ? (cal.ANCHORTS ?? end) - cal.STARTTS : 0;
+  const gap2 = cal.ANCHORTS ? (ok ? (cal.ENDTS ?? end) : end) - cal.ANCHORTS : 0;
+  const gaps = [gap1 > 0 ? durLong(gap1) : '', cal.ANCHORTS && gap2 > 0 ? durLong(gap2) : '', ''];
   return (
     <>
-      <div class="ss-timeline" style={`--ss-progress:${(step / 3) * 100}%`}>
+      <div class="ss-timeline cal-timeline" style={`--ss-step:${Math.max(reached, waiting - 0.5, 0)}`}>
         <div class="ss-timeline-bar"><span /></div>
+        <div class="cal-gaps" aria-hidden="true">
+          {gaps.map((g, i) => <span key={i} style={`left:${(i + 1) * 25}%`}>{g}</span>)}
+        </div>
         <div class="ss-timeline-steps">
-          <TimelineStep label={t('expert.calStepPrep')} value={step === 0 ? '…' : check}
-            active={step === 0} done={step > 0} />
+          <TimelineStep label={t('expert.calStepPrep')} value={cal.STARTTS ? temp(cal.STARTWATER) : waiting === 0 ? '…' : '--'} active={waiting === 0} done={!!cal.STARTTS} />
           <TimelineStep label={t('expert.calStepWaitTick')}
-            value={step === 1 ? `${dec(cal?.STARTWATER, 1)} °C · ${durLong(cal?.ELAPSED ?? 0)}` : step > 1 ? check : '--'}
-            active={step === 1} done={step > 1} />
-          <TimelineStep label={t('expert.calStepMeasure')}
-            value={step === 2 ? durLong(cal?.ANCHORELAPSED ?? 0) : step > 2 ? check : '--'}
-            active={step === 2} done={step > 2} />
+            value={cal.ANCHORTS ? temp(cal.ANCHORWATER) : waiting === 1 ? '…' : '--'}
+            active={waiting === 1} done={reached >= 1} />
+          <TimelineStep label={t('expert.calStepSecondTick')}
+            value={ok ? temp(cal.ENDWATER) : waiting === 2 ? '…' : '--'}
+            active={waiting === 2} done={ok} />
           <TimelineStep label={t('expert.calStepResult')}
-            value={finished ? `${dec(cal?.RESULT, 2)} W/K` : '--'}
-            active={step === 3} done={finished} />
+            value={ok ? `${dec(cal.RESULT, 2)} W/K` : '--'} done={ok} />
         </div>
       </div>
-      {step === 0 && <p class="hint">{t('expert.calPreparing')}</p>}
-      {step === 1 && <p class="hint">{t('expert.calWaitTick')}</p>}
-      {cal?.RESTORING && <p class="hint warn">{t('expert.calRestoring')}</p>}
-      {step > 0 && step < 3 && (cal?.DISCARDED ?? 0) > 0 &&
-        <p class="hint">{t('expert.calDiscarded', { n: cal!.DISCARDED! })}</p>}
-      {step > 0 && step < 3 && <Row label={t('expert.calAmbient')}><span>{dec(cal?.STARTAMB, 1)} °C</span></Row>}
+      {/* phones show the timeline vertically: the gaps go into a line below */}
+      <p class="hint cal-gaps-inline">
+        {gaps[0] && `${t('expert.calStepPrep')} → ${t('expert.calStepWaitTick')}: ${gaps[0]}`}
+        {gaps[1] && ` · ${t('expert.calStepWaitTick')} → ${t('expert.calStepSecondTick')}: ${gaps[1]}`}
+      </p>
+      {cal.ACTIVE && cal.PHASE !== 1 && <p class="hint">{t('expert.calPreparing')}</p>}
+      {cal.ACTIVE && cal.PHASE === 1 && !cal.ANCHORED && <p class="hint">{t('expert.calWaitTick')}</p>}
+      {cal.RESTORING && <p class="hint warn">{t('expert.calRestoring')}</p>}
+      {cal.ACTIVE && (cal.DISCARDED ?? 0) > 0 &&
+        <p class="hint">{t('expert.calDiscarded', { n: cal.DISCARDED! })}</p>}
+      {cal.ANCHORTS && cal.STARTAMB != null && <Row label={t('expert.calAmbient')}><span>{dec(cal.STARTAMB, 1)} °C</span></Row>}
     </>
   );
 }

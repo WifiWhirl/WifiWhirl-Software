@@ -61,10 +61,21 @@ extern WebServerT *server;
 extern WiFiClient *aWifiClient;
 extern PubSubClient *mqttClient;
 extern int mqtt_connect_count;
-extern String prevButtonName;
 extern Ticker updateMqttTimer;
 extern bool sendMQTTFlag;
 extern bool enableMqtt;
+
+// Link drops for the support package: when and why MQTT / WiFi went away.
+// code: PubSubClient::state() for MQTT, the station disconnect reason for WiFi.
+struct LinkDrops
+{
+    uint16_t count;
+    uint32_t lastMs;
+    int16_t lastCode;
+};
+extern LinkDrops mqttDrops, wifiDrops;
+extern uint16_t mqttShortWrites, mqttRescuedWrites;
+extern uint32_t mqttLongestWriteMs;
 
 // --- Home Assistant discovery state ---
 extern bool haDiscoveryInProgress;
@@ -81,6 +92,7 @@ extern HTTPUpdateServerT httpUpdater;
 // --- Core lifecycle (main.cpp) ---
 // Per-area function declarations live in net/net.h, web/web.h, sys/sys.h, api/api.h.
 void stopall();
+void handleResetSequence();
 void pause_all(bool action);
 
 // Send a {"restart":true,"reason":"<code>"} JSON reply, persist settings, stop

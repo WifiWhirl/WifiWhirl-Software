@@ -9,7 +9,7 @@ import type { CloudCfg, MqttCfg } from '../types/config';
 
 // Defaults fill any field the firmware omits, so reads are never undefined.
 const CLOUD_DEFAULTS: Required<CloudCfg> = {
-  enabled: false, host: '', port: 8080, webUrl: '', state: 'disabled', hasPsk: false,
+  enabled: false, host: '', port: 8080, webUrl: '', state: 'disabled', hasPsk: false, exclusive: true,
 };
 
 const CLOUD_STATES = ['disabled', 'disconnected', 'connecting', 'handshaking', 'connected'];
@@ -17,7 +17,7 @@ const CLOUD_TONE: Record<string, LinkTone> = {
   connected: 'on', connecting: 'pending', handshaking: 'pending', disabled: 'off',
 };
 
-interface Pairing { hostname?: string; nonce_b64?: string; proof_b64?: string; }
+interface Pairing { hostname?: string; nonce_b64?: string; proof_b64?: string; ts?: number; }
 
 /** Host part of the provisioned web URL, for the stat tile. */
 function webHost(url: string): string {
@@ -44,8 +44,8 @@ export function Cloud() {
       setD({ ...CLOUD_DEFAULTS, ...j });
       setSavedEnabled(!!j.enabled);
     }).catch(() => {});
-    // The firmware runs either the cloud link or MQTT, never both - so the
-    // page needs to know whether MQTT currently claims the slot.
+    // ESP8266 runs either the cloud link or MQTT, never both - so the page needs
+    // to know whether MQTT currently claims the slot.
     postJson<MqttCfg>('/getmqtt/').then((j) => setMqttOn(!!j.enableMqtt)).catch(() => {});
   }, []);
   if (!d) return <PageSkeleton cards={2} rows={2} actions={false} />;
@@ -53,7 +53,8 @@ export function Cloud() {
 
   const state = CLOUD_STATES.includes(d.state) ? d.state : 'unknown';
   // MQTT owns the link right now: explain why cloud can't be switched on.
-  const blocked = mqttOn && !d.enabled;
+  const exclusive = d.exclusive !== false; // ESP32 runs cloud and MQTT together
+  const blocked = exclusive && mqttOn && !d.enabled;
 
   // Device-initiated pairing: fetch a fresh proof, then hand the browser to the
   // (provisioned) cloud web app, which authenticates the user and binds this
@@ -67,6 +68,7 @@ export function Cloud() {
       if (!p.hostname || !p.nonce_b64 || !p.proof_b64) { setPairErr(t('cloud.pairError')); return; }
       const base = d.webUrl.trim().replace(/\/+$/, '');
       const q = new URLSearchParams({ hostname: p.hostname, nonce: p.nonce_b64, proof: p.proof_b64 });
+      if (p.ts) q.set('ts', String(p.ts)); // v2 link: the cloud only takes it for 15 min
       window.location.href = `${base}/pair?${q.toString()}`;
     } catch { setPairErr(t('cloud.pairError')); }
   }
@@ -86,9 +88,11 @@ export function Cloud() {
           { label: t('cloud.statKey'), value: d.hasPsk ? t('cloud.keySet') : t('cloud.keyMissing') },
         ]}
       />
-      <p class={`note${blocked ? ' warn' : ''}`}>
-        {blocked ? t('cloud.mqttActive') : t('link.exclusiveNote')}
-      </p>
+      {exclusive && (
+        <p class={`note${blocked ? ' warn' : ''}`}>
+          {blocked ? t('cloud.mqttActive') : t('link.exclusiveNote')}
+        </p>
+      )}
       <Card>
         <CheckField label={t('cloud.enable')} checked={d.enabled} disabled={blocked} onChange={(v) => set('enabled', v)} />
         {/* Only the enabled flag is user-controllable; everything else is provisioned. */}

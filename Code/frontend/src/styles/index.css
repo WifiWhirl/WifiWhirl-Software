@@ -608,7 +608,6 @@ select:focus-visible, .switch input:focus-visible + .slider { outline: none; box
 .note {
   margin: 0 0 14px; padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  border-left: 4px solid var(--accent);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--surface) 64%, var(--accent-soft)); color: var(--ink); font-size: 0.9rem; line-height: 1.5;
 }
@@ -619,7 +618,6 @@ select:focus-visible, .switch input:focus-visible + .slider { outline: none; box
 }
 .note.warn {
   border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
-  border-left-color: var(--warn);
   background: color-mix(in srgb, var(--surface) 72%, var(--warn) 16%);
 }
 
@@ -695,8 +693,8 @@ select:focus-visible, .switch input:focus-visible + .slider { outline: none; box
   -webkit-user-select: none;
   user-select: none;
 }
-.thermostat-dial { display: block; width: 100%; height: 100%; touch-action: none; cursor: default; outline: none; }
-.th-hit { fill: transparent; cursor: grab; }
+.thermostat-dial { display: block; width: 100%; height: 100%; touch-action: pan-y; /* scrolling over the dial; only the knob drags */ cursor: default; outline: none; }
+.th-hit { fill: transparent; cursor: grab; touch-action: none; }
 .th-hit:active { cursor: grabbing; }
 .th-track { fill: none; stroke: color-mix(in srgb, var(--border) 58%, var(--surface-2)); stroke-width: 12; stroke-linecap: round; }
 /* gradient arc: cool (accent) -> warm (heat), both existing palette tokens */
@@ -707,6 +705,7 @@ select:focus-visible, .switch input:focus-visible + .slider { outline: none; box
 .th-current { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; opacity: 0.45; }
 .th-minmax { fill: var(--muted); font-size: 11px; font-weight: 700; dominant-baseline: middle; }
 .th-thumb { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.28)); }
+.thermostat.off { opacity: 0.45; filter: grayscale(1); } /* pool in standby: last known target */
 .thermostat.heating .th-thumb { stroke: var(--heat); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.32)); }
 .thermostat-dial:focus-visible .th-thumb { stroke-width: 3.5; }
 .thermostat-center {
@@ -811,8 +810,9 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 .actions, .inline-actions { flex-wrap: wrap; }
 .actions { margin-top: 12px; }
 .range-control { width: min(320px, 100%); }
-.range-control input[type="range"] { flex: 1; min-width: 160px; }
+.range-control input[type="range"] { flex: 1 1 96px; min-width: 0; } /* shrinks before the value leaves the card */
 .range-control b {
+  flex: none;
   min-width: 2.2rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -1222,9 +1222,13 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
   flex: 0 0 auto;
   min-width: 98px;
   min-height: 98px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-wrap: wrap; /* lets align-content center the number + unit row vertically */
   align-content: center;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 12px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--accent-line) 72%, var(--border));
   background: color-mix(in srgb, var(--surface) 78%, var(--accent-soft));
@@ -1275,15 +1279,16 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 }
 .ss-stat.heat b, .ss-metric.info b { color: var(--heat); }
 .ss-stat.ok b, .ss-metric.ok b { color: var(--ok); }
-.ss-cancel { margin-top: 14px; }
+.ss-cancel, .ss-hero .note { margin-top: 14px; }
+.ss-hero .note { margin-bottom: 0; }
 .ss-timeline {
   position: relative;
   padding-top: 12px;
 }
 .ss-timeline-bar {
   position: absolute;
-  left: 10px;
-  right: 10px;
+  left: 0;
+  right: 0;
   top: 21px; /* dot is 22px border-box under 12px padding -> center at 23px */
   height: 4px;
   border-radius: 999px;
@@ -1292,7 +1297,7 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 }
 .ss-timeline-bar span {
   display: block;
-  width: var(--ss-progress, 0%);
+  width: calc((var(--ss-step, 0) + 0.5) * (100% + 12px) / 4 - 6px); /* centre of dot n in the 4-column grid, gap 12px */
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--accent), var(--heat));
@@ -1429,6 +1434,10 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
   background: color-mix(in srgb, var(--surface) 78%, var(--accent-soft));
   color: var(--muted);
 }
+/* Long compound words ("Knopvergrendeling", "Tastensperre" on tablets) break
+   with a hyphen where the browser knows the language (<html lang>), else
+   anywhere rather than sticking out of the tile. */
+.tile-lbl, .auto-command > span:last-child { hyphens: auto; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
 .tile-lbl { font-weight: 780; line-height: 1.15; }
 .tile-state {
   display: inline-flex;
@@ -1513,6 +1522,9 @@ input[type="radio"], input[type="checkbox"] { width: 22px; height: 22px; accent-
 }
 .confirm-modal p { margin: 8px 0 18px; white-space: pre-line; color: var(--muted); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+/* OTA password dialog (components/OtaAuth.tsx) */
+.confirm-modal input[type="password"] { width: 100%; margin-bottom: 18px; }
+.confirm-modal .ota-error { color: var(--danger); margin: -10px 0 18px; }
 /* native <dialog> wrapper: transparent shell, the inner .modal is the visible box.
    color is set explicitly because <dialog> otherwise resets it to CanvasText. */
 .modal-dialog { border: none; padding: 0; background: transparent; color: var(--ink); max-width: 100vw; max-height: 100dvh; overflow: visible; }
@@ -1852,20 +1864,6 @@ input[aria-invalid="true"] {
 }
 .model-pick.on .tile-ic { background: rgba(255,255,255,0.16); color: var(--accent-ink); }
 
-/* Dashboard rhythm. */
-.control-card {
-  background: color-mix(in srgb, var(--surface) 92%, var(--surface-3));
-}
-.control-bank {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 34%, var(--surface)), var(--surface)),
-    repeating-linear-gradient(118deg, rgba(70, 87, 184, 0.06) 0 1px, transparent 1px 18px);
-}
-.water-card {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 60%, var(--surface)), var(--surface)),
-    repeating-linear-gradient(105deg, rgba(23, 128, 139, 0.08) 0 1px, transparent 1px 20px);
-}
 .metric-card .row span,
 .metric-card .row b {
   font-variant-numeric: tabular-nums;
@@ -1958,7 +1956,9 @@ input[aria-invalid="true"] {
 .dash-toolbar-hint { color: var(--muted); font-size: 0.85em; }
 .dash-toolbar .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .dashboard-layout.editing .dash-widget {
-  border: 2px dashed var(--border); border-radius: var(--radius);
+  /* outline + overlaid chrome: edit mode must not change a widget's height,
+     or the masonry packs differently than the normal view */
+  outline: 2px dashed var(--border); outline-offset: -2px; border-radius: var(--radius);
 }
 .dashboard-layout.editing .dash-widget.sized {
   height: auto;
@@ -1967,8 +1967,16 @@ input[aria-invalid="true"] {
   height: var(--h);
 }
 .dashboard-layout.editing .dash-widget.disabled { opacity: 0.5; }
-.dash-chrome { position: relative; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
+.dash-chrome {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 4;
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  /* covers the card's own title row, which it repeats */
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0; border-bottom: 1px dashed var(--border);
+}
 .dash-chrome .dash-title { flex: 1; font-weight: 600; font-size: 0.9em; }
+/* the chrome repeats the widget title: hide the card's own (keeps its space, so no height change) */
+.dashboard-layout.editing .dash-widget > .card :is(.card-head, .hero-head, .target-label) { visibility: hidden; }
 .dash-chrome-extra { display: inline-flex; align-items: center; gap: 8px; flex: none; }
 .dash-mini-toggle { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.72rem; font-weight: 760; white-space: nowrap; }
 .dash-mini-toggle .switch { width: 38px; height: 24px; }
@@ -1977,7 +1985,7 @@ input[aria-invalid="true"] {
 .dash-mini-toggle .switch input:checked + .slider::before { transform: translateX(14px); }
 .dash-grip { cursor: grab; touch-action: none; display: inline-flex; color: var(--muted); }
 .dash-grip:active { cursor: grabbing; }
-.dash-placeholder { padding: 8px 12px 12px; color: var(--muted); }
+.dash-placeholder { padding: 48px 12px 12px; color: var(--muted); }
 /* Resize handles are edge bars: easy to grab and clearly directional. */
 .dash-resize { position: absolute; z-index: 3; touch-action: none; background: transparent; }
 .dash-resize::after {
@@ -2026,6 +2034,9 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
 
 /* LED readout flashes brighter when the value changes (mirrors a segment refresh). */
 .display-value.flash { animation: led-flash var(--dur-slow) var(--ease-out); }
+.display-screen.blink3 { animation: led-blink 1s step-end 3; }
+.display-screen.blinkloop { animation: led-blink 1s step-end infinite; }
+@keyframes led-blink { 50% { visibility: hidden; } }
 @keyframes led-flash { from { filter: brightness(1.8); } to { filter: brightness(1); } }
 
 /* Skeleton loaders. */
@@ -2124,15 +2135,17 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   .hero { padding: 0; }
   .hero-inner { padding: 12px; }
   .hero-head { align-items: flex-start; gap: 8px; }
-  .row {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 8px;
-    padding: 14px 0;
-  }
-  .row > div:last-child { justify-content: stretch; width: 100%; }
-  .row input:not([type="checkbox"]):not([type="radio"]), .row select, .row textarea { width: 100%; }
-  .row .number-control input { width: 76px; }
+  /* Phones: label left, control right as on a wide screen. Only a control too
+     wide for the rest of the line (text field, long choice) moves below. */
+  .row { flex-wrap: wrap; column-gap: 10px; row-gap: 8px; padding: 12px 0; }
+  .row > label { flex: 1 1 34%; min-width: 0; }
+  .row > div:last-child { margin-left: auto; max-width: 100%; }
+  /* text entry keeps the full width, on its own line */
+  .row:has(> div > input:not([type="checkbox"]):not([type="radio"]):not([type="number"]):not([type="range"])) > div:last-child,
+  .row:has(> div > select) > div:last-child, .row:has(> div > textarea) > div:last-child { width: 100%; }
+  .row > div > input:not([type="checkbox"]):not([type="radio"]):not([type="number"]):not([type="range"]), .row > div > select, .row > div > textarea { width: 100%; }
+  .row:has(.segmented.many) > div:last-child { width: 100%; }
+  .row .number-control input { width: 60px; }
   .row .number-control { max-width: 100%; }
   .inline-field, .range-control, .inline-actions, .actions { width: 100%; }
   .inline-actions .btn, .actions .btn { flex: 1 1 150px; }
@@ -2141,7 +2154,7 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   .wifi-ssid-control { max-width: none; min-width: 0; width: 100%; }
   .wifi-network { align-items: center; flex-direction: row; }
   .wifi-network-meta { justify-content: flex-end; white-space: nowrap; }
-  .segmented { width: 100%; }
+  .segmented.many { width: 100%; }
   .segmented button { min-width: 0; }
   .segmented.many {
     grid-auto-flow: row;
@@ -2187,7 +2200,8 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   }
   .ss-temp-badge {
     width: 100%;
-    min-height: 86px;
+    min-height: 0;
+    padding: 12px;
     border-radius: 12px;
   }
   .ss-hero-grid, .ss-metric-grid, .ss-create-grid {
@@ -2218,7 +2232,7 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   }
   .ss-timeline-bar span {
     width: 100%;
-    height: var(--ss-progress, 0%);
+    height: calc(var(--ss-step, 0) / 3 * 100%); /* bar runs from the first to the last dot */
     background: linear-gradient(180deg, var(--accent), var(--heat));
   }
   .ss-timeline-steps {
@@ -2303,3 +2317,67 @@ html.dash-resizing-h, html.dash-resizing-h * { cursor: ns-resize !important; use
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .modal-dialog::backdrop { animation: none !important; }
 }
+
+/* Smart Schedule options on wider screens: the three "after the target time"
+   labels broke out of their buttons (tester, desktop). Let the control take
+   its natural width and the description wrap instead. */
+@media (min-width: 561px) {
+  .ss-option-row > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .ss-option-row .segmented { flex: 0 0 auto; }
+  .ss-option-row .segmented button { white-space: nowrap; }
+}
+
+/* calibration timeline: the time between two steps, under the line between them */
+.cal-timeline .cal-gaps { position: absolute; left: 0; right: 0; top: 30px; height: 1em; pointer-events: none; }
+.cal-timeline .cal-gaps span {
+  position: absolute; transform: translateX(-50%);
+  font-size: 0.74rem; font-weight: 720; color: var(--muted); white-space: nowrap;
+}
+.cal-timeline .ss-timeline-steps { margin-top: 0; }
+.cal-timeline .ss-timeline-step span { margin-top: 14px; }
+.cal-gaps-inline { display: none; }
+@media (max-width: 560px) {
+  .cal-timeline .cal-gaps { display: none; }
+  .cal-timeline .ss-timeline-step span { margin-top: 0; }
+  .cal-gaps-inline { display: block; margin-top: 10px; }
+}
+
+/* "care product added" as one line under the water values */
+.dose-add {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+.dose-add .btn { min-height: 40px; padding: 8px 16px; }
+.dose-modal .dose-row { margin: 14px 0 4px; }
+.dose-modal .hint { margin: 10px 0 18px; }
+/* product on top, amount + button below: two lines at any width */
+.dose-row { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 8px; }
+.dose-row select { grid-column: 1 / -1; width: 100%; min-width: 0; }
+.dose-row .number-control input { width: 56px; }
+.warn-text { color: var(--danger); font-weight: 700; }
+.cal-tips ul { margin: 4px 0 0; padding-left: 18px; }
+.cal-tips li { margin: 2px 0; }
+/* a running calibration locks the dashboard (the LED display stays readable) */
+.cal-locked .dash-widget:not([data-id="display"]) { opacity: 0.45; pointer-events: none; filter: grayscale(0.4); }
+.cal-banner .btn { margin-left: 8px; }
+.ss-note { cursor: pointer; }
+
+/* care-product suggestion under a water value, click fills the dose form */
+.suggest {
+  display: block; background: none; border: 0; padding: 0; margin: 3px 0 0;
+  font: inherit; font-size: 0.85rem; line-height: 1.4; font-weight: 650; color: var(--accent);
+  text-align: left; cursor: pointer; user-select: none; /* a double click selected the text */
+}
+.suggest:hover { text-decoration: underline; }
+.suggest:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 4px; }
+/* the lines under a water value (ideal range, suggestion, last dose) as one
+   evenly spaced block */
+.water-card .hint { margin-top: 3px; line-height: 1.4; }
+
+/* API keys on the expert page */
+.api-keys { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.api-keys h3 { margin: 0 0 8px; font-size: 1rem; }
+.api-key { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.api-key-new { margin: 10px 0 14px; }
+.api-key-new input.mono { width: 100%; font-family: var(--mono); font-size: 0.95rem; }

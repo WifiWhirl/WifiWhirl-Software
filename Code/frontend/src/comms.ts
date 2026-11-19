@@ -11,9 +11,16 @@ export interface OtherMsg {
   MQTT: number;
   FW: string;
   BUILDENV?: string;
+  BUILD?: string; // "<commit>[+], <date>" of a test build, "" for releases without git
   /** Newer firmware version found by the daily check; "" / absent when up to date. */
   NEWFW?: string;
+  /** 0 when the STA is not associated: the firmware suppresses the sentinel. */
   RSSI: number;
+  /** Live station values; empty strings while not associated. */
+  IP?: string;
+  SSID?: string;
+  /** Link reason code: 'up' | 'nossid' | 'badpwd' | 'down'. Mapped firmware-side. */
+  STA?: string;
   HASJETS: boolean;
   WEATHER: boolean;
   CLOUD?: string;
@@ -30,6 +37,10 @@ export interface StatesMsg {
   // heat-loss calibration running (functions locked firmware-side)
   HLCAL?: boolean;
   CH1: number; CH2: number; CH3: number;
+  /** error number shown as "E02" on the panel, 0 = none */
+  ERR?: number;
+  /** a Smart Schedule is planned or heating */
+  SSA?: boolean;
   BRT: number; AMB: number;
   // brightness boost (optional - only on builds with the feature)
   BRTBASE?: number; BRTOVR?: boolean;
@@ -52,6 +63,8 @@ export interface TimesMsg {
   // optional, only present on some builds / when enabled
   WATT?: number; KWHD?: number; KWH?: number; COSTD?: number;
   CYATIME?: number; CYAVAL?: number; ALKTIME?: number; ALKVAL?: number;
+  // last care product added: g, sign = minus/plus product
+  DPH?: number; DPHTIME?: number; DCL?: number; DCLTAB?: boolean; DCLTIME?: number; DTA?: number; DTATIME?: number;
 }
 
 /**
@@ -71,6 +84,7 @@ const cmdMap: Record<string, number> = {
   setReady: 20, setR: 21, togglePWR: 22, toggleLCK: 23,
   resetTimerCleanFilter: 24, resetTimerWaterChange: 25, setEnableButtons: 26,
   setPhValue: 27, setClValue: 28, setCyaValue: 29, setAlkValue: 30,
+  addPh: 31, addCl: 32, addClTab: 33, addTa: 34,
 };
 
 // --- reactive state -------------------------------------------------------

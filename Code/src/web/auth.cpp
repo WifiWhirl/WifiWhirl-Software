@@ -43,8 +43,36 @@ struct SessionSlot
 static SessionSlot sessions[SESSION_SLOTS];
 static uint8_t nextSlot = 0;
 static bool sessionsLoaded = false;
-static uint8_t failedLoginCount = 0;
-static uint32_t loginBlockedUntilMs = 0;
+// Login throttle per client: one global counter let any LAN host keep
+// the owner locked out with 5 bad logins per cooldown.
+// 4 slots, the least recently used one is recycled.
+struct LoginThrottle
+{
+    uint32_t ip;
+    uint8_t failedLoginCount;
+    uint32_t loginBlockedUntilMs;
+    uint32_t lastMs;
+};
+static LoginThrottle throttles[4];
+
+static LoginThrottle &throttleFor(uint32_t ip)
+{
+    LoginThrottle *oldest = &throttles[0];
+    for (LoginThrottle &t : throttles)
+    {
+        if (t.ip == ip)
+            return t;
+        if (t.lastMs < oldest->lastMs)
+            oldest = &t;
+    }
+    *oldest = LoginThrottle{ip, 0, 0, millis()};
+    return *oldest;
+}
+
+static uint32_t clientIp()
+{
+    return (uint32_t)server->client().remoteIP();
+}
 
 // --- helpers ---------------------------------------------------------------
 
@@ -157,7 +185,7 @@ String hashPassword(const String &saltHex, const String &password)
 }
 
 // constant-time-ish string compare (lengths already known/short)
-static bool secureEquals(const String &a, const String &b)
+bool secureEquals(const String &a, const String &b)
 {
     if (a.length() != b.length())
         return false;
@@ -186,7 +214,8 @@ static void clearSlot(uint8_t i)
     sessions[i].persistent = false;
 }
 
-static String hashSessionToken(const String &tok)
+// SHA-256 as hex; also hashes API keys (salt + key) in api_v1.cpp
+String sha256Hex(const String &tok)
 {
     uint8_t digest[32];
 #ifdef ESP8266
@@ -198,6 +227,22 @@ static String hashSessionToken(const String &tok)
     mbedtls_sha256((const uint8_t *)tok.c_str(), tok.length(), digest, 0);
 #endif
     return toHex(digest, sizeof(digest));
+}
+
+// Random token from [A-Za-z0-9] with the hardware RNG (API keys).
+String randomToken(size_t len)
+{
+    static const char ALPHA[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    String out;
+    out.reserve(len);
+    while (out.length() < len)
+    {
+        uint32_t r = RNG_WORD();
+        for (int i = 0; i < 4 && out.length() < len; i++, r >>= 8)
+            if ((r & 0xFF) < 248) // 248 = 4 * 62: no modulo bias
+                out += ALPHA[(r & 0xFF) % 62];
+    }
+    return out;
 }
 
 static bool slotExpired(const SessionSlot &slot)
@@ -299,7 +344,7 @@ static String addSession(bool keepLoggedIn)
     String tok = toHex(buf, sizeof(buf));
     bool persist = keepLoggedIn && hasValidClock(); // shared RNG_WORD() macro picks os_random/esp_random per platform
     bool replacedPersistent = sessions[nextSlot].persistent;
-    sessions[nextSlot].tokenHash = hashSessionToken(tok);
+    sessions[nextSlot].tokenHash = sha256Hex(tok);
     sessions[nextSlot].expiresAt = persist ? nowEpoch() + PERSISTENT_SESSION_SECONDS : 0;
     sessions[nextSlot].persistent = persist;
     nextSlot = (nextSlot + 1) % SESSION_SLOTS;
@@ -313,7 +358,7 @@ static void removeSession(const String &tok)
     if (tok.length() == 0)
         return;
     ensureSessionsLoaded();
-    String hash = hashSessionToken(tok);
+    String hash = sha256Hex(tok);
     bool changedPersistent = false;
     for (uint8_t i = 0; i < SESSION_SLOTS; i++)
     {
@@ -332,7 +377,7 @@ static bool validSession(const String &tok)
     if (tok.length() == 0)
         return false;
     ensureSessionsLoaded();
-    String hash = hashSessionToken(tok);
+    String hash = sha256Hex(tok);
     bool changedPersistent = false;
     for (uint8_t i = 0; i < SESSION_SLOTS; i++)
     {
@@ -399,60 +444,130 @@ static String cookieToken()
     return tokenFromCookieHeader(server->header("Cookie"));
 }
 
-static bool loginThrottleActive(uint32_t nowMs)
+static bool loginThrottleActive(LoginThrottle &t, uint32_t nowMs)
 {
-    return loginBlockedUntilMs != 0 && (int32_t)(nowMs - loginBlockedUntilMs) < 0;
+    return t.loginBlockedUntilMs != 0 && (int32_t)(nowMs - t.loginBlockedUntilMs) < 0;
 }
 
-static uint32_t loginRetryAfterSeconds(uint32_t nowMs)
+static uint32_t loginRetryAfterSeconds(LoginThrottle &t, uint32_t nowMs)
 {
-    if (!loginThrottleActive(nowMs))
+    if (!loginThrottleActive(t, nowMs))
         return 0;
-    return (loginBlockedUntilMs - nowMs + 999) / 1000;
+    return (t.loginBlockedUntilMs - nowMs + 999) / 1000;
 }
 
-static void recordFailedLogin()
+static void recordFailedLogin(LoginThrottle &t)
 {
     uint32_t nowMs = millis();
     // If a previous block has elapsed, start a fresh failure window. Otherwise the
     // count stays pinned at the threshold and every later single failure re-arms a
     // full cooldown -> one bad login per cooldown throttles logins forever.
-    if (loginBlockedUntilMs != 0 && !loginThrottleActive(nowMs))
+    if (t.loginBlockedUntilMs != 0 && !loginThrottleActive(t, nowMs))
     {
-        failedLoginCount = 0;
-        loginBlockedUntilMs = 0;
+        t.failedLoginCount = 0;
+        t.loginBlockedUntilMs = 0;
     }
-    if (failedLoginCount < 255)
-        failedLoginCount++;
-    if (failedLoginCount >= LOGIN_THROTTLE_AFTER_FAILURES)
-        loginBlockedUntilMs = nowMs + LOGIN_THROTTLE_COOLDOWN_MS;
+    if (t.failedLoginCount < 255)
+        t.failedLoginCount++;
+    if (t.failedLoginCount >= LOGIN_THROTTLE_AFTER_FAILURES)
+        t.loginBlockedUntilMs = nowMs + LOGIN_THROTTLE_COOLDOWN_MS;
 }
 
-static void resetLoginThrottle()
+static void resetLoginThrottle(LoginThrottle &t)
 {
-    failedLoginCount = 0;
-    loginBlockedUntilMs = 0;
+    t.failedLoginCount = 0;
+    t.loginBlockedUntilMs = 0;
 }
 
 // --- public guard / endpoints ---------------------------------------------
+
+// HTTP Basic Auth for machine endpoints (/hook/, /api/v1/), throttled per
+// client like /login so the password can't be guessed at full speed.
+// Answers 401/429 itself and returns false when the caller may not continue.
+// Same per-client throttle as /login for other credentials (Basic Auth, API
+// keys). authAttemptAllowed() answers 429 itself while the client is blocked.
+bool authAttemptAllowed()
+{
+    uint32_t nowMs = millis();
+    LoginThrottle &t = throttleFor(clientIp());
+    t.lastMs = nowMs;
+    if (!loginThrottleActive(t, nowMs))
+        return true;
+    server->sendHeader(F("Retry-After"), String(loginRetryAfterSeconds(t, nowMs)));
+    server->send(429, F("text/plain"), F("Too many failed attempts, try again later."));
+    return false;
+}
+
+void authAttemptResult(bool ok)
+{
+    LoginThrottle &t = throttleFor(clientIp());
+    if (ok)
+        resetLoginThrottle(t);
+    else
+        recordFailedLogin(t);
+}
+
+bool basicAuthOk(const String &user, const String &pwd)
+{
+    if (!authAttemptAllowed())
+        return false;
+    if (!server->hasHeader(F("Authorization")))
+    {
+        server->requestAuthentication(); // first request without credentials: not a failure
+        return false;
+    }
+    bool ok = server->authenticate(user.c_str(), pwd.c_str());
+    authAttemptResult(ok);
+    if (!ok)
+        server->requestAuthentication();
+    return ok;
+}
 
 bool isAuthed()
 {
     return !globalAuthEnabled || validSession(cookieToken());
 }
 
-// Wrap a handler so it 401s when global auth is on and the caller has no session.
-// When auth is off this is a transparent pass-through (no behavior change).
+// A browser on another site (any page opened in the LAN) may send requests to
+// the module; with auth off nothing stopped them. Browsers always send
+// Origin on cross-site POSTs; same-origin requests carry our own host, and
+// non-browser clients (curl, Home Assistant, scripts) send no Origin at all.
+bool crossSiteRequest()
+{
+    if (server->method() == HTTP_GET || !server->hasHeader(F("Origin")))
+        return false;
+    String origin = server->header(F("Origin")); // "http://host[:port]" or "null"
+    int scheme = origin.indexOf(F("://"));
+    if (scheme < 0)
+        return true;
+    return !origin.substring(scheme + 3).equalsIgnoreCase(server->header(F("Host")));
+}
+
+// 401 when global auth is on and the caller has no session, 403 for cross-site
+// browser requests. false = already answered.
+bool guardOk()
+{
+    if (crossSiteRequest())
+    {
+        server->send(403, F("text/plain"), F("Cross-site request rejected."));
+        return false;
+    }
+    if (!isAuthed())
+    {
+        server->send(401, F("text/plain"), F("Authentication required."));
+        return false;
+    }
+    return true;
+}
+
+// Wrap a handler in guardOk(). Each use costs a heap std::function for good:
+// plain routes go into PLAIN_ROUTES (http_routes.cpp) instead.
 WebServerT::THandlerFunction guard(WebServerT::THandlerFunction handler)
 {
     return [handler]()
     {
-        if (!isAuthed())
-        {
-            server->send(401, F("text/plain"), F("Authentication required."));
-            return;
-        }
-        handler();
+        if (guardOk())
+            handler();
     };
 }
 
@@ -460,6 +575,18 @@ WebServerT::THandlerFunction guard(WebServerT::THandlerFunction handler)
 // With global auth on, use the session (no extra Basic-Auth prompt); otherwise
 // keep the legacy HTTP Basic Auth against OTAPassword. Returns false and has
 // already answered the client when not authorized.
+// 401 for wrong OTA credentials. The SPA always sends an Authorization header
+// and asks for the password in its own dialog; a WWW-Authenticate challenge would
+// pop up the browser's login box on top of it. A plain browser visit without
+// credentials still gets the challenge.
+void otaAuthFail()
+{
+    if (server->hasHeader(F("Authorization")))
+        server->send(401, F("text/plain"), F("Wrong password."));
+    else
+        server->requestAuthentication();
+}
+
 bool legacyAuthOk(const char *basicUser)
 {
     if (globalAuthEnabled)
@@ -473,7 +600,7 @@ bool legacyAuthOk(const char *basicUser)
     }
     if (!server->authenticate(basicUser, OTAPassword.c_str()))
     {
-        server->requestAuthentication();
+        otaAuthFail();
         return false;
     }
     return true;
@@ -491,9 +618,11 @@ void handleLogin()
     }
 
     uint32_t nowMs = millis();
-    if (loginThrottleActive(nowMs))
+    LoginThrottle &throttle = throttleFor(clientIp());
+    throttle.lastMs = nowMs;
+    if (loginThrottleActive(throttle, nowMs))
     {
-        uint32_t retryAfter = loginRetryAfterSeconds(nowMs);
+        uint32_t retryAfter = loginRetryAfterSeconds(throttle, nowMs);
         server->sendHeader(F("Retry-After"), String(retryAfter));
         server->send(429, F("application/json"), String(F("{\"ok\":false,\"retryAfter\":")) + retryAfter + "}");
         return;
@@ -509,18 +638,20 @@ void handleLogin()
     String authUserLc = globalAuthUser;
     authUserLc.toLowerCase();
 
-    bool ok = secureEquals(userLc, authUserLc) &&
-              globalAuthHash.length() > 0 &&
-              secureEquals(hashPassword(globalAuthSalt, pwd), globalAuthHash);
+    // Hash first, always: with "user && hash" PBKDF2 (hundreds of ms) only ran
+    // for the right user name, so the response time told which name is valid.
+    String pwdHash = hashPassword(globalAuthSalt, pwd);
+    bool userOk = secureEquals(userLc, authUserLc);
+    bool ok = userOk && globalAuthHash.length() > 0 && secureEquals(pwdHash, globalAuthHash);
 
     if (!ok)
     {
-        recordFailedLogin();
+        recordFailedLogin(throttle);
         server->send(401, F("application/json"), F("{\"ok\":false}"));
         return;
     }
 
-    resetLoginThrottle();
+    resetLoginThrottle(throttle);
     bool keepLoggedIn = keep == F("1") || keep == F("true") || keep == F("on");
     String tok = addSession(keepLoggedIn);
     String cookie = String(COOKIE_NAME) + "=" + tok + "; Path=/; HttpOnly; SameSite=Strict";

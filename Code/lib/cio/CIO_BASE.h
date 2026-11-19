@@ -17,8 +17,7 @@ public:
     virtual void pause_all(bool action) = 0;
     virtual void updateStates() = 0;
     virtual void handleToggles() = 0;
-    void setRawPayload(const std::vector<uint8_t> &pl);
-    std::vector<uint8_t> getRawPayload();
+    const std::vector<uint8_t> &getRawPayload(); // by reference: called twice per loop()
     virtual String getModel() = 0;
     virtual Power getPower() = 0;
     /* Expert-mode overrides: setPower replaces the live wattage table,
@@ -39,12 +38,13 @@ public:
     int write_msg_count = 0;
     uint32_t good_packets_count = 0;
     uint32_t bad_packets_count = 0;
+    // held UP/DOWN taps sent to the pump so far (6W only), one beep per tap
+    uint32_t held_taps = 0;
     // debugging comm problems. Bit 0: bit error, Bit 1: too many bytes error, Bit 2: too few bytes error
     uint8_t packet_error = 0;
     // debug - stores cio special bytes
     uint8_t CIO_CMD_LOG[64] = {0};
     uint8_t CIO_CMD_LOG_index = 0;
-    std::vector<uint8_t> _raw_payload_to_cio = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 protected:
     std::vector<uint8_t> _raw_payload_from_cio = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};

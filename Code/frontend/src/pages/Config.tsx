@@ -7,19 +7,29 @@ import { confirmDialog } from '../components/feedback';
 import { PageSkeleton } from '../components/Skeleton';
 import { lastStates, sendCommand } from '../comms';
 import { t } from '../i18n';
+
+// Firmware SNDMASK bits (BWC::Sound); up and down share one switch
+const SOUNDS: [string, number][] = [
+  ['boot', 1 << 0], ['connected', 1 << 1], ['click', 1 << 2], ['updown', (1 << 7) | (1 << 8)],
+  ['confirm', 1 << 3], ['error', 1 << 4], ['ready', 1 << 5], ['reminder', 1 << 6],
+];
 import { currencies, currency, currencySymbol, setCurrency } from '../currency';
+import { comma } from '../util/format';
 
 interface Cfg {
   PRICE: number; PRICE_NIGHT: number; NIGHT_ENABLED: boolean;
   NIGHT_START_MIN: number; NIGHT_END_MIN: number; NIGHT_WEEKEND: boolean;
   CLINT: number; FINT: number; FCINT: number; WCINT: number;
-  AUDIO: boolean; TIMEZONE: string; TIMEZONE_NAME: string; REBOOTTIME: number;
-  WEATHER: boolean; HASJETS: boolean; POOLCAP: number;
-  AIRTO: number; HJTO: number; BRTSTEP: number; BRTDUR: number;
+  AUDIO: boolean; SNDMASK?: number; TIMEZONE: string; TIMEZONE_NAME: string; REBOOTTIME: number;
+  WEATHER: boolean; CLOUD?: boolean; HASJETS: boolean; POOLCAP: number;
+  DFPHM?: number; DFPHP?: number; DFCL?: number; DFTAP?: number; DFTAM?: number;
+  AIRTO: number; HJTO: number; JETCD: boolean; STBYORIG: boolean; BRTSTEP: number; BRTDUR: number;
   GSTMODE: boolean; GSTMAXTGT: number; GSTHTRTO: number;
   LCK: boolean; TMR: boolean; AIR: boolean; UNT: boolean; HTR: boolean;
   FLT: boolean; DN: boolean; UP: boolean; PWR: boolean; HJT: boolean;
 }
+
+const DOSE_FACTORS = ['DFPHM', 'DFPHP', 'DFCL', 'DFTAP', 'DFTAM'] as const;
 
 const BTNS: { k: keyof Cfg; key: string; jetsOnly?: boolean }[] = [
   { k: 'PWR', key: 'dashboard.power' }, { k: 'LCK', key: 'dashboard.lock' },
@@ -110,7 +120,7 @@ export function Config() {
   const weatherReady = true;
   const weatherSummary = !d.WEATHER
     ? t('cfg.weatherOff')
-    : city || t('cfg.weatherConfigured');
+    : city ? t('cfg.weatherActiveFor', { city }) : t('cfg.weatherConfigured');
   const ready = weatherReady;
   const maintenance = [
     { key: 'CLINT' as const, label: t('spa.chlorineInterval'), value: d.CLINT },
@@ -140,8 +150,8 @@ export function Config() {
         </div>
         <div class="cfg-hero-grid">
           <ConfigStat label={t('cfg.pool')} value={`${Number(d.POOLCAP) || 0} ${t('spa.liters')}`} />
-          <ConfigStat label={t('cfg.weather')} value={weatherSummary} tone={!weatherReady ? 'warn' : undefined} />
-          <ConfigStat label={t('cfg.energy')} value={`${Number(d.PRICE).toFixed(2)} ${currencySymbol()}/kWh`} />
+          <ConfigStat label={t('cfg.weatherStat')} value={weatherSummary} tone={!weatherReady ? 'warn' : undefined} />
+          <ConfigStat label={t('cfg.energy')} value={`${comma(Number(d.PRICE))} ${currencySymbol()}/kWh`} />
           <ConfigStat label={t('config.unit')} value={unitC ? '°C' : '°F'} />
           <ConfigStat label={t('spa.lastBoot')} value={lastBoot || '--'} />
           <ConfigStat label={t('cfg.controlButtons')} value={disabledButtons === 0 ? t('cfg.allButtonsOn') : t('cfg.disabledButtons', { count: disabledButtons })} tone={disabledButtons > 0 ? 'warn' : undefined} />
@@ -213,7 +223,8 @@ export function Config() {
 
         <div class="cfg-subsection">
           <h3>{t('cfg.weather')}</h3>
-          <Row label={t('cfg.weatherData')}>
+          {d.CLOUD === false && <p class="hint">{t('cfg.weatherNeedsCloud')}</p>}
+          {d.CLOUD !== false && <Row label={t('cfg.weatherData')}>
             <Segmented<'off' | 'on'>
               value={d.WEATHER ? 'on' : 'off'}
               options={[{ value: 'off', label: t('cfg.disabled') }, { value: 'on', label: t('cfg.enabled') }]}
@@ -224,7 +235,7 @@ export function Config() {
                 if (!next) setCity('');
               }}
             />
-          </Row>
+          </Row>}
           {d.WEATHER && (
             city
               ? <p class="hint">{t('spa.cityLookup', { city })}</p>
@@ -257,23 +268,27 @@ export function Config() {
             <h2>{t('cfg.maintenance')}</h2>
           </div>
         </div>
-        <div class="cfg-maint-grid">
-          {maintenance.map((item) => (
-            <div class="cfg-maint-tile" key={item.key}>
-              <span>{item.label}</span>
-              <b>{t('cfg.everyDays', { days: Number(item.value) || 0 })}</b>
-              <input
-                type="number"
-                min={1}
-                max={99}
-                value={item.value}
-                inputMode="numeric"
-                onInput={(e) => set(item.key, (e.target as HTMLInputElement).value)}
-              />
-            </div>
-          ))}
-        </div>
+        {/* compact - / + fields with the unit, like the pool size (was one big field per tile) */}
+        {maintenance.map((item) => (
+          <NumField key={item.key} label={item.label} value={item.value} min={1} max={365} unit={t('time.days')}
+            onInput={(v) => set(item.key, v)} />
+        ))}
         {save(() => ({ CLINT: Number(d.CLINT), FINT: Number(d.FINT), FCINT: Number(d.FCINT), WCINT: Number(d.WCINT) }))}
+      </Card>
+
+      {/* dosing factors for the care-product suggestion */}
+      <Card className="cfg-section">
+        <div class="auto-section-head">
+          <div>
+            <p class="eyebrow">{t('dashboard.waterQuality')}</p>
+            <h2>{t('cfg.dosing')}</h2>
+          </div>
+        </div>
+        <p class="hint">{t('cfg.dosingHint')}</p>
+        {DOSE_FACTORS.map((k) => (
+          <NumField key={k} label={t(`cfg.df.${k}`)} value={d[k] ?? ''} min={1} max={250} unit={t('cfg.dfUnit')} onInput={(v) => set(k, v)} />
+        ))}
+        {save(() => Object.fromEntries(DOSE_FACTORS.filter((k) => d[k] != null).map((k) => [k, Number(d[k])])))}
       </Card>
 
       <Card className="cfg-section">
@@ -284,8 +299,23 @@ export function Config() {
           </div>
         </div>
         <Row label={t('spa.audio')}><Toggle checked={d.AUDIO} onChange={(v) => set('AUDIO', v)} /></Row>
-        <NumField label={t('cfg.airjetTimeout')} value={d.AIRTO} min={5} max={30} unit={t('cfg.minUnit')} onInput={(v) => set('AIRTO', v)} />
-        {d.HASJETS && <NumField label={t('cfg.hydrojetTimeout')} value={d.HJTO} min={5} max={60} unit={t('cfg.minUnit')} onInput={(v) => set('HJTO', v)} />}
+        {d.AUDIO && d.SNDMASK != null && (
+          <div class="cfg-subsection">
+            <h3>{t('snd.title')}</h3>
+            <p class="hint">{t('snd.hint')}</p>
+            {SOUNDS.map(([key, bits]) => (
+              <Row key={key} label={t(`snd.${key}`)}>
+                <Toggle checked={(d.SNDMASK! & bits) !== 0} onChange={(v) => set('SNDMASK', v ? d.SNDMASK! | bits : d.SNDMASK! & ~bits)} />
+              </Row>
+            ))}
+          </div>
+        )}
+        <NumField label={t('cfg.airjetTimeout')} value={d.AIRTO} min={1} max={30} unit={t('cfg.minUnit')} onInput={(v) => set('AIRTO', v)} />
+        {d.HASJETS && <NumField label={t('cfg.hydrojetTimeout')} value={d.HJTO} min={1} max={60} unit={t('cfg.minUnit')} onInput={(v) => set('HJTO', v)} />}
+        <Row label={t('cfg.jetCountdown')}><Toggle checked={!!d.JETCD} onChange={(v) => set('JETCD', v)} /></Row>
+        <p class="hint">{t('cfg.jetCountdownHint')}</p>
+        <Row label={t('cfg.standbyOriginal')}><Toggle checked={d.STBYORIG !== false} onChange={(v) => set('STBYORIG', v)} /></Row>
+        <p class="hint">{t('cfg.standbyOriginalHint')}</p>
 
         <div class="cfg-subsection">
           <h3>{t('config.brightnessBoost')}</h3>
@@ -294,7 +324,7 @@ export function Config() {
           <NumField label={t('config.brtBoostDuration')} value={d.BRTDUR} min={1} max={60} unit={t('config.seconds')} onInput={(v) => set('BRTDUR', v)} />
         </div>
         {save(() => ({
-          AUDIO: d.AUDIO, AIRTO: Number(d.AIRTO) || 30, HJTO: Number(d.HJTO) || 60,
+          AUDIO: d.AUDIO, ...(d.SNDMASK != null && { SNDMASK: d.SNDMASK }), AIRTO: Number(d.AIRTO) || 30, HJTO: Number(d.HJTO) || 60, JETCD: !!d.JETCD, STBYORIG: d.STBYORIG !== false,
           BRTSTEP: Number(d.BRTSTEP) || 1, BRTDUR: Number(d.BRTDUR) || 5,
         }))}
       </Card>

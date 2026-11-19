@@ -5,6 +5,7 @@ import { showRestart, showToast } from '../components/feedback';
 import { lastOther, refreshCommsOnce } from '../comms';
 import { navigate } from '../router';
 import { t } from '../i18n';
+import { withOtaAuth, saveBlob } from '../components/OtaAuth';
 
 interface UpdateInfo {
   enabled: boolean;
@@ -23,12 +24,25 @@ export function Info() {
   const fw = lastOther.value?.FW ?? '...';
   // Show the build env as the model name, hiding the internal "_seed" suffix.
   const buildEnv = lastOther.value?.BUILDENV?.replace(/_seed$/, '');
+  // test builds carry their commit and date, e.g. "2fcfb5b, 12.11.2026"
+  const build = lastOther.value?.BUILD;
 
   const [enabled, setEnabled] = useState(false);
   const [latest, setLatest] = useState('');
   const [available, setAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  // Support package: OTA password in the app dialog instead of the browser's
+  // login box (which also wanted the user name "support").
+  async function downloadSupport() {
+    try {
+      const r = await withOtaAuth('support', t('info.supportPackage'), (headers) => fetch('/support/', { headers }));
+      if (!r) return;
+      if (!r.res.ok) { showToast(t('common.error'), true); return; }
+      saveBlob(await r.res.blob(), 'wifiwhirl-support.json');
+    } catch { showToast(t('common.error'), true); }
+  }
 
   function applyInfo(j: UpdateInfo) {
     setEnabled(!!j.enabled);
@@ -87,8 +101,8 @@ export function Info() {
   return (
     <>
       <h1>{t('nav.info')}</h1>
-      <Card title="Software">
-        <div class="row"><label>{t('info.installedVersion')}</label><b>{fw}</b></div>
+      <Card title={t('info.softwareTitle')}>
+        <div class="row"><label>{t('info.installedVersion')}</label><b>{fw}{build ? ` (${build})` : ''}</b></div>
         {buildEnv && <div class="row"><label>{t('info.buildEnv')}</label><b>{buildEnv}</b></div>}
         <button class="btn" style="margin-top:12px" onClick={() => navigate('/update')}>
           {t('info.softwareUpdate')}
@@ -135,7 +149,7 @@ export function Info() {
         <div class="row"><label>FAQ</label>
           <a href="https://wifiwhirl.de/FAQ/" target="_blank" rel="noreferrer">wifiwhirl.de/FAQ</a></div>
         <div class="row"><label>{t('info.supportPackage')}</label>
-          <a href="/support/" target="_blank" rel="noreferrer">{t('info.createSupportPackage')}</a></div>
+          <a href="/support/" onClick={(e) => { e.preventDefault(); void downloadSupport(); }}>{t('info.createSupportPackage')}</a></div>
         <div class="row"><label>{t('info.contactLabel')}</label>
           <a href="mailto:hilfe@wifiwhirl.de">hilfe@wifiwhirl.de</a></div>
       </Card>

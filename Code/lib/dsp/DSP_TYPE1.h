@@ -11,6 +11,11 @@ public:
     void setup(int dsp_data_pin, int dsp_clk_pin, int dsp_cs_pin, int dsp_audio_pin);
     void stop();
     void handleStates() override;
+    uint8_t payloadByte(int i) const { return _payload[i]; } // what goes to the panel (host tests)
+    bool shownDigits() { return _payload[getDGT2_IDX()] && _payload[getDGT3_IDX()]; }
+    bool shownUnitLed() { return _payload[getC_IDX()] & (1 << getC_BIT()); }
+    bool shownPowerLed() { return _payload[getPWR_IDX()] & (1 << getPWR_BIT()); }
+    uint8_t shown_brightness = 0;                            // last brightness sent (host tests)
 
 protected:
     void uploadPayload(uint8_t brightness) override;
@@ -56,13 +61,16 @@ protected:
 
 protected:
     unsigned long _dsp_last_refreshtime = 0;
+    unsigned long _dsp_last_uploadtime = 0;
+    uint8_t _uploaded[11] = {};       // last payload sent to the display
+    int16_t _uploaded_brightness = -1; // -1: nothing sent yet
     unsigned long _dsp_getbutton_last_time = 0;
     int _CS_PIN;
     int _CLK_PIN;
     int _DATA_PIN;
     int _AUDIO_PIN;
-    const uint8_t DSP_DIM_BASE = 0x80;
-    const uint8_t DSP_DIM_ON = 0x8;
+    static constexpr uint8_t DSP_DIM_BASE = 0x80;
+    static constexpr uint8_t DSP_DIM_ON = 0x8;
     /*Real CIO is sending 0x01 which is illegal according to datasheet.
     Static to work in switch/case.*/
     /*Needs to be static to work in switch/case.*/
@@ -74,35 +82,35 @@ protected:
     static const uint8_t DSP_CMD2_DATAWRITE = 0x40;
     // 7-segment codes. LSB can be 0 or 1 depending on pump. Not used AFAIK.
     // Payload byte index and bit numbers (see documentation in excel file on github)
-    const byte DGT1_IDX = 1;
-    const byte DGT2_IDX = 3;
-    const byte DGT3_IDX = 5;
-    const byte TMR2_IDX = 7;
-    const byte TMR2_BIT = 1;
-    const byte TMR1_IDX = 7;
-    const byte TMR1_BIT = 2;
-    const byte LCK_IDX = 7;
-    const byte LCK_BIT = 3;
-    const byte TMRBTNLED_IDX = 7;
-    const byte TMRBTNLED_BIT = 4;
-    const byte REDHTR_IDX = 7;
-    const byte REDHTR_BIT = 5;
-    const byte GRNHTR_IDX = 7;
-    const byte GRNHTR_BIT = 6;
-    const byte AIR_IDX = 7;
-    const byte AIR_BIT = 7;
-    const byte FLT_IDX = 9;
-    const byte FLT_BIT = 1;
-    const byte C_IDX = 9;
-    const byte C_BIT = 2;
-    const byte F_IDX = 9;
-    const byte F_BIT = 3;
-    const byte PWR_IDX = 9;
-    const byte PWR_BIT = 4;
-    const byte HJT_IDX = 9;
-    const byte HJT_BIT = 5;
+    static constexpr byte DGT1_IDX = 1;
+    static constexpr byte DGT2_IDX = 3;
+    static constexpr byte DGT3_IDX = 5;
+    static constexpr byte TMR2_IDX = 7;
+    static constexpr byte TMR2_BIT = 1;
+    static constexpr byte TMR1_IDX = 7;
+    static constexpr byte TMR1_BIT = 2;
+    static constexpr byte LCK_IDX = 7;
+    static constexpr byte LCK_BIT = 3;
+    static constexpr byte TMRBTNLED_IDX = 7;
+    static constexpr byte TMRBTNLED_BIT = 4;
+    static constexpr byte REDHTR_IDX = 7;
+    static constexpr byte REDHTR_BIT = 5;
+    static constexpr byte GRNHTR_IDX = 7;
+    static constexpr byte GRNHTR_BIT = 6;
+    static constexpr byte AIR_IDX = 7;
+    static constexpr byte AIR_BIT = 7;
+    static constexpr byte FLT_IDX = 9;
+    static constexpr byte FLT_BIT = 1;
+    static constexpr byte C_IDX = 9;
+    static constexpr byte C_BIT = 2;
+    static constexpr byte F_IDX = 9;
+    static constexpr byte F_BIT = 3;
+    static constexpr byte PWR_IDX = 9;
+    static constexpr byte PWR_BIT = 4;
+    static constexpr byte HJT_IDX = 9;
+    static constexpr byte HJT_BIT = 5;
     /*Bit 0 (LSB) is the not used or enable? bit for the whole byte. We leave it on to mimic type2 which don't have enable bits.*/
-    const uint8_t CHARCODES[38] = {
+    static constexpr uint8_t CHARCODES[38] = {
         0x7F, 0x0D, 0xB7, 0x9F, 0xCD, 0xDB, 0xFB, 0x0F, 0xFF, 0xDF, 0x01, 0x81, 0xEF, 0xF9, 0x73, 0xBD, 0xF3, 0xE3, 0xFB,
         0xE9, 0xED, 0x61, 0x1D, 0xE1, 0x71, 0x01, 0xA9, 0xB9, 0xE7, 0xCF, 0xA1, 0xDB, 0xF1, 0x39, 0x7D, 0x01, 0xDD, 0xB7};
 

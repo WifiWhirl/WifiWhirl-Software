@@ -12,10 +12,20 @@ void handleGetConfig()
     if (!checkHttpPost(server->method()))
         return;
 
-    String json;
-    json.reserve(320);
-    bwc->getJSONSettings(json);
-    server->send(200, F("text/plain"), json);
+    // streamed: the document plus a ~1.1 KB String copy of it before
+    DynamicJsonDocument doc(2048);
+    if (doc.capacity() == 0)
+    {
+        server->send(503, F("text/plain"), F("Out of memory"));
+        return;
+    }
+    bwc->buildJSONSettings(doc.to<JsonObject>());
+    server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server->send(200, F("text/plain"), "");
+    ChunkedResponsePrint out;
+    serializeJson(doc, out);
+    out.flush();
+    server->sendContent("");
 }
 
 /**
@@ -27,7 +37,7 @@ void handleSetConfig()
     if (!checkHttpPost(server->method()))
         return;
 
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     String error;
     if (!bwc->setJSONSettings(message, error))
     {

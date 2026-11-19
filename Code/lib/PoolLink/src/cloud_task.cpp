@@ -25,6 +25,7 @@ uint16_t   CloudTask::_port             = 8080;
 uint64_t   CloudTask::_tx_seq           = 0;
 uint64_t   CloudTask::_rx_seq_last      = 0;
 uint32_t   CloudTask::_last_ping_ms          = 0;
+uint32_t   CloudTask::_last_rx_ms            = 0;
 uint32_t   CloudTask::_last_connect_attempt_ms = 0;
 uint8_t    CloudTask::_backoff_index    = 0;
 uint32_t   CloudTask::_connect_start_ms = 0;
@@ -33,8 +34,14 @@ bool       CloudTask::_hello_sent       = false;
 bool       CloudTask::_notify_pending   = false;
 bool       CloudTask::_force_resync     = false;
 bool       CloudTask::_queue_dirty      = false;
+uint32_t   CloudTask::_queue_hash       = 0;
+uint32_t   CloudTask::_queue_check_ms   = 0;
 bool       CloudTask::_settings_dirty   = false;
-uint8_t    CloudTask::_rx_buf[POOLLINK_MAX_FRAME] = {};
+uint8_t   *CloudTask::_rx_buf = nullptr;
+// All three link buffers (rx, scratch, tx frame, ~3.1 KB) are allocated in
+// begin(): as static arrays they cost that RAM even with the cloud off.
+static uint8_t *s_scratch = nullptr; // POOLLINK_MAX_PAYLOAD
+static uint8_t *s_frame = nullptr;   // POOLLINK_MAX_FRAME
 size_t     CloudTask::_rx_buf_len       = 0;
 char       CloudTask::_location[48]     = {0};
 char       CloudTask::_firmware[16]     = {0};
@@ -62,6 +69,18 @@ void CloudTask::begin(const char* hostname, const uint8_t psk[32],
     _host[sizeof(_host) - 1] = '\0';
     memcpy(_psk, psk, 32);
     _port = port;
+    if (!_rx_buf)
+    {
+        uint8_t *m = (uint8_t *)malloc(2 * POOLLINK_MAX_FRAME + POOLLINK_MAX_PAYLOAD);
+        if (!m)
+        {
+            Serial.println(F("[Cloud] no memory for the link buffers"));
+            return;
+        }
+        _rx_buf = m;
+        s_frame = m + POOLLINK_MAX_FRAME;
+        s_scratch = m + 2 * POOLLINK_MAX_FRAME;
+    }
     _state = CLOUD_DISCONNECTED;
     _backoff_index = 0;
     _last_connect_attempt_ms = 0;
@@ -70,6 +89,7 @@ void CloudTask::begin(const char* hostname, const uint8_t psk[32],
 
 void CloudTask::tick()
 {
+    if (!_rx_buf) return; // begin() not run (not provisioned) or out of memory
     switch (_state) {
     case CLOUD_DISCONNECTED:  _doConnect();    break;
     case CLOUD_CONNECTING:    _doConnecting(); break;
@@ -110,11 +130,32 @@ void CloudTask::setDeviceInfo(const char* firmware, const char* model)
 
 void CloudTask::setLocationName(const char* name)
 {
-    if (!name) name = "";
-    if (strncmp(_location, name, sizeof(_location) - 1) == 0)
+    // The name goes into the settings JSON unescaped (_sendSettingsData), and a
+    // cut through a multi-byte character or a quote made the backend's
+    // json.loads fail; the snapshot then stayed stale for good.
+    // Drop quote/backslash/control chars, cut only at a UTF-8 character boundary.
+    char clean[sizeof(_location)];
+    size_t n = 0;
+    for (const char* p = name ? name : ""; *p && n < sizeof(clean) - 1; p++)
+        if ((uint8_t)*p >= 0x20 && *p != '"' && *p != '\\')
+            clean[n++] = *p;
+    if (n == sizeof(clean) - 1)  // possibly cut: drop a trailing partial character
+    {
+        size_t i = n;
+        while (i > 0 && ((uint8_t)clean[i - 1] & 0xC0) == 0x80)
+            i--;                                  // continuation bytes
+        if (i > 0 && (uint8_t)clean[i - 1] >= 0xC0)
+        {
+            uint8_t lead = clean[i - 1];
+            size_t need = lead >= 0xF0 ? 4 : lead >= 0xE0 ? 3 : 2;
+            if (n - (i - 1) < need)
+                n = i - 1;                        // incomplete: drop it
+        }
+    }
+    clean[n] = '\0';
+    if (strcmp(_location, clean) == 0)
         return;  // unchanged, no need to resend the snapshot
-    strncpy(_location, name, sizeof(_location) - 1);
-    _location[sizeof(_location) - 1] = '\0';
+    memcpy(_location, clean, n + 1);
     _settings_dirty = true;
 }
 
@@ -150,9 +191,22 @@ void CloudTask::_doConnect()
     _connect_start_ms = now;
     _state = CLOUD_CONNECTING;
 
-    if (!_client.connect(_host, _port)) {
+    // connect(host, port) blocked loop() for DNS (up to 10 s) plus the TCP
+    // handshake (5 s) on every attempt while the server was unreachable. Resolve
+    // once and keep the address (again after a failure), 2 s for the handshake.
+    static IPAddress ip;
+    static bool resolved = false;
+#ifdef ESP8266
+    if (!resolved && WiFi.hostByName(_host, ip, 3000) == 1)
+#else
+    if (!resolved && WiFi.hostByName(_host, ip) == 1)
+#endif
+        resolved = true;
+    _client.setTimeout(2000);
+    if (!resolved || !_client.connect(ip, _port)) {
+        resolved = false;
         Serial.println(F("[Cloud] TCP connect failed"));
-        _disconnect("connect failed");
+        _disconnect(F("connect failed"));
     }
 }
 
@@ -167,7 +221,7 @@ void CloudTask::_doConnecting()
         return;
     }
     if (millis() - _connect_start_ms > 5000) {
-        _disconnect("connect timeout");
+        _disconnect(F("connect timeout"));
     }
 }
 
@@ -175,14 +229,14 @@ void CloudTask::_doHandshake()
 {
     if (!_hello_sent) {
         if (!_sendHello()) {
-            _disconnect("hello send failed");
+            _disconnect(F("hello send failed"));
             return;
         }
         _hello_sent = true;
     }
 
     if (millis() - _handshake_start_ms > 5000) {
-        _disconnect("handshake timeout");
+        _disconnect(F("handshake timeout"));
         return;
     }
 
@@ -191,6 +245,7 @@ void CloudTask::_doHandshake()
         _tx_seq = 1;
         _rx_seq_last = 0;
         _last_ping_ms = millis();
+        _last_rx_ms = millis();
         _state = CLOUD_CONNECTED;
         Serial.println(F("[Cloud] Handshake complete, connected"));
         if (!_sendSensorData())
@@ -201,10 +256,15 @@ void CloudTask::_doHandshake()
     }
 }
 
+// One scratch buffer for a received frame's payload and the sensor snapshot to
+// send: never in use at once (a handler that sends has read its payload into
+// its own JSON document first, deserializeJson copies from a const buffer).
+// Two static 1 KB buffers held RAM the MQTT socket was short of.
+
 void CloudTask::_doConnected()
 {
     if (!_client.connected()) {
-        _disconnect("connection lost");
+        _disconnect(F("connection lost"));
         return;
     }
 
@@ -212,23 +272,32 @@ void CloudTask::_doConnected()
     // of server messages isn't spread one-per-loop. _readFrame returns false
     // once no full frame remains (and may disconnect on a protocol error).
     uint8_t type;
-    static uint8_t payload[POOLLINK_MAX_PAYLOAD];  // static: too big for the loop stack
+    uint8_t *payload = s_scratch;  // too big for the loop stack
     size_t  payload_len = 0;
     while (_state == CLOUD_CONNECTED &&
-           _readFrame(&type, payload, &payload_len, sizeof(payload))) {
+           _readFrame(&type, payload, &payload_len, POOLLINK_MAX_PAYLOAD)) {
+        _last_rx_ms = millis();
         switch (type) {
         case POOLLINK_MSG_SENSOR_ACK: _handleSensorAck(payload, payload_len); break;
         case POOLLINK_MSG_COMMAND:    _handleCommand(payload, payload_len);   break;
         case POOLLINK_MSG_PING:       _handlePing();                          break;
         case POOLLINK_MSG_PONG:       break;
         case POOLLINK_MSG_ERROR:      _handleError(payload, payload_len);     break;
-        case POOLLINK_MSG_GOODBYE:    _disconnect("server goodbye");          break;
+        case POOLLINK_MSG_GOODBYE:    _disconnect(F("server goodbye"));          break;
         default:                      break;
         }
     }
     if (_state != CLOUD_CONNECTED) return;  // a handler may have disconnected
 
     uint32_t now = millis();
+
+    // The server answers every PING. Nothing for 3 ping intervals (the
+    // backend's own offline timeout) = a dead link that lwIP would only notice
+    // after minutes of retransmits; meanwhile commands could not arrive.
+    if (now - _last_rx_ms > 3UL * CLOUD_PING_INTERVAL * 1000UL) {
+        _disconnect(F("no data from server"));
+        return;
+    }
 
     // Push pending state change when payload differs from last successful send
     if (_notify_pending) {
@@ -238,6 +307,16 @@ void CloudTask::_doConnected()
             _notify_pending = false;
             _force_resync = false;
         }
+    }
+
+    // The module changes the queue by itself too (a one-off entry ran, a
+    // repeating one moved on, Smart Schedule or a timeout added one). Those
+    // paths don't call notifyQueueChanged(), so compare once a second instead
+    // of leaving the cloud with entries that are long gone.
+    if (!_queue_dirty && now - _queue_check_ms >= 1000) {
+        _queue_check_ms = now;
+        if (bwc->commandQueueHash() != _queue_hash)
+            _queue_dirty = true;
     }
 
     // Push the command queue snapshot after connect / queue mutations
@@ -268,7 +347,7 @@ void CloudTask::_doConnected()
     }
 }
 
-void CloudTask::_disconnect(const char* reason)
+void CloudTask::_disconnect(const __FlashStringHelper* reason)
 {
     _client.stop();
     _rx_buf_len = 0;
@@ -308,7 +387,7 @@ bool CloudTask::_receiveHelloAck()
     if (_rx_buf_len < ackSize) return false;
 
     if (_rx_buf[0] != POOLLINK_MSG_HELLO_ACK) {
-        _disconnect("unexpected handshake message");
+        _disconnect(F("unexpected handshake message"));
         return false;
     }
 
@@ -321,7 +400,7 @@ bool CloudTask::_receiveHelloAck()
     CloudCrypto::deriveSessionKey(_psk, _client_nonce, server_nonce, _session_key);
 
     if (!CloudCrypto::verifyHelloAuthTag(_session_key, received_tag)) {
-        _disconnect("auth tag mismatch");
+        _disconnect(F("auth tag mismatch"));
         return false;
     }
 
@@ -336,7 +415,8 @@ bool CloudTask::_sendFrame(uint8_t type, const uint8_t* payload, size_t len)
     if (len > POOLLINK_MAX_PAYLOAD) return false;
 
     // Frame: [length(2)][type(1)][seq(8)][ciphertext(len)][tag(16)]
-    static uint8_t frame[POOLLINK_MAX_FRAME];  // static: ~1 KB, too big for the loop stack
+    uint8_t *frame = s_frame;  // ~1 KB, too big for the loop stack
+    if (!frame) return false;
 
     uint16_t frame_body_len = (uint16_t)(POOLLINK_FRAME_HEADER_SIZE + len + POOLLINK_FRAME_TAG_SIZE);
     frame[0] = (frame_body_len >> 8) & 0xFF;
@@ -359,7 +439,13 @@ bool CloudTask::_sendFrame(uint8_t type, const uint8_t* payload, size_t len)
     memcpy(frame + 11 + len, tag, POOLLINK_AUTH_TAG_SIZE);
 
     size_t total = 2 + frame_body_len;
-    return _client.write(frame, total) == total;
+    if (_client.write(frame, total) != total) {
+        // a half-sent frame would be followed by the next one: the server
+        // drops the link on the garbage anyway (same as for MQTT)
+        _disconnect(F("short write"));
+        return false;
+    }
+    return true;
 }
 
 bool CloudTask::_readFrame(uint8_t* type_out, uint8_t* payload_out,
@@ -376,15 +462,20 @@ bool CloudTask::_readFrame(uint8_t* type_out, uint8_t* payload_out,
     uint16_t frame_body_len = ((uint16_t)_rx_buf[0] << 8) | _rx_buf[1];
 
     // Sanity check: minimum body = type(1) + seq(8) + tag(16) = 25
-    if (frame_body_len < POOLLINK_FRAME_HEADER_SIZE + POOLLINK_FRAME_TAG_SIZE) return false;
+    // A corrupt stream never recovers: returning without consuming left receive
+    // stuck on this "frame" forever while pings kept the link up.
+    if (frame_body_len < POOLLINK_FRAME_HEADER_SIZE + POOLLINK_FRAME_TAG_SIZE) {
+        _disconnect(F("frame too short"));
+        return false;
+    }
 
     size_t ciphertext_len = frame_body_len - POOLLINK_FRAME_HEADER_SIZE - POOLLINK_FRAME_TAG_SIZE;
     if (ciphertext_len > POOLLINK_MAX_PAYLOAD) {
-        _disconnect("frame too large");
+        _disconnect(F("frame too large"));
         return false;
     }
     if (ciphertext_len > max_payload) {
-        _disconnect("payload overflow");
+        _disconnect(F("payload overflow"));
         return false;
     }
 
@@ -413,7 +504,7 @@ bool CloudTask::_readFrame(uint8_t* type_out, uint8_t* payload_out,
     if (!CloudCrypto::decrypt(_session_key, type, seq,
                               ciphertext, ciphertext_len,
                               payload_out, tag)) {
-        _disconnect("auth tag mismatch");
+        _disconnect(F("auth tag mismatch"));
         return false;
     }
 
@@ -447,9 +538,9 @@ bool CloudTask::_sendSensorData(bool force)
     size_t state_len = 0;
     bwc->buildCloudSnapshot(payload.to<JsonObject>(), &state_len);
 
-    static char buf[POOLLINK_MAX_PAYLOAD];  // static: too big for the loop stack
-    size_t len = serializeJson(payload, buf, sizeof(buf));
-    if (len == 0 || len >= sizeof(buf))
+    char *buf = (char *)s_scratch;  // shared with _doConnected(), see there
+    size_t len = serializeJson(payload, buf, POOLLINK_MAX_PAYLOAD);
+    if (len == 0 || len >= POOLLINK_MAX_PAYLOAD)
         return false;
 
     // Hash the state section only. ArduinoJson serializes in insertion order, so
@@ -474,10 +565,11 @@ bool CloudTask::_sendQueueData()
     // Same columnar JSON the local UI gets (LEN/QEN/CMD[]/VALUE[]/XTIME[]/…).
     String json;
     bwc->getJSONCommandQueue(json);
+    _queue_hash = bwc->commandQueueHash();
     if (json.length() == 0)
         return true;  // nothing to send
     if (json.length() > POOLLINK_MAX_PAYLOAD) {
-        // ponytail: oversized queues (>~15 entries) are dropped, not chunked;
+        // oversized queues (>~15 entries) are dropped, not chunked;
         // add a paged message type if real queues ever grow that large.
         Serial.println(F("[Cloud] queue snapshot too large, skipped"));
         return true;
@@ -549,6 +641,12 @@ void CloudTask::_handleSensorAck(const uint8_t* payload, size_t len)
     // Only when the user wants the outdoor temperature from outside; with
     // WEATHER off they set it by hand (HA number, MQTT CMD 15, local UI) and a
     // push from the cloud would silently overwrite it.
+    // weather that was switched off with the cloud comes back on as
+    // soon as the cloud has a reading, i.e. a location is set there.
+    if (doc.containsKey(F("outdoor_temp")) && !bwc->weatherEnabled()) {
+        bwc->cloudWeatherArrived();
+        if (bwc->weatherEnabled()) _settings_dirty = true;
+    }
     if (bwc->weatherEnabled() && doc.containsKey(F("outdoor_temp"))) {
         float raw = doc[F("outdoor_temp")].as<float>();
         // Reject NaN/inf and anything off the scale before it reaches the
@@ -576,6 +674,9 @@ static int64_t _onOff(JsonVariantConst v)
     return v.as<int64_t>() != 0 ? 1 : 0;
 }
 
+// src/net/web_update.cpp: check + arm a firmware update the cloud asked for
+bool requestCloudUpdate(String &err);
+
 void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
 {
     // Payload: {"cmd_id":42,"action":"heater","value":"on"}
@@ -597,38 +698,72 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
     item.force    = false;
 
     // action → (bwc command, value); mirrors the local web API's mapping.
-    struct ActionMap { const char* name; Commands cmd; enum { ONOFF, NUM, TENTHS, NONE } vk; };
+    // Action names live in flash as one '\0'-separated list, in MAP's order:
+    // as a RAM string table they cost ~450 B of static RAM on the ESP8266.
+    static const char NAMES[] PROGMEM =
+        "heater\0"
+        "filter\0"
+        "bubbles\0"
+        "jets\0"
+        "set_target_temp\0"
+        "toggle_power\0"
+        "toggle_lock\0"
+        "set_brightness\0"
+        "set_ambient_c\0"
+        "set_ambient_f\0"
+        "set_ph\0"
+        "set_chlorine\0"
+        "set_cyanuric\0"
+        "set_alkalinity\0"
+        "add_ph\0"
+        "add_chlorine\0"
+        "add_chlorine_tablets\0"
+        "add_alkalinity\0"
+        "reset_timer_chlorine\0"
+        "reset_timer_filter\0"
+        "reset_timer_filter_clean\0"
+        "reset_timer_water_change\0"
+        "reset_totals\0"
+        "reset_daily_energy\0"
+        "set_full_power\0";
+    struct ActionMap { Commands cmd; enum : uint8_t { ONOFF, NUM, TENTHS, NONE, TOGGLE } vk; };
     static const ActionMap MAP[] = {
-        { "heater",                  SETHEATER,     ActionMap::ONOFF },
-        { "filter",                  SETPUMP,       ActionMap::ONOFF },
-        { "bubbles",                 SETBUBBLES,    ActionMap::ONOFF },
-        { "jets",                    SETJETS,       ActionMap::ONOFF },
-        { "set_target_temp",         SETTARGET,     ActionMap::NUM },
-        { "toggle_power",            TOGGLEPWR,     ActionMap::NONE },
-        { "toggle_lock",             TOGGLELCK,     ActionMap::NONE },
-        { "set_brightness",          SETBRIGHTNESS, ActionMap::NUM },
-        { "set_ambient_c",           SETAMBIENTC,   ActionMap::NUM },
-        { "set_ambient_f",           SETAMBIENTF,   ActionMap::NUM },
-        { "set_ph",                  SETPHVALUE,    ActionMap::TENTHS },
-        { "set_chlorine",            SETCLVALUE,    ActionMap::TENTHS },
-        { "set_cyanuric",            SETCYAVALUE,   ActionMap::TENTHS },
-        { "set_alkalinity",          SETALKVALUE,   ActionMap::NUM },
-        { "reset_timer_chlorine",    RESETCLTIMER,  ActionMap::NONE },
-        { "reset_timer_filter",      RESETFTIMER,   ActionMap::NONE },
-        { "reset_timer_filter_clean", RESETFCTIMER, ActionMap::NONE },
-        { "reset_timer_water_change", RESETWCTIMER, ActionMap::NONE },
-        { "reset_totals",            RESETTIMES,    ActionMap::NONE },
+        { SETHEATER, ActionMap::ONOFF },  // heater
+        { SETPUMP, ActionMap::ONOFF },  // filter
+        { SETBUBBLES, ActionMap::ONOFF },  // bubbles
+        { SETJETS, ActionMap::ONOFF },  // jets
+        { SETTARGET, ActionMap::NUM },  // set_target_temp
+        { TOGGLEPWR, ActionMap::TOGGLE },  // toggle_power
+        { TOGGLELCK, ActionMap::TOGGLE },  // toggle_lock
+        { SETBRIGHTNESS, ActionMap::NUM },  // set_brightness
+        { SETAMBIENTC, ActionMap::NUM },  // set_ambient_c
+        { SETAMBIENTF, ActionMap::NUM },  // set_ambient_f
+        { SETPHVALUE, ActionMap::TENTHS },  // set_ph
+        { SETCLVALUE, ActionMap::TENTHS },  // set_chlorine
+        { SETCYAVALUE, ActionMap::TENTHS },  // set_cyanuric
+        { SETALKVALUE, ActionMap::NUM }, // care products added: g, negative = pH- / TA-  // set_alkalinity
+        { ADDPH, ActionMap::NUM },  // add_ph
+        { ADDCL, ActionMap::NUM },  // add_chlorine
+        { ADDCLTAB, ActionMap::NUM },  // add_chlorine_tablets
+        { ADDTA, ActionMap::NUM },  // add_alkalinity
+        { RESETCLTIMER, ActionMap::NONE },  // reset_timer_chlorine
+        { RESETFTIMER, ActionMap::NONE },  // reset_timer_filter
+        { RESETFCTIMER, ActionMap::NONE },  // reset_timer_filter_clean
+        { RESETWCTIMER, ActionMap::NONE },  // reset_timer_water_change
+        { RESETTIMES, ActionMap::NONE },  // reset_totals
+        { RESETDAILY, ActionMap::NONE }, // reset_daily_energy
+        { SETFULLPOWER, ActionMap::NUM }, // set_full_power
     };
 
     bool success = false;
 
-    if (strcmp(action, "set_unit") == 0) {
+    if (strcmp_P(action, PSTR("set_unit")) == 0) {
         item.cmd = SETUNIT;
         const char* u = val | "";
         item.val = (strcmp(u, "c") == 0 || strcmp(u, "C") == 0) ? 1 : 0;
-        success = bwc->add_command(item);
+        success = bwc->add_live_command(item);
 
-    } else if (strcmp(action, "set_smart_schedule") == 0) {
+    } else if (strcmp_P(action, PSTR("set_smart_schedule")) == 0) {
         // value: {"target_time":…,"target_temp":…,"keep_heater_on":…}
         // (compact TARGETTIME/TARGETTEMP/KEEPON accepted too)
         uint64_t tt  = val[F("target_time")].as<uint64_t>();
@@ -639,19 +774,34 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         // Days between repeats: 0 never, 1 daily, 7 weekly (same as /setsmartschedule/).
         uint8_t rp = val[F("REPEAT")].as<uint8_t>();
         if (!rp) rp = val[F("repeat")].as<uint8_t>();
-        success = (tt > 0 && tmp > 0) && bwc->setSmartSchedule(tt, tmp, kp, rp);
+        // filter pump keeps running after the target time
+        bool kpump = val[F("keep_pump_on")].as<bool>() || val[F("KEEPPUMP")].as<bool>();
+        success = (tt > 0 && tmp > 0) && bwc->setSmartSchedule(tt, tmp, kp, rp, kpump);
 
-    } else if (strcmp(action, "cancel_smart_schedule") == 0) {
+    } else if (strcmp_P(action, PSTR("cancel_smart_schedule")) == 0) {
         bwc->cancelSmartSchedule();
         success = true;
 
-    } else if (strcmp(action, "set_smart_schedule_keepon") == 0) {
+    } else if (strcmp_P(action, PSTR("set_smart_schedule_keepon")) == 0) {
         success = bwc->updateSmartScheduleKeepHeaterOn(_onOff(val) != 0);
 
-    } else if (strcmp(action, "set_smart_schedule_repeat") == 0) {
+    } else if (strcmp_P(action, PSTR("set_smart_schedule_keeppump")) == 0) {
+        success = bwc->updateSmartScheduleKeepPumpOn(_onOff(val) != 0);
+
+    } else if (strcmp_P(action, PSTR("set_smart_schedule_repeat")) == 0) {
         success = bwc->updateSmartScheduleRepeat(val.as<uint8_t>());
 
-    } else if (strcmp(action, "set_settings") == 0) {
+    } else if (strcmp_P(action, PSTR("cancel_calibration")) == 0) {
+        // the cloud's "cancel calibration" next to its lock banner
+        success = bwc->calibrating();
+        bwc->cancelHeatLossCalibration();
+
+    } else if (strcmp_P(action, PSTR("install_update")) == 0) {
+        // install the newest signed firmware from the update server
+        String err;
+        success = requestCloudUpdate(err);
+
+    } else if (strcmp_P(action, PSTR("set_settings")) == 0) {
         // value: partial settings object; bwc merges by key (same as /setconfig/).
         String msg, errStr;
         serializeJson(val, msg);
@@ -662,20 +812,20 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         requestResync();
 
     // ── Automation: command queue management ──
-    } else if (strcmp(action, "queue_enable") == 0) {
+    } else if (strcmp_P(action, PSTR("queue_enable")) == 0) {
         bwc->set_command_queue_enabled(_onOff(val) != 0);
         success = true;
         _queue_dirty = true;
 
-    } else if (strcmp(action, "queue_item_enable") == 0) {
+    } else if (strcmp_P(action, PSTR("queue_item_enable")) == 0) {
         success = bwc->set_command_enabled(val[F("IDX")].as<uint8_t>(), _onOff(val[F("EN")]) != 0);
         _queue_dirty = true;
 
-    } else if (strcmp(action, "queue_del") == 0) {
+    } else if (strcmp_P(action, PSTR("queue_del")) == 0) {
         success = bwc->del_command(val[F("IDX")].as<uint8_t>());
         _queue_dirty = true;
 
-    } else if (strcmp(action, "queue_add") == 0 || strcmp(action, "queue_edit") == 0) {
+    } else if (strcmp_P(action, PSTR("queue_add")) == 0 || strcmp_P(action, PSTR("queue_edit")) == 0) {
         // value: {CMD, VALUE, XTIME, INTERVAL, TXT?, IDX (edit only)}
         item.cmd      = (Commands)val[F("CMD")].as<int>();
         item.val      = val[F("VALUE")].as<int64_t>();
@@ -692,16 +842,20 @@ void CloudTask::_handleCommand(const uint8_t* payload, size_t len)
         _queue_dirty = true;
 
     } else {
+        const char* name = NAMES;
         for (const auto& m : MAP) {
-            if (strcmp(action, m.name) != 0) continue;
+            bool hit = strcmp_P(action, name) == 0;
+            name += strlen_P(name) + 1;
+            if (!hit) continue;
             item.cmd = m.cmd;
             switch (m.vk) {
                 case ActionMap::ONOFF:  item.val = _onOff(val); break;
                 case ActionMap::NUM:    item.val = (int64_t)lroundf(val.as<float>()); break;
                 case ActionMap::TENTHS: item.val = (int64_t)lroundf(val.as<float>() * 10.0f); break;
                 case ActionMap::NONE:   item.val = 1; break;
+                case ActionMap::TOGGLE: item.val = 2; break; // not 0/1: toggle
             }
-            success = bwc->add_command(item);
+            success = bwc->add_live_command(item);
             break;
         }
     }
@@ -722,5 +876,5 @@ void CloudTask::_handleError(const uint8_t* payload, size_t len)
     Serial.print(F("[Cloud] Server error: "));
     if (payload && len > 0) Serial.write(payload, len);
     Serial.println();
-    _disconnect("server error");
+    _disconnect(F("server error"));
 }

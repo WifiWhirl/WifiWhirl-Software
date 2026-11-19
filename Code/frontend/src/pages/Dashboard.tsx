@@ -1,18 +1,20 @@
 import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { Card, Row, NumberInput, Slider, Toggle } from '../components/ui';
+import { Card, Row, NumberInput, Slider, Toggle, Modal } from '../components/ui';
 import { ControlTile } from '../components/ControlTile';
 import { LedDisplay } from '../components/LedDisplay';
+import { SmartScheduleNote } from '../components/SmartScheduleNote';
 import { Thermostat } from '../components/Thermostat';
 import { DashboardGrid } from '../components/DashboardGrid';
 import { Icon } from '../components/icons';
-import { confirmDialog, showCalResult } from '../components/feedback';
+import { confirmDialog, showCalResult, calAbortText } from '../components/feedback';
 import { SHOW_HEAT_LOSS_CALIBRATION } from '../flags';
 import { lastStates, lastTimes, lastOther, sendCommand, useCommsPolling } from '../comms';
 import { postJson } from '../api';
-import { getTimeSinceText, t2rText, t2rDuration, dhms, comma, money } from '../util/format';
+import { getTimeSinceText, getTimeUntilText, t2rText, t2rDuration, dhms, comma, money } from '../util/format';
 import { layout, editMode, saveLayout, resetLayout, migrateFromDevice, type WidgetId } from '../util/dashboardLayout';
 import { t } from '../i18n';
+import { suggestCl, suggestCya, suggestPh, suggestTa, type DoseCfg, type Suggestion } from '../util/dosing';
 
 const WIDGET_TITLE: Record<WidgetId, string> = {
   display: 'dashboard.display', thermostat: 'dashboard.temperature', controls: 'dashboard.controls',
@@ -47,6 +49,56 @@ export function Dashboard() {
     prevCal.current = !!s?.HLCAL;
   }, [s?.HLCAL]);
 
+  // A calibration that stopped or never started (planned, water too cold) while
+  // nobody watched: say so the next time the overview opens, until dismissed.
+  const [calNote, setCalNote] = useState<{ ERROR?: string; ENDTS?: number; REQWATER?: number; STARTAMB?: number; MINDIFF?: number } | null>(null);
+  useEffect(() => {
+    if (!SHOW_HEAT_LOSS_CALIBRATION) return;
+    postJson<{ ACTIVE?: boolean; ERROR?: string; ENDTS?: number; REQWATER?: number; STARTAMB?: number; MINDIFF?: number }>('/gethlcal/', {})
+      .then((d) => {
+        let seen = '';
+        try { seen = localStorage.getItem('hlcalSeen') ?? ''; } catch { /* private mode */ }
+        if (!d.ACTIVE && d.ERROR && d.ENDTS && String(d.ENDTS) !== seen) setCalNote(d);
+      }).catch(() => {});
+  }, []);
+  function dismissCalNote() {
+    try { localStorage.setItem('hlcalSeen', String(calNote?.ENDTS ?? '')); } catch { /* private mode */ }
+    setCalNote(null);
+  }
+
+  // A new target blinks three times on the display, like on the panel - whether
+  // it was set here, on the panel or from anywhere else. The 1 s poll can't follow
+  // the pump's 500 ms blink (it showed '--', nothing, or a steady value), so the
+  // page draws the blink itself: on a new TGT, or on a dark frame while the pump
+  // is on (the panel blinking the target, or the timer hours when that was shown),
+  // or when the display jumps from the water temperature to the target.
+  const [blinkText, setBlinkText] = useState<string | null>(null);
+  const blinkTimer = useRef(0);
+  const lastTgt = useRef<number | null>(null);
+  const lastUnt = useRef<boolean | null>(null);
+  const lastShown = useRef('');
+  const blink = (v: string) => {
+    setBlinkText(v);
+    clearTimeout(blinkTimer.current);
+    blinkTimer.current = window.setTimeout(() => setBlinkText(null), 3000);
+  };
+  useEffect(() => () => clearTimeout(blinkTimer.current), []);
+  useEffect(() => {
+    if (!s) return;
+    const raw = String.fromCharCode(s.CH1, s.CH2, s.CH3);
+    const isDark = raw === '   ';
+    if (s.ERR) { lastTgt.current = s.TGT; return; } // the error code blinks on its own (see below)
+    // a unit switch converts TGT too, that's not a new target
+    if (lastTgt.current !== null && s.TGT !== lastTgt.current && s.UNT === lastUnt.current && s.PWR) blink(String(s.TGT));
+    else if (isDark && s.PWR && blinkText === null) blink(/H$/.test(lastShown.current) ? lastShown.current : String(s.TGT));
+    // the panel switched from the water temperature to the target (a key press)
+    else if (!isDark && s.PWR && blinkText === null && s.TGT !== s.TMP && raw.trim() === String(s.TGT)
+      && lastShown.current !== raw.trim()) blink(String(s.TGT));
+    lastTgt.current = s.TGT;
+    lastUnt.current = s.UNT;
+    if (!isDark) lastShown.current = raw.trim();
+  }, [s]);
+
   if (!s) return (
     <div aria-busy="true" aria-label={t('dashboard.loading')}>
       <div class="card hero"><div class="hero-inner">
@@ -70,9 +122,16 @@ export function Dashboard() {
   // Mirror the pump's own LED: render the raw display characters verbatim
   // (temperature, "co", error codes like "E02"/"FLt", ...) and only tag a
   // unit when the readout is a plain number.
-  const rawDisplay = String.fromCharCode(s.CH1, s.CH2, s.CH3).trim();
+  // The panel's 7-segment letters read as capitals ("E02", "FLt" -> "FLT").
+  const rawDisplay = String.fromCharCode(s.CH1, s.CH2, s.CH3).trim().toUpperCase();
+  // An error code blinks on the panel; the 1 s poll catches it lit or dark at
+  // random (steady, or '--' after a reload), so the page blinks it itself.
+  const errCode = !s.ERR ? null : s.ERR === 100 ? 'GCF' : `E${String(s.ERR).padStart(2, '0')}`; // 100 = ground fault (ERROR_GCF)
   const isNumeric = /^-?\d+$/.test(rawDisplay);
-  const ledMain = rawDisplay || '--';
+  // Three spaces are the pump's display switched dark (the target blinks while
+  // it is set): show it dark too. '--' only when there is no reading at all.
+  const dark = rawDisplay === '' && [s.CH1, s.CH2, s.CH3].every((c) => c === 32);
+  const ledMain = dark ? '\u00a0' : rawDisplay || '--';
   const ledUnit = isNumeric ? u : undefined;
   // brightness boost feature: edit the base level, not the momentarily boosted one
   const brtBase = s.BRTBASE ?? s.BRT;
@@ -82,7 +141,11 @@ export function Dashboard() {
       <Card id="sectionDisplay" className={`hero${heating ? ' heating' : reached ? ' reached' : ''}`}>
         <div class="hero-inner">
           <div class="hero-head"><p class="eyebrow">{t('dashboard.display')}</p></div>
-          <LedDisplay main={ledMain} unit={ledUnit} brt={s.BRT} />
+          {errCode !== null
+            ? <LedDisplay main={errCode} brt={s.BRT} blink="loop" />
+            : blinkText !== null
+            ? <LedDisplay main={blinkText} unit={/^-?\d+$/.test(blinkText) ? u : undefined} brt={s.BRT} blink />
+            : <LedDisplay main={ledMain} unit={ledUnit} brt={s.BRT} />}
         </div>
       </Card>
     ),
@@ -92,7 +155,7 @@ export function Dashboard() {
           <div class="overview-panel">
             <span class="target-label">{t('dashboard.targetTemp')}</span>
             <Thermostat value={s.TGT} current={s.TMP} min={unit ? 20 : 68} max={unit ? 40 : 104}
-              unit={u} heating={heating} onChange={(v) => sendCommand('setTargetSelector', v)} />
+              unit={u} heating={heating} off={!s.PWR} onChange={(v) => { sendCommand('setTargetSelector', v); blink(String(v)); }} />
             {tm && <p class="th-ready">{t('dashboard.readyIn')}: <b>{t2rText(tm.T2R)}</b></p>}
           </div>
         </div>
@@ -116,9 +179,9 @@ export function Dashboard() {
       <Card title={t('dashboard.buttons')} className="control-bank">
         <div class="tile-grid">
           <ControlTile icon="power" label={t('dashboard.power')} on={s.PWR}
-            stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('togglePWR')} />
+            stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('togglePWR', !s.PWR)} />
           <ControlTile icon="lock" label={t('dashboard.lock')} on={s.LCK}
-            stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('toggleLCK')} />
+            stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('toggleLCK', !s.LCK)} />
           <ControlTile icon="airjet" label={t('dashboard.airjet')} on={s.AIR}
             stateOn={t('badge.on')} stateOff={t('badge.off')} onClick={() => sendCommand('toggleBubbles', !s.AIR)} />
           <ControlTile icon="heater" label={t('dashboard.heater')} on={heaterOn} tone={heating || !heaterOn ? 'heat' : 'ok'}
@@ -133,7 +196,7 @@ export function Dashboard() {
     water: () => <WaterQuality showCya={lay.showCya} showAlk={lay.showAlk} />,
     timer: () => !tm ? null : (
       <Card title={t('dashboard.timer')} className="metric-card timer-card">
-        <TimerRow label={t('dashboard.timerChlorine')} time={tm.CLTIME} overdueDays={tm.CLINT} cmd="resetTimerChlorine" confirm={t('confirm.resetChlorine')} />
+        {/* chlorine: in the water card now, reset by recording a dose */}
         <TimerRow label={t('dashboard.timerFilterClean')} time={tm.FCTIME} overdueDays={tm.FCINT} cmd="resetTimerCleanFilter" confirm={t('confirm.resetFilterClean')} />
         <TimerRow label={t('dashboard.timerFilterChange')} time={tm.FTIME} overdueDays={tm.FINT} cmd="resetTimerFilter" confirm={t('confirm.resetFilter')} />
         <TimerRow label={t('dashboard.timerWaterChange')} time={tm.WCTIME} overdueDays={tm.WCINT} cmd="resetTimerWaterChange" confirm={t('confirm.resetWaterChange')} />
@@ -167,7 +230,19 @@ export function Dashboard() {
   return (
     <>
       {SHOW_HEAT_LOSS_CALIBRATION && s.HLCAL && (
-        <div class="cal-banner" role="status" aria-live="polite">{t('dashboard.calRunning')}</div>
+        <div class="cal-banner" role="status" aria-live="polite">
+          {t('dashboard.calRunning')}{' '}
+          <button class="btn ghost" onClick={async () => {
+            if (await confirmDialog(t('expert.calCancel') + '?', { danger: true })) postJson('/cancelhlcal/', {}).catch(() => {});
+          }}>{t('expert.calCancel')}</button>
+        </div>
+      )}
+      <SmartScheduleNote />
+      {calNote && !s.HLCAL && (
+        <div class="cal-banner" role="status">
+          <b>{t('dashboard.calLast')}:</b> {calAbortText(calNote)}{' '}
+          <button class="btn ghost" onClick={dismissCalNote}>{t('common.ok')}</button>
+        </div>
       )}
       {edit && (
         <div class="dash-toolbar">
@@ -177,6 +252,8 @@ export function Dashboard() {
           </button>
         </div>
       )}
+      {/* calibrating: every control greyed out, the firmware drops presses */}
+      <div class={SHOW_HEAT_LOSS_CALIBRATION && s.HLCAL ? 'cal-locked' : undefined}>
       <DashboardGrid
         edit={edit}
         title={(id) => t(WIDGET_TITLE[id])}
@@ -190,6 +267,7 @@ export function Dashboard() {
           </>
         ) : null}
       />
+      </div>
     </>
   );
 }
@@ -235,6 +313,15 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
   const [alk, setAlk] = useState<string>('100');
   const editing = useRef<{ ph: boolean; cl: boolean; cya: boolean; alk: boolean }>({ ph: false, cl: false, cya: false, alk: false });
   const timers = useRef<{ ph?: number; cl?: number; cya?: number; alk?: number }>({});
+  // pool size + dosing factors for the suggestions
+  const [cfg, setCfg] = useState<DoseCfg>({});
+  const [prefill, setPrefill] = useState<{ kind: Dose; n: number; seq: number } | null>(null);
+  useEffect(() => { postJson<DoseCfg>('/getconfig/').then(setCfg).catch(() => {}); }, []);
+  const num = (v: string) => parseFloat(v.replace(',', '.'));
+  const sPh = suggestPh(num(ph), cfg), sCl = suggestCl(num(cl), cfg);
+  const sCya = showCya ? suggestCya(num(cya), cfg) : null, sTa = showAlk ? suggestTa(num(alk), cfg) : null;
+  // too much TA is lowered with pH-Minus (there is no TA-Minus product): record it as that
+  const pick = (x: Suggestion) => x.kind !== 'water' && setPrefill({ kind: x.kind === 'taMinus' ? 'phMinus' : x.kind, n: x.amount, seq: Date.now() });
 
   useEffect(() => {
     if (!tm) return;
@@ -268,11 +355,15 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
       </Row>
       <RangeBar value={parseFloat(ph.replace(',', '.'))} min={0} max={14} low={7.2} high={7.6} />
       <p class="hint">{t('dashboard.idealRange')}: 7,2 - 7,6 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.PHTIME)) : '-'}</p>
+      <Suggest s={sPh} onPick={pick} />
+      <LastDose ts={tm?.DPHTIME} text={tm?.DPH ? `${Math.abs(tm.DPH)} g ${tm.DPH < 0 ? 'pH-' : 'pH+'}` : ''} />
       <Row label={t('dashboard.chlorineValue')}>
         <NumberInput value={cl} min={0} max={10} step={0.1} onInput={(v) => edit('cl', v)} />
       </Row>
       <RangeBar value={parseFloat(cl.replace(',', '.'))} min={0} max={10} low={1.0} high={3.0} />
       <p class="hint">{t('dashboard.idealRange')}: 1,0 - 3,0 · {t('dashboard.lastChecked')}: {tm ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CLVTIME)) : '-'}</p>
+      <Suggest s={sCl} onPick={pick} />
+      {tm && <ChlorineDue tm={tm} />}
       {showCya && (
         <>
           <Row label={t('dashboard.cyanuricValue')}>
@@ -280,6 +371,7 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
           </Row>
           <RangeBar value={parseFloat(cya.replace(',', '.'))} min={0} max={200} low={30} high={50} />
           <p class="hint">{t('dashboard.idealRange')}: 30 - 50 · {t('dashboard.lastChecked')}: {tm?.CYATIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.CYATIME)) : '-'}</p>
+          <Suggest s={sCya} onPick={pick} />
         </>
       )}
       {showAlk && (
@@ -289,9 +381,112 @@ function WaterQuality({ showCya, showAlk }: { showCya: boolean; showAlk: boolean
           </Row>
           <RangeBar value={parseFloat(alk.replace(',', '.'))} min={0} max={300} low={80} high={120} />
           <p class="hint">{t('dashboard.idealRange')}: 80 - 120 · {t('dashboard.lastChecked')}: {tm?.ALKTIME ? getTimeSinceText(Math.floor(Date.now() / 1000 - tm.ALKTIME)) : '-'}</p>
+          <Suggest s={sTa} onPick={pick} />
+          <LastDose ts={tm?.DTATIME} text={tm?.DTA ? `${Math.abs(tm.DTA)} g ${tm.DTA < 0 ? 'TA-' : 'TA+'}` : ''} />
         </>
       )}
+      <AddDose showAlk={showAlk} prefill={prefill} note={!!(sPh || sCl || sTa)} phWatch={sTa?.kind === 'taMinus'} />
     </Card>
+  );
+}
+
+/**
+ * Chlorine: last dose and when the next one is due - the former "add chlorine"
+ * timer (CLTIME/CLINT), which a recorded dose now resets.
+ */
+function ChlorineDue({ tm }: { tm: NonNullable<typeof lastTimes.value> }) {
+  if (!tm.CLTIME || tm.CLTIME < 57600) return null; // clock never set
+  const since = Math.floor(Date.now() / 1000 - tm.CLTIME);
+  const what = tm.DCL && tm.DCLTIME ? `${tm.DCLTAB ? t('dashboard.doseTablets', { n: tm.DCL }) : `${tm.DCL} g`} · ` : '';
+  const left = tm.CLINT > 0 ? tm.CLINT * 86400 - since : null;
+  return (
+    <p class="hint">
+      {t('dashboard.lastDose')}: {what}{getTimeSinceText(since)}
+      {/* own line, easier to read */}
+      {left != null && (left > 0
+        ? <><br />{t('dashboard.clNext', { when: getTimeUntilText(left) })}</>
+        : <><br /><span class="warn-text">{t('dashboard.clDue')}</span></>)}
+    </p>
+  );
+}
+
+/**
+ * "Recommendation: 40 g pH-Minus" under a value outside its ideal range; a
+ * click fills in "care product added". Cyanuric acid only goes with
+ * fresh water, so that one is a plain hint.
+ */
+function Suggest({ s, onPick }: { s: Suggestion | null; onPick: (s: Suggestion) => void }) {
+  if (!s) return null;
+  if (s.kind === 'water') return <p class="hint warn-text">{t('dashboard.suggestWater', { l: s.amount })}</p>;
+  return (
+    <button type="button" class="suggest" onClick={() => onPick(s)}>
+      {t('dashboard.suggest', { amount: s.amount, product: t(`dashboard.suggestProduct.${s.kind}`) })}
+    </button>
+  );
+}
+
+/** "Last added: 50 g pH- · 2 days ago", nothing before the first entry. */
+function LastDose({ ts, text }: { ts?: number; text: string }) {
+  if (!ts || !text) return null;
+  return <p class="hint">{t('dashboard.lastDose')}: {text} · {getTimeSinceText(Math.floor(Date.now() / 1000 - ts))}</p>;
+}
+
+// product -> command, value sign and the most one entry allows
+const DOSES = {
+  phMinus: { cmd: 'addPh', sign: -1, max: 2000 }, phPlus: { cmd: 'addPh', sign: 1, max: 2000 },
+  clG: { cmd: 'addCl', sign: 1, max: 2000 }, clTab: { cmd: 'addClTab', sign: 1, max: 50 },
+  taPlus: { cmd: 'addTa', sign: 1, max: 2000 }, // no TA-Minus: that is pH-Minus
+} as const;
+type Dose = keyof typeof DOSES;
+
+/** Record a care product added to the water, stamped with the current time. */
+function AddDose({ showAlk, prefill, note, phWatch }: {
+  showAlk: boolean;
+  /** a clicked suggestion: opens the dialog filled in */
+  prefill: { kind: Dose; n: number; seq: number } | null;
+  /** a suggestion is shown: the one safety note goes into the dialog */
+  note: boolean;
+  /** pH-Minus suggested for too much TA: it lowers the pH too */
+  phWatch: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [what, setWhat] = useState<Dose>('phMinus');
+  const [amount, setAmount] = useState('');
+  useEffect(() => {
+    if (prefill) { setWhat(prefill.kind); setAmount(String(prefill.n)); setOpen(true); }
+  }, [prefill?.seq]);
+  const d = DOSES[what];
+  const n = Math.round(Number(amount.replace(',', '.')));
+  const ok = n >= 1 && n <= d.max;
+  const kinds = (Object.keys(DOSES) as Dose[]).filter((k) => showAlk || !k.startsWith('ta'));
+  return (
+    // only a button in the card, the form opens as a dialog: the water card
+    // with every value shown fits its box without scrolling (variant A)
+    <div class="dose-add">
+      <button type="button" class="btn ghost" onClick={() => setOpen(true)}>+ {t('dashboard.doseAddOpen')}</button>
+      {open && (
+        <Modal onClose={() => setOpen(false)}>
+          <div class="confirm-modal dose-modal">
+            <h2>{t('dashboard.doseAdd')}</h2>
+            <div class="dose-row">
+              <select aria-label={t('dashboard.doseProduct')} value={what}
+                onChange={(e) => setWhat((e.target as HTMLSelectElement).value as Dose)}>
+                {kinds.map((k) => <option key={k} value={k}>{t(`dashboard.dose.${k}`)}</option>)}
+              </select>
+              <NumberInput value={amount} min={1} max={d.max} step={1} unit={what === 'clTab' ? t('dashboard.doseTabUnit') : 'g'} onInput={setAmount} />
+            </div>
+            {note && <p class="hint">{t('dashboard.suggestNote')}{phWatch && <> {t('dashboard.suggestNoteTa')}</>}</p>}
+            <div class="modal-actions">
+              <button type="button" class="btn secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</button>
+              <button type="button" class="btn" disabled={!ok}
+                onClick={() => { sendCommand(d.cmd, d.sign * n); setAmount(''); setOpen(false); }}>
+                {t('dashboard.doseSave')}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }
 

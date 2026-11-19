@@ -8,6 +8,9 @@ export function LedDisplay(props: {
   main: string;
   unit?: string;
   brt?: number;
+  /** true: three blinks (500 ms on/off), starting visible - a target just set.
+   *  'loop': blinks until it goes away - an error code. */
+  blink?: boolean | 'loop';
 }) {
   const main = props.main || '--';
   const brt = Math.max(0, Math.min(8, props.brt ?? 8));
@@ -18,7 +21,7 @@ export function LedDisplay(props: {
 
   return (
     <div class="display-panel">
-      <div class="display-screen" aria-label={`${main}${props.unit || ''}`}>
+      <div key={props.blink ? `b${main}` : 'live'} class={`display-screen${props.blink === 'loop' ? ' blinkloop' : props.blink ? ' blink3' : ''}`} aria-label={`${main}${props.unit || ''}`}>
         <span key={main} class="display-value flash" style={style}>{main}</span>
         {props.unit && <span class="display-unit" style={style}>{props.unit}</span>}
       </div>

@@ -23,7 +23,7 @@ const char *update_path = "/update";
  * and the PoolLink link never starts. */
 bool   cloudEnabled = false;                       // set true on cloud-provisioned units
 String cloudHost    = "";        // PoolLink TCP server
-int    cloudPort    = ;
+int    cloudPort    = 0;          // PoolLink TCP port (0 = not configured)
 String cloudWebUrl  = ""; // cloud web app (device "Connect" target)
 String cloudPskHex  = "";                          // 64 hex chars, UNIQUE per device; migrated to /cloudpsk at boot
 

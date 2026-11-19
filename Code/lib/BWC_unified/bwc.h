@@ -53,6 +53,7 @@ struct smart_schedule_t
     uint64_t target_time = 0;           // When pool should be ready (Unix timestamp)
     uint8_t target_temp = 37;           // Desired temperature in Celsius
     bool keep_heater_on = false;        // Keep heating after target reached
+    bool keep_pump_on = false;          // Filter pump keeps running after the target time, until switched off
     uint8_t repeat_days = 0;            // 0 = one-shot, else re-arm every N calendar days (1=daily, 7=weekly)
     uint64_t calculated_start_time = 0; // Calculated heating start time
     uint64_t next_check_time = 0;       // Next check timestamp
@@ -102,12 +103,20 @@ struct heatloss_cal_t
     uint16_t discarded = 0;     // measurement intervals thrown away (noise/disturbance)
     float result = 0;           // last computed coefficient (W/K), 0 = none
     uint8_t error = 0;          // last abort reason, 0 = none
+    float req_water_c = 0;      // water temp when the calibration was started/planned start came
+    time_t end_ts = 0;          // finished, aborted, cancelled or skipped (0 = still running / never)
+    float end_water_c = 0;      // water temp then
+    // All of the above stays until the next start, so the last run can still be
+    // read the next morning.
+    bool restore_pending = false; // cancelled: restore once the presses still queued are done
+    uint32_t restore_deadline = 0; // millis(), restore anyway after this
 };
 
 class BWC
 {
 
 public:
+    static constexpr uint8_t DOSE_FACTORS = 5; // care-product dosing factors
     BWC();
     ~BWC();
     void setup(void);
@@ -117,6 +126,13 @@ public:
     void loop();
     void adjust_brightness();
     void play_sound();
+    // WifiWhirl sound identity, melodies in bwc.cpp (designed in Sound/identity/*.mel)
+    // SNDMASK bit n switches Sound n on; the SPA switches UP and DOWN together
+    // SND_UNLOCK has no switch of its own: the "key lock on/off" one (SND_CONFIRM) covers both.
+    enum Sound : uint8_t { SND_BOOT, SND_CONNECTED, SND_CLICK, SND_CONFIRM, SND_ERROR, SND_READY, SND_REMINDER, SND_UP, SND_DOWN, SND_UNLOCK };
+    static constexpr uint16_t SND_ALL = 0x1FF;
+    void playSound(Sound s, bool interrupt = true);
+    void queueSound(Sound s) { _queued_sound = s; } // plays once the current sound is done
     // String get_fromcio();
     // String get_todsp();
     // String get_fromdsp();
@@ -125,6 +141,7 @@ public:
     void pause_all(bool action);
     bool add_command(command_que_item command_item);
     bool edit_command(uint8_t index, command_que_item command_item);
+    bool command_at_matches(uint8_t index, uint8_t cmd, uint64_t xtime);
     bool del_command(uint8_t index);
     bool set_command_enabled(uint8_t index, bool enabled);
     void set_command_queue_enabled(bool enabled);
@@ -132,12 +149,19 @@ public:
     bool newData();
     bool getWeather();
     size_t writeJSONStates(Print &out);
+    // fill a document directly, for callers that read single fields (/api/v1/status)
+    void buildJSONStates(JsonObject doc) { _buildJSONStates(doc); }
+    void buildJSONTimes(JsonObject doc) { _buildJSONTimes(doc); }
     size_t writeJSONTimes(Print &out);
     void getJSONStates(String &rtn);
     void getJSONTimes(String &rtn);
     void getJSONSettings(String &rtn);
+    void buildJSONSettings(JsonObject doc); // same content, filled in directly
     bool setJSONSettings(const String &message, String &error);
     void getJSONCommandQueue(String &rtn);
+    void writeJSONCommandQueue(Print &out);
+    // Hash of exactly what getJSONCommandQueue() would return, without building it.
+    uint32_t commandQueueHash();
     uint8_t getState(int state);
     // Full state snapshot for the cloud link: same compact keys as the local
     // UI JSON (states + times + smart schedule), one flat object.
@@ -159,17 +183,20 @@ public:
     void print(const String &txt);
     void printStatic(const String &txt);
     void clearStatic();
-    void loadCommandQueue();
+    void loadCommandQueue(bool queue_only = false); // false: boot (also settings, restore, schedule)
     
     // Smart Schedule methods
-    bool setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on, uint8_t repeat_days = 0);
+    bool setSmartSchedule(uint64_t target_time, uint8_t target_temp, bool keep_heater_on, uint8_t repeat_days = 0, bool keep_pump_on = false);
     bool updateSmartScheduleKeepHeaterOn(bool keep_heater_on);
+    bool updateSmartScheduleKeepPumpOn(bool keep_pump_on);
     bool updateSmartScheduleRepeat(uint8_t repeat_days);
     void cancelSmartSchedule();
     void getJSONSmartSchedule(String &rtn);
+    void buildJSONSmartSchedule(JsonObject doc); // same content, filled in directly
 
     // Heat-loss calibration / coefficient (feeds the time-to-target estimate)
     bool startHeatLossCalibration(String &err);
+    bool planHeatLossCalibration(uint64_t at); // start once at this time, 0 = no plan
     void cancelHeatLossCalibration();
     void getJSONHeatLossCalibration(String &rtn);
     float getHeatLoss() { return _heat_loss; }
@@ -182,14 +209,22 @@ public:
 
 public:
     String reboot_time_str;
-    time_t reboot_time_t;
+    time_t reboot_time_t = 0; // 0 = not known yet (no valid clock)
     int pins[8];
     unsigned int loop_count = 0;
     bool hasjets, hasgod;
     CIO *cio;
     DSP *dsp;
-    bool BWC_DEBUG = false;
     bool weatherEnabled() const { return _weather; }
+    // weather data only comes through the cloud. With the cloud off it
+    // is switched off (remembered), and back on once the cloud sends a reading.
+    void setCloudOn(bool on);
+    // live control (web, MQTT, webhooks, cloud) during a calibration is
+    // dropped instead of running once it ends. Planned automations still queue.
+    bool add_live_command(command_que_item item);
+    bool calibrating() const { return _hlcal.active; }
+    void cloudWeatherArrived();
+    void applyTimezone() const; // also after configTime(), which resets it to UTC
 
 private:
     bool _loadHardware(Models &cioNo, Models &dspNo);
@@ -198,7 +233,6 @@ private:
     bool _handlecommand(Commands cmd, int64_t val, const String &txt);
     void _handleCommandQ();
     void _loadSettings();
-    void applyTimezone() const;
     bool _getEnergyDayIndex(int &day_index) const;
     void _addEnergyIncrement(double energy_increment_Ws);
     double _priceAt(uint64_t ts) const;
@@ -206,6 +240,7 @@ private:
     void _restoreCountersFromRtc();
     void _saveCommandQueue();
     void _updateTimes();
+    void _playNotes(uint32_t elapsedtime_ms);
     void _restoreStates();
     void _saveStates();
     float _estHeatingTime();
@@ -214,11 +249,9 @@ private:
     bool _load_melody_json(const String &filename);
     void _add_melody(const String &filename);
     void _save_melody(const String &filename);
-    void _sweepdown();
-    void _sweepup();
+    void _soundEvents();
     void _beep();
     void _accord();
-    void _log();
     
     // Smart Schedule private methods
     void _handleSmartSchedule();
@@ -239,16 +272,18 @@ private:
     static constexpr float HEAT_LOSS_DEFAULT = 7.5f;  // W/K, compiled fallback
     float _heat_loss = HEAT_LOSS_DEFAULT;             // live coefficient (persisted)
     heatloss_cal_t _hlcal;
+    uint64_t _hlcal_planned_at = 0; // epoch of a planned calibration start, persisted in settings.json
     
     // Jet timeout handling
     void _checkJetTimeouts();
+    bool _jetCountdownText(char *out);
     void _checkHostHeaterTimeout();
 
 private:
     Ticker _save_settings_ticker;
     Ticker _scroll_text_ticker;
     bool _scroll = false;
-    uint64_t _timestamp_secs; // seconds
+    uint64_t _timestamp_secs = 0; // seconds
     uint8_t _dsp_brightness;
     int32_t _override_dsp_brt_timer;
     uint8_t _brightness_boost_steps = 1;        // 1-8, steps to add on key press
@@ -257,7 +292,16 @@ private:
     bool _command_queue_enabled = true;
     bool _command_queue_paused_for_calibration = false;
     std::vector<sNote> _notes;
-    int _note_duration;
+    int _note_duration = 0;
+    int8_t _queued_sound = -1;
+    uint16_t _sound_mask = SND_ALL;
+    Buttons _prev_sound_button = NOBTN;
+    bool _ready_armed = false;
+    bool _airjet_warned = false;
+    bool _hydrojet_warned = false;
+    uint32_t _error_sound_ms = 0;
+    uint32_t _reminder_check_ms = 0;
+    int8_t _due_mask = -1; // -1 = not evaluated yet (no reminder for timers already due at boot)
     uint32_t _cl_timestamp_s;
     uint32_t _filter_timestamp_s;
     uint32_t _fc_timestamp_s;
@@ -270,6 +314,11 @@ private:
     uint16_t _last_cl_value;       // Last chlorine value * 10 (e.g. 15 = 1.5 mg/L)
     uint16_t _last_cya_value;      // Last cyanuric acid value * 10 (e.g. 300 = 30.0 mg/L)
     uint16_t _last_alk_value;      // Last alkalinity value in mg/L (e.g. 100 = 100 mg/L)
+    // last care product added per kind (see ADDPH..ADDTA), 0 stamp = never
+    int16_t _dose_ph = 0, _dose_ta = 0; // g, sign = minus/plus product
+    uint16_t _dose_cl = 0;              // g, or tablets with _dose_cl_tab
+    bool _dose_cl_tab = false;
+    uint32_t _dose_ph_ts = 0, _dose_cl_ts = 0, _dose_ta_ts = 0;
     uint32_t _uptime;
     uint32_t _pumptime;
     uint32_t _heatingtime;
@@ -295,6 +344,8 @@ private:
     uint32_t _wc_interval;
     uint32_t _ph_interval;         // pH check interval in days
     bool _audio_enabled;
+    bool _jet_countdown = false; // remaining AirJet/HydroJet time on the panel
+    bool _standby_original = true; // standby display like the original panel (default, tester's choice)
     double _energy_total_kWh;
     double _energy_daily_Ws;
     double _energy_pending_daily_Ws;
@@ -303,9 +354,12 @@ private:
     String _timezone;
     String _timezone_name;
     bool _weather = 0;
+    bool _cloud_on = true;
+    bool _weather_auto_off = false; // switched off by setCloudOn(false), persisted
     int _pool_capacity = 700;
-    uint8_t _airjet_timeout_minutes = 30;   // 5-30 min, default 30 (no software timeout)
-    uint8_t _hydrojet_timeout_minutes = 60; // 5-60 min, default 60 (no software timeout)
+    uint8_t _dose_factor[DOSE_FACTORS] = {10, 10, 2, 20, 24}; // DFPHM..DFTAM, see bwc.cpp
+    uint8_t _airjet_timeout_minutes = 30;   // 1-30 min, default 30 (no software timeout)
+    uint8_t _hydrojet_timeout_minutes = 60; // 1-60 min, default 60 (no software timeout)
     bool _host_mode = false;                    // GSTMODE: guest/host mode for rentals
     uint8_t _host_max_target_c = 40;            // GSTMAXTGT: max target temp, stored in Celsius
     uint16_t _host_heater_timeout_min = 0;      // GSTHTRTO: heater-off delay after target reached, 0 = disabled
@@ -313,6 +367,7 @@ private:
     bool _save_settings_needed = false;
     bool _save_cmdq_needed = false;
     bool _save_states_needed = false;
+    uint32_t _save_states_at = 0; // millis() from which the pending save may run
     int _ticker_count;
     int _btn_sequence[4] = {NOBTN, NOBTN, NOBTN, NOBTN}; // keep track of the four latest button presses
     int _ambient_temp;               // always in C internally
@@ -322,12 +377,23 @@ private:
     bool _ambient_set = false;
     bool _new_data_available = false;
     bool _dsp_tgt_used = true;
+    bool _schedule_heater_off_pending = false; // next SETHEATER 0 comes from the smart schedule
+    bool _restore_target_pending = false;      // next SETTARGET comes from the boot restore
+    uint32_t _save_cmdq_retry_at = 0;
+    uint32_t _schedule_heat_queued_until = 0; // smart schedule start queued, wait for the pump
+    uint32_t _airjet_off_queued_until = 0;    // jet timeouts queued, wait for the pump
+    uint32_t _hydrojet_off_queued_until = 0;       // out of memory while saving: next attempt (millis)
+    uint32_t _heater_off_pending_until = 0; // SETHEATER 0 sent, pump not yet reporting it
+    bool _restore_states_pending = false; // states.txt restore deferred until the CIO has reported a valid frame
     uint8_t _web_target = 20;
+    uint8_t _last_target = 0;
+    bool _saved_power = false; // states.txt says the pool was on: a standby pool at boot means a power cut // last target the pump showed or states.txt holds; reported while it is unknown
     bool _static_text_active = false;
     char _static_char1 = ' ';
     char _static_char2 = ' ';
     char _static_char3 = ' ';
     sStates _prev_cio_states, _prev_dsp_states;
+    uint32_t _lock_press_ms = 0; // last panel LOCK press, for the lock beep
     Buttons _prevbutton = NOBTN;
     unsigned long _temp_change_timestamp_ms, _heatred_change_timestamp_ms;
     unsigned long _pump_change_timestamp_ms, _bubbles_change_timestamp_ms, _jets_change_timestamp_ms;

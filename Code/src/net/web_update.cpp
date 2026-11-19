@@ -30,6 +30,7 @@
 #include <mbedtls/sha256.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/md.h>
+#include <mbedtls/base64.h>
 #endif
 #endif
 
@@ -118,12 +119,34 @@ static void installUpdateSignature()
 #endif
 
 #if defined(UPDATE_SIGNING) && !defined(ESP8266)
+static const char *upErr = "";
 static bool verifyRsa(const uint8_t *digest, const uint8_t *sig, size_t sigLen)
 {
+    // The core's mbedTLS is built without PEM parsing (CONFIG_MBEDTLS_PEM_PARSE_C
+    // off), so the PEM text was rejected as DER and every signature "failed".
+    // Decode the base64 body to DER once and parse that.
+    static uint8_t der[320];
+    static size_t derLen = 0;
+    if (!derLen)
+    {
+        static char b64[sizeof(UPDATE_PUBKEY_PEM)];
+        size_t n = 0;
+        bool inHeader = false;
+        for (const char *c = UPDATE_PUBKEY_PEM; *c; c++)
+        {
+            if (*c == '-')
+                inHeader = true; // the BEGIN/END lines
+            else if (*c == '\n')
+                inHeader = false;
+            else if (!inHeader && *c != '\r' && *c != ' ')
+                b64[n++] = *c;
+        }
+        if (mbedtls_base64_decode(der, sizeof(der), &derLen, (const uint8_t *)b64, n) != 0)
+            derLen = 0;
+    }
     mbedtls_pk_context pk;
     mbedtls_pk_init(&pk);
-    int r = mbedtls_pk_parse_public_key(
-        &pk, (const uint8_t *)UPDATE_PUBKEY_PEM, strlen(UPDATE_PUBKEY_PEM) + 1);
+    int r = derLen ? mbedtls_pk_parse_public_key(&pk, der, derLen) : -1;
     if (r == 0)
         r = mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, digest, 32, sig, sigLen);
     mbedtls_pk_free(&pk);
@@ -132,6 +155,10 @@ static bool verifyRsa(const uint8_t *digest, const uint8_t *sig, size_t sigLen)
 #endif
 
 // Download + verify + flash. Returns true on success (caller then reboots).
+// set once stopall() ran: BWC (cio/dsp), LittleFS and the server are gone, so
+// a failure after this point must reboot instead of returning to loop()
+static bool servicesStopped = false;
+
 static bool performWebUpdate(const String &url, String &err)
 {
     WiFiClient client;
@@ -175,6 +202,8 @@ static bool performWebUpdate(const String &url, String &err)
 #endif
 #endif
 
+    bwc->saveSettings(); // stopall() unmounts LittleFS: keep counters/energy
+    servicesStopped = true;
     stopall();
     if (!Update.begin(beginSize))
     {
@@ -321,6 +350,83 @@ static bool performWebUpdate(const String &url, String &err)
     return true;
 }
 
+#if defined(UPDATE_SIGNING) && !defined(ESP8266)
+// The upload length is unknown while streaming, so the last kTrailer bytes seen
+// stay in `tail` until the next chunk proves they are image bytes.
+static const size_t kUpTrailer = UPDATE_SIG_LEN + 4;
+static uint8_t upTail[kUpTrailer];
+static size_t upTailLen;
+static mbedtls_sha256_context upSha;
+static bool upOk;
+const char *signedUploadError() { return upErr; }
+
+static bool upEmit(const uint8_t *p, size_t n)
+{
+    if (!n)
+        return true;
+    mbedtls_sha256_update(&upSha, p, n);
+    return Update.write((uint8_t *)p, n) == n;
+}
+
+bool signedUploadBegin()
+{
+    upTailLen = 0;
+    mbedtls_sha256_init(&upSha);
+    upErr = "";
+    upOk = mbedtls_sha256_starts(&upSha, 0) == 0;
+    if (!upOk)
+        upErr = "sha init";
+    else if (!(upOk = Update.begin(UPDATE_SIZE_UNKNOWN)))
+        upErr = "begin";
+    return upOk;
+}
+
+bool signedUploadWrite(const uint8_t *buf, size_t n)
+{
+    if (!upOk)
+        return false;
+    size_t total = upTailLen + n;
+    if (total <= kUpTrailer)
+    {
+        memcpy(upTail + upTailLen, buf, n);
+        upTailLen = total;
+        return true;
+    }
+    size_t out = total - kUpTrailer;        // bytes that are now known to be image
+    size_t a = out < upTailLen ? out : upTailLen; // from the held-back tail first
+    size_t b = out - a;                     // then from the new chunk
+    upOk = upEmit(upTail, a) && upEmit(buf, b);
+    if (!upOk)
+        upErr = "flash write";
+    memmove(upTail, upTail + a, upTailLen - a);
+    memcpy(upTail + (upTailLen - a), buf + b, n - b);
+    upTailLen = kUpTrailer;
+    return upOk;
+}
+
+bool signedUploadEnd()
+{
+    uint8_t digest[32];
+    mbedtls_sha256_finish(&upSha, digest);
+    mbedtls_sha256_free(&upSha);
+    const uint8_t *lenb = upTail + UPDATE_SIG_LEN;
+    uint32_t sigLen = (uint32_t)lenb[0] | ((uint32_t)lenb[1] << 8) | ((uint32_t)lenb[2] << 16) | ((uint32_t)lenb[3] << 24);
+    if (upOk)
+    {
+        if (upTailLen != kUpTrailer || sigLen != UPDATE_SIG_LEN)
+            upErr = "no signature";
+        else if (!verifyRsa(digest, upTail, sigLen))
+            upErr = "signature";
+        else if (!Update.end(true))
+            upErr = "end";
+        else
+            return true;
+    }
+    Update.abort();
+    return false;
+}
+#endif
+
 // --- daily check cache -----------------------------------------------------
 // Result of the last manifest check. The nav badge and the Info page read this
 // instead of blocking on the network, so a page load costs no HTTP round-trip.
@@ -383,6 +489,57 @@ const String &updateAvailableVersion()
     return (webUpdateEnabled && cachedAvailable) ? cachedLatest : kNone;
 }
 
+// --- update started from the cloud -------------------------------
+static String cloudUpdateUrl; // set once the cloud asked and a newer image exists
+
+/**
+ * Cloud action "install_update". The click in the cloud app is the user's
+ * consent to the online update check (the app says so before sending), so the
+ * opt-in switch goes on and stays on. Checks the manifest here, so the cloud
+ * gets ok=false right away when there is nothing newer; the flashing itself
+ * runs from loop() via cloudUpdateTick(), after the ack went out.
+ */
+bool requestCloudUpdate(String &err)
+{
+    if (!webUpdateEnabled)
+    {
+        webUpdateEnabled = true;
+        saveDeviceUser();
+    }
+    String latest, binUrl;
+    if (!fetchManifest(latest, binUrl, err))
+        return false;
+    cachedLatest = latest;
+    cachedAvailable = cmpVer(latest, FW_VERSION) > 0;
+    if (!cachedAvailable)
+    {
+        err = F("no newer firmware");
+        return false;
+    }
+    cloudUpdateUrl = binUrl;
+    return true;
+}
+
+void cloudUpdateTick()
+{
+    if (!cloudUpdateUrl.length())
+        return;
+    String url = cloudUpdateUrl, err;
+    cloudUpdateUrl = "";
+    if (performWebUpdate(url, err))
+    {
+        delay(500);
+        ESP.restart();
+    }
+    Serial.printf("cloud update failed: %s\n", err.c_str());
+    if (servicesStopped)
+    {
+        // loop() would use the deleted cio (null deref -> exception reset)
+        delay(500);
+        ESP.restart();
+    }
+}
+
 /**
  * POST /getupdate/ -> {enabled, current[, latest, available][, error]}.
  *
@@ -396,7 +553,7 @@ void handleGetUpdate()
         return;
 
     bool force = false;
-    String body = getRequestBody();
+    const String &body = getRequestBody();
     if (body.length())
     {
         StaticJsonDocument<64> in;
@@ -456,6 +613,12 @@ void handleDoUpdate()
     if (!performWebUpdate(binUrl, err))
     {
         server->send(500, F("text/plain"), String(F("update failed: ")) + err);
+        if (servicesStopped)
+        {
+            // loop() would use the deleted cio (null deref -> exception reset)
+            delay(500);
+            ESP.restart();
+        }
         return;
     }
 

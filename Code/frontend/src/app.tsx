@@ -6,6 +6,7 @@ import { BottomNav } from './components/BottomNav';
 import { MqttSignal, WifiSignal } from './components/StatusIndicators';
 import { AuthGate } from './components/AuthGate';
 import { DialogView, ToastView, RebootView } from './components/feedback';
+import { OtaPasswordView } from './components/OtaAuth';
 import { commsOk, pollingActive, refreshCommsOnce } from './comms';
 import { needsLogin, setupNeeded, refreshAuthStatus, cloudAvailable } from './api';
 import { SetupAssistant } from './pages/SetupAssistant';
@@ -104,6 +105,7 @@ export function App() {
           </AuthGate>
         </main>
         <DialogView />
+        <OtaPasswordView />
         <ToastView />
         <RebootView />
       </div>
@@ -145,6 +147,7 @@ export function App() {
       </div>
       <BottomNav onMenu={() => setNavOpen(true)} />
       <DialogView />
+        <OtaPasswordView />
       <ToastView />
       <RebootView />
     </div>

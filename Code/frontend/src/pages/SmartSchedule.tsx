@@ -11,7 +11,7 @@ import { dec, durLong, money } from '../util/format';
 interface Sched {
   ACTIVE?: boolean; GLOBALTARGET?: number; TARGETTEMP?: number; CURRENTTEMP?: number;
   ACCURATETEMP?: number; ESTIMATE?: number; BUFFER?: number; ESTIMATED_KWH?: number;
-  ESTIMATED_COST?: number; KEEPON?: boolean; REPEAT?: number; HEATER?: boolean;
+  ESTIMATED_COST?: number; KEEPON?: boolean; KEEPPUMP?: boolean; REPEAT?: number; HEATER?: boolean;
   HEATERRED?: boolean; HEATERGRN?: boolean; READING_STATE?: number;
   REMAINING_HEATING_TIME?: number; TARGETTIME?: number; STARTTIME?: number;
   NEXTCHECK?: number; CHECKCOMPLETED?: boolean; TIMEREMAINING?: number; TIMEUNTILSTART?: number;
@@ -30,6 +30,11 @@ const isC = () => lastStates.value?.UNT !== false; // unknown states -> assume �
 // (green). Fall back to HEATER for firmware without the split keys.
 const heatingRed = (d: Sched) => d.HEATERRED ?? !!d.HEATER;
 const reachedGrn = (d: Sched) => !!d.HEATERGRN && !d.HEATERRED;
+// Firmware estimate (+ safety buffer) exceeds the time left -> target likely
+// missed; heater then starts immediately. 999 = unreachable at this ambient.
+export const tooLate = (d: Sched) =>
+  !d.HEATERGRN && (d.ESTIMATE ?? 0) > 0 &&
+  ((d.ESTIMATE ?? 0) >= 999 || ((d.ESTIMATE ?? 0) + (d.BUFFER ?? 0)) * 3600 > (d.TIMEREMAINING ?? 0));
 
 function defaultDateTime(): string {
   const d = new Date();
@@ -39,11 +44,16 @@ function defaultDateTime(): string {
 /**
  * @brief Smart heating schedule route.
  */
+/** What runs after the target time: everything off, only the filter pump, or the heater holds the temperature. */
+type After = 'off' | 'pump' | 'heat';
+const afterFields = (a: After) => ({ KEEPON: a === 'heat', KEEPPUMP: a === 'pump' });
+const afterOf = (d: Sched): After => (d.KEEPON ? 'heat' : d.KEEPPUMP ? 'pump' : 'off');
+
 export function SmartSchedule() {
   const [data, setData] = useState<Sched | null>(null);
   const [targetDateTime, setDT] = useState(defaultDateTime());
   const [targetTemp, setTemp] = useState(38);
-  const [keepOn, setKeepOn] = useState(false);
+  const [after, setAfter] = useState<After>('off');
   const [repeat, setRepeat] = useState(0);
 
   function refresh() {
@@ -71,19 +81,19 @@ export function SmartSchedule() {
     const ts = Math.floor(new Date(targetDateTime).getTime() / 1000);
     if (ts <= Math.floor(Date.now() / 1000)) { showToast(t('ss.errFuture'), true); return; }
     try {
-      await postJson('/setsmartschedule/', { TARGETTIME: ts, TARGETTEMP: targetTemp, KEEPON: keepOn, REPEAT: repeat });
+      await postJson('/setsmartschedule/', { TARGETTIME: ts, TARGETTEMP: targetTemp, ...afterFields(after), REPEAT: repeat });
       showToast(t('ss.activated'));
       refresh();
     } catch { showToast(t('ss.errActivate'), true); }
   }
 
-  async function updateKeep(v: boolean) {
-    try { await postJson('/updatesmartschedule/', { KEEPON: v }); refresh(); }
+  async function updateAfter(v: After) {
+    try { await postJson('/updatesmartschedule/', afterFields(v)); refresh(); }
     catch { showToast(t('common.error'), true); refresh(); }
   }
 
   async function updateRepeat(v: number) {
-    try { await postJson('/updatesmartschedule/', { KEEPON: !!data?.KEEPON, REPEAT: v }); refresh(); }
+    try { await postJson('/updatesmartschedule/', { ...afterFields(data ? afterOf(data) : 'off'), REPEAT: v }); refresh(); }
     catch { showToast(t('common.error'), true); refresh(); }
   }
 
@@ -95,7 +105,11 @@ export function SmartSchedule() {
 
   if (!data) return <PageSkeleton cards={1} rows={6} actions={false} />;
 
-  const yesNo = [{ value: 'no', label: t('common.no') }, { value: 'yes', label: t('common.yes') }];
+  const afterOpts = [
+    { value: 'off', label: t('ss.afterOff') },
+    { value: 'pump', label: t('ss.afterPump') },
+    { value: 'heat', label: t('ss.afterHeat') },
+  ];
   const repeatOpts = [
     { value: '0', label: t('ss.repeatNever') },
     { value: '1', label: t('ss.repeatDaily') },
@@ -132,6 +146,7 @@ export function SmartSchedule() {
             <ScheduleStat label={t('ss.heater')} value={data.HEATER ? t('ss.heaterOn') : t('ss.heaterOff')}
               tone={heatingRed(data) ? 'heat' : reachedGrn(data) ? 'ok' : undefined} />
           </div>
+          {tooLate(data) && <p class="note warn">{t('ss.tooLate')}</p>}
           <button class="btn danger ss-cancel" onClick={cancel}>{t('ss.cancel')}</button>
         </Card>
 
@@ -156,18 +171,18 @@ export function SmartSchedule() {
             />
             <ScheduleMetric label={t('ss.estCost')} value={costText} />
             {remainingHeating && <ScheduleMetric label={t('ss.remainingHeating')} value={remainingHeating} />}
-            <ScheduleMetric label={t('ss.nextCheck')} value={nextCheckText(data)} wide />
-            {readingState && <ScheduleMetric label={t('ss.readingState')} value={readingState} wide tone={reachedGrn(data) ? 'ok' : 'info'} />}
+            <ScheduleMetric label={t('ss.nextCheck')} value={nextCheckText(data)} />
+            {readingState && <ScheduleMetric label={t('ss.readingState')} value={readingState} tone={reachedGrn(data) ? 'ok' : 'info'} />}
           </div>
         </Card>
 
         <Card title={t('ss.options')}>
           <div class="ss-option-row">
             <div>
-              <b>{t('ss.keepOn')}</b>
+              <b>{t('ss.afterTarget')}</b>
               <p class="hint">{t('ss.helpTarget')}</p>
             </div>
-            <Segmented value={data.KEEPON ? 'yes' : 'no'} options={yesNo} onChange={(v) => updateKeep(v === 'yes')} />
+            <Segmented value={afterOf(data)} options={afterOpts} onChange={(v) => updateAfter(v as After)} />
           </div>
           <div class="ss-option-row">
             <div>
@@ -205,8 +220,8 @@ export function SmartSchedule() {
               onChange={(v) => setTemp(unitC ? v : f2c(v))} />
           </div>
           <div class="ss-form-tile">
-            <span>{t('ss.keepOn')}</span>
-            <Segmented value={keepOn ? 'yes' : 'no'} options={yesNo} onChange={(v) => setKeepOn(v === 'yes')} />
+            <span>{t('ss.afterTarget')}</span>
+            <Segmented value={after} options={afterOpts} onChange={(v) => setAfter(v as After)} />
           </div>
           <div class="ss-form-tile">
             <span>{t('ss.repeat')}</span>
@@ -242,11 +257,10 @@ function ScheduleTimeline({ data }: { data: Sched }) {
   const now = Math.floor(Date.now() / 1000);
   const target = data.TARGETTIME ?? 0;
   const start = data.STARTTIME ?? 0;
-  const progress = target > 0 ? Math.max(0, Math.min(100, ((now - Math.max(0, target - 86400)) / (target - Math.max(0, target - 86400))) * 100)) : 0;
   const heating = data.HEATER || (start > 0 && now >= start);
 
   return (
-    <div class="ss-timeline" style={`--ss-progress:${progress}%`}>
+    <div class="ss-timeline" style={`--ss-step:${timelineStep(data, now, heating)}`}>
       <div class="ss-timeline-bar"><span /></div>
       <div class="ss-timeline-steps">
         <TimelineStep label={t('ss.currentTemp')} value={`${dec(data.CURRENTTEMP)} ${isC() ? '°C' : '°F'}`} active />
@@ -256,6 +270,20 @@ function ScheduleTimeline({ data }: { data: Sched }) {
       </div>
     </div>
   );
+}
+
+// Where the bar ends, in steps: 0 = current temperature dot, 1 = check, 2 = start, 3 = target.
+// Between two reached dots it grows with the time between them, so it always meets the dot it is at.
+export function timelineStep(data: Sched, now: number, heating: boolean): number {
+  const target = data.TARGETTIME ?? 0;
+  const start = data.STARTTIME ?? 0;
+  const part = (from: number, to: number) => (from > 0 && to > from ? Math.max(0, Math.min(1, (now - from) / (to - from))) : 0);
+  if (target > 0 && now >= target) return 3;
+  if (heating) return 2 + part(start, target);
+  if (data.CHECKCOMPLETED) return 1 + part(data.NEXTCHECK ?? 0, start);
+  // after the first check the start is known: the bar reaches "next check"
+  if (start > 0) return 1;
+  return 0;
 }
 
 function startInText(data: Sched): string {

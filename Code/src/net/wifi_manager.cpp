@@ -107,6 +107,14 @@ static bool validateWifiInfo(const sWifi_info &wifi_info, String &error)
  */
 void startWiFi()
 {
+#ifdef ESP8266
+    // No modem sleep, from the start: it was only switched off when
+    // the Home Assistant discovery ran, so in cloud mode or without MQTT the
+    // module kept the SDK default. Mains powered, and sleep adds latency and
+    // lost frames on weak links. TX power (20.5 dBm) and PHY mode (11n, b/g
+    // allowed) stay at the SDK defaults, which are already the best choice.
+    WiFi.setSleepMode(WIFI_NONE_SLEEP);
+#endif
     // WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.persistent(true);
@@ -151,6 +159,7 @@ void startWiFi()
         {
             delay(1000);
             bwc->loop();
+            handleResetSequence();
             tryCount++;
 
             if (tryCount >= maxTries)
@@ -165,7 +174,10 @@ void startWiFi()
     }
     else
     {
-        startSetupPortal();
+        // Always hand over whatever is stored. A portal without credentials can
+        // never call WiFi.begin(), so the device would sit in the AP forever with
+        // no way back through the UI.
+        startSetupPortal(wifi_info.apSsid, wifi_info.apPwd);
     }
 
     if (WiFi.status() == WL_CONNECTED)
@@ -236,6 +248,7 @@ void startSetupPortal(const String &storedSsid, const String &storedPwd)
         _setupDns.processNextRequest();
         server->handleClient();
         bwc->loop();
+        handleResetSequence();
         delay(10);
 
         if (hasStoredCredentials && (millis() - lastReconnectAttempt >= reconnectInterval))
@@ -250,6 +263,7 @@ void startSetupPortal(const String &storedSsid, const String &storedPwd)
                 _setupDns.processNextRequest();
                 server->handleClient();
                 bwc->loop();
+                handleResetSequence();
                 delay(10);
             }
 
@@ -272,7 +286,7 @@ void startSetupPortal(const String &storedSsid, const String &storedPwd)
 /**
  * start NTP sync
  */
-void startNTP()
+void startNTP(bool wait)
 {
     sWifi_info wifi_info;
     wifi_info = loadWifi();
@@ -289,6 +303,14 @@ void startNTP()
     {
         configTime(0, 0, "ptbtime1.ptb.de", "ptbtime2.ptb.de", "ptbtime3.ptb.de");
     }
+    // configTime(0, 0, ...) resets the time zone to UTC: local times (Smart
+    // Schedule from HA, night tariff, daily repeats across DST) were off by
+    // the UTC offset since boot.
+    bwc->applyTimezone();
+    // The retry from loop() must not wait: with an unreachable NTP server it
+    // blocked the main loop ~6 s every minute.
+    if (!wait)
+        return;
     time_t now = time(nullptr);
     int count = 0;
     while (now < 8 * 3600 * 2)
@@ -297,20 +319,26 @@ void startNTP()
         Serial.print(F("."));
         now = time(nullptr);
         if (count++ > 10)
-            return;
+            return; // SNTP keeps trying; main.cpp's bootlogTimer sets the boot time later
     }
     Serial.println();
-    struct tm timeinfo;
-    gmtime_r(&now, &timeinfo);
-    // Serial.print("Current time: ");
-    // Serial.print(asctime(&timeinfo));
+    setBootTimeFromClock();
+}
 
+/**
+ * Derive the boot time from the (now valid) clock minus uptime. Called by
+ * startNTP() and, if NTP took longer than its wait, by main.cpp's bootlogTimer:
+ * before, a slow NTP left reboot_time empty for good.
+ */
+void setBootTimeFromClock()
+{
     time_t boot_timestamp = getBootTime();
     tm *boot_time_tm = gmtime(&boot_timestamp);
     char boot_time_str[64];
     strftime(boot_time_str, 64, "%F %T", boot_time_tm);
     bwc->reboot_time_str = String(boot_time_str);
     bwc->reboot_time_t = boot_timestamp;
+    publishRebootTime(); // MQTT may have connected before the clock
 }
 
 /**
@@ -338,7 +366,6 @@ sWifi_info loadWifi()
         return wifi_info;
     }
 
-    wifi_info.enableAp = doc[F("enableAp")];
     if (doc.containsKey("enableWM"))
         wifi_info.enableWmApFallback = doc[F("enableWM")];
     wifi_info.apSsid = doc[F("apSsid")].as<String>();
@@ -351,6 +378,11 @@ sWifi_info loadWifi()
     wifi_info.ip4DnsPrimary_str = doc[F("ip4DnsPrimary")].as<String>();
     wifi_info.ip4DnsSecondary_str = doc[F("ip4DnsSecondary")].as<String>();
     wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
+
+    // Derived, never trusted from the file: the stored flag could latch false
+    // while a valid SSID was on record, which sent startWiFi() down the
+    // credential-less portal branch with no way back through the UI.
+    wifi_info.enableAp = wifi_info.apSsid.length() > 0;
 
     _cachedWifi = wifi_info;
     _wifiCacheValid = true;
@@ -461,6 +493,9 @@ void handleGetWifi()
     doc[F("enableAp")] = wifi_info.enableAp;
     doc[F("enableWM")] = wifi_info.enableWmApFallback;
     doc[F("apSsid")] = wifi_info.apSsid;
+    // Boolean only, never the key itself: the UI needs to know whether "leave
+    // empty to keep the current password" has anything left to keep.
+    doc[F("hasApPwd")] = wifi_info.apPwd.length() > 0;
     // Passwords are never sent to the client. The fields are omitted rather
     // than masked with a sentinel string: the UI starts them blank and only
     // submits one when the user types a new value, so there is no magic
@@ -497,7 +532,7 @@ void handleSetWifi()
         return;
 
     StaticJsonDocument<512> doc;
-    String message = getRequestBody();
+    const String &message = getRequestBody();
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
@@ -512,8 +547,6 @@ void handleSetWifi()
     sWifi_info old_info = loadWifi();
     sWifi_info wifi_info = old_info;
 
-    if (doc.containsKey(F("enableAp")))
-        wifi_info.enableAp = doc[F("enableAp")];
     if (doc.containsKey(F("enableWM")))
         wifi_info.enableWmApFallback = doc[F("enableWM")];
     if (doc.containsKey(F("apSsid")))
@@ -539,6 +572,11 @@ void handleSetWifi()
     if (doc.containsKey(F("ip4NTP")))
         wifi_info.ip4NTP_str = doc[F("ip4NTP")].as<String>();
 
+    // Derived, never taken from the request: the WiFi page has no control for
+    // this and used to echo a stored `false` straight back, latching the device
+    // into the credential-less portal branch.
+    wifi_info.enableAp = wifi_info.apSsid.length() > 0;
+
     String validationError;
     if (!validateWifiInfo(wifi_info, validationError))
     {
@@ -548,8 +586,7 @@ void handleSetWifi()
 
     // Detect what changed: NTP can be applied live, everything else needs a reboot
     bool ntpChanged = (wifi_info.ip4NTP_str != old_info.ip4NTP_str);
-    bool networkChanged = (wifi_info.enableAp != old_info.enableAp) ||
-                          (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
+    bool networkChanged = (wifi_info.enableWmApFallback != old_info.enableWmApFallback) ||
                           (wifi_info.apSsid != old_info.apSsid) ||
                           (wifi_info.apPwd != old_info.apPwd) ||
                           (wifi_info.enableStaticIp4 != old_info.enableStaticIp4) ||
@@ -559,7 +596,7 @@ void handleSetWifi()
                           (wifi_info.ip4DnsPrimary_str != old_info.ip4DnsPrimary_str) ||
                           (wifi_info.ip4DnsSecondary_str != old_info.ip4DnsSecondary_str);
 
-    if (!ntpChanged && !networkChanged)
+    if (!ntpChanged && !networkChanged && !apSetupMode)
     {
         // Nothing changed, no need to save or restart
         Serial.println(F("WiFi: No changes detected"));
@@ -590,6 +627,9 @@ void handleSetWifi()
  */
 void handleResetWifi()
 {
+    // POST only: a plain <img src=".../resetwifi/"> on any page wiped the WiFi
+    if (!checkHttpPost(server->method()))
+        return;
     server->send(200, F("text/html"), F("Deleting WiFi settings ..."));
     // Serial.println(F("WiFi connection reset (erase) ..."));
     resetWiFi();

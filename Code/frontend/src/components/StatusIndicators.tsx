@@ -3,7 +3,7 @@ import { postJson } from '../api';
 import { t } from '../i18n';
 import type { MqttCfg, WifiCfg } from '../types/config';
 import { mqttStateKey, isMqttConnected, isMqttError, shouldShowMqttIndicator } from '../util/status';
-import { lastOther, commsOk, rssiBars } from '../comms';
+import { lastOther, rssiBars } from '../comms';
 import { DetailRow, StatusModal } from './StatusModal';
 import { Icon, wifiSignalIconName } from './icons';
 
@@ -54,10 +54,14 @@ export function MqttSignal() {
 export function WifiSignal() {
   const [open, setOpen] = useState(false);
   const [cfg, setCfg] = useState<WifiCfg | null | undefined>(undefined);
-  const connected = commsOk.value;
-  const rssi = lastOther.value?.RSSI;
-  const bars = connected && rssi != null ? rssiBars(rssi) : 0;
-  const title = rssi != null ? `${rssi} dBm` : (connected ? 'Live' : t('common.offline'));
+  // commsOk only says the browser reached the module - which is also true over
+  // its SoftAP. The station link is what this indicator is about, so read it
+  // from the poll payload instead.
+  const other = lastOther.value;
+  const staOnline = !!other?.IP;
+  const rssi = staOnline ? other?.RSSI : undefined;
+  const bars = rssi != null ? rssiBars(rssi) : 0;
+  const title = rssi != null ? `${rssi} dBm` : t('common.offline');
 
   function load() {
     setOpen(true);
@@ -67,14 +71,15 @@ export function WifiSignal() {
 
   return (
     <>
-      <button type="button" class={`wifi-sig${connected ? '' : ' off'}`} title={title} aria-label={title} onClick={load}>
-        <Icon name={connected ? wifiSignalIconName(bars) : 'wifiSlash'} size={24} />
+      <button type="button" class={`wifi-sig${staOnline ? '' : ' off'}`} title={title} aria-label={title} onClick={load}>
+        <Icon name={staOnline ? wifiSignalIconName(bars) : 'wifiSlash'} size={24} />
       </button>
       {open && (
         <StatusModal title={t('nav.wifi')} onClose={() => setOpen(false)}>
-          <DetailRow label={t('status.state')} value={connected ? 'Live' : t('common.offline')} />
+          <DetailRow label={t('status.state')} value={staOnline ? t('wifi.stateConnected') : t('wifi.stateDisconnected')} />
           <DetailRow label="RSSI" value={rssi != null ? `${rssi} dBm` : '--'} />
-          <DetailRow label={t('wifi.ssid')} value={cfg?.apSsid || t('common.loading')} />
+          <DetailRow label={t('wifi.ssid')} value={other?.SSID || (cfg === undefined ? t('common.loading') : '--')} />
+          <DetailRow label={t('wifi.statIp')} value={other?.IP || '--'} />
           <DetailRow label={t('wifi.fallbackEnable')} value={cfg === undefined ? t('common.loading') : cfg?.enableWM ? t('common.yes') : t('common.no')} />
           <DetailRow label={t('wifi.staticEnable')} value={cfg === undefined ? t('common.loading') : cfg?.enableStaticIp4 ? t('common.yes') : t('common.no')} />
           {cfg?.enableStaticIp4 && (
